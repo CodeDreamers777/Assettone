@@ -1,17 +1,7 @@
-"use client";
-
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import {
-  MoreHorizontal,
-  Pencil,
-  Trash,
-  FileText,
-  PlusCircle,
-  Building2,
-  Check,
-} from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import {
   Table,
   TableBody,
@@ -21,6 +11,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -29,25 +27,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+  Building2,
+  PlusCircle,
+  MoreHorizontal,
+  Pencil,
+  Trash,
+  FileText,
+  DollarSign,
+  ClipboardCheck,
+} from "lucide-react";
+import { AddUnitModal } from "./add-unit-modal";
+import { EditUnitModal } from "./edit-unit-modal";
 
 // Unit Types Enum
 export enum UnitType {
@@ -63,7 +53,7 @@ export enum UnitType {
 }
 
 // Mapping of Unit Types to Readable Labels
-const UNIT_TYPE_LABELS: Record<UnitType, string> = {
+export const UNIT_TYPE_LABELS: Record<UnitType, string> = {
   [UnitType.STUDIO]: "Studio Apartments",
   [UnitType.ONE_BEDROOM]: "One-Bedroom Apartments",
   [UnitType.TWO_BEDROOM]: "Two-Bedroom Apartments",
@@ -74,6 +64,32 @@ const UNIT_TYPE_LABELS: Record<UnitType, string> = {
   [UnitType.MAISONETTE]: "Maisonettes",
   [UnitType.CUSTOM]: "Custom",
 };
+
+interface Tenant {
+  id: string;
+  name: string;
+  email: string;
+  phone_number: string;
+}
+
+interface Lease {
+  id: string;
+  tenant: Tenant;
+  start_date: string;
+  end_date: string;
+  monthly_rent: number;
+  payment_period: string;
+}
+
+interface RentPaymentStatus {
+  total_rent: number;
+  total_paid: number;
+  remaining_balance: number;
+  payment_status: string;
+  payment_period: string;
+  period_start: string;
+  period_end: string;
+}
 
 interface Unit {
   id: string;
@@ -88,6 +104,8 @@ interface Unit {
   is_occupied: boolean;
   created_at: string;
   updated_at: string;
+  current_lease: Lease | null;
+  rent_payment_status: RentPaymentStatus | null;
 }
 
 interface Property {
@@ -109,7 +127,7 @@ interface Property {
 
 export function Units() {
   const [units, setUnits] = useState<Unit[]>([]);
-  const [properties, setProperties] = useState<Property[]>([]); // ✅ Always an array
+  const [properties, setProperties] = useState<Property[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(
     null,
   );
@@ -117,11 +135,6 @@ export function Units() {
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newUnit, setNewUnit] = useState<Partial<Unit>>({
-    unit_type: UnitType.STUDIO,
-    payment_period: "MONTHLY",
-    is_occupied: false,
-  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -148,15 +161,11 @@ export function Units() {
         },
       );
       const propertiesData = response.data.properties;
-
-      // Ensure propertiesData is always an array
       const processedProperties = Array.isArray(propertiesData)
         ? propertiesData
         : propertiesData
           ? [propertiesData]
           : [];
-
-      console.log("Processed properties:", processedProperties);
 
       setProperties(processedProperties);
       if (processedProperties.length > 0 && !selectedProperty) {
@@ -169,7 +178,7 @@ export function Units() {
         description: "Failed to fetch properties. Please try again.",
         variant: "destructive",
       });
-      setProperties([]); // Ensure properties is always an array
+      setProperties([]);
     }
   };
 
@@ -199,66 +208,14 @@ export function Units() {
     }
   };
 
-  const handleCreateUnit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!selectedProperty) {
-      toast({
-        title: "Error",
-        description: "Please select a property before creating a unit.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate custom unit type if CUSTOM is selected
-    if (newUnit.unit_type === UnitType.CUSTOM && !newUnit.custom_unit_type) {
-      toast({
-        title: "Validation Error",
-        description: "Please provide a custom unit type name.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const accessToken = localStorage.getItem("accessToken");
-      const response = await axios.post(
-        `http://127.0.0.1:8000/api/v1/properties/${selectedProperty.id}/units/`,
-        { ...newUnit, property: selectedProperty.id },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      );
-
-      setUnits([...units, response.data]);
-      setIsCreateModalOpen(false);
-      setNewUnit({
-        unit_type: UnitType.STUDIO,
-        payment_period: "MONTHLY",
-        is_occupied: false,
-      });
-
-      toast({
-        title: "Success",
-        description: "Unit created successfully.",
-      });
-    } catch (error) {
-      console.error("Error creating unit:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create unit. Please try again.",
-        variant: "destructive",
-      });
-    }
+  const handleCreateUnit = (newUnit: Unit) => {
+    setUnits([...units, newUnit]);
   };
 
-  const handleEdit = (unit: Unit) => {
-    setEditingUnit(unit);
-    setIsEditModalOpen(true);
+  const handleUpdateUnit = (updatedUnit: Unit) => {
+    setUnits(
+      units.map((unit) => (unit.id === updatedUnit.id ? updatedUnit : unit)),
+    );
   };
 
   const handleDelete = async (id: string) => {
@@ -288,49 +245,57 @@ export function Units() {
     navigate(`/dashboard/leases/create?unitId=${id}`);
   };
 
-  const handleUpdateUnit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!editingUnit) return;
-
-    // Validate custom unit type if CUSTOM is selected
-    if (
-      editingUnit.unit_type === UnitType.CUSTOM &&
-      !editingUnit.custom_unit_type
-    ) {
-      toast({
-        title: "Validation Error",
-        description: "Please provide a custom unit type name.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleRequestRent = async (unitId: string) => {
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await axios.put(
-        `http://127.0.0.1:8000/api/v1/units/${editingUnit.id}`,
-        editingUnit,
+      await axios.post(
+        `http://127.0.0.1:8000/api/v1/units/${unitId}/request-rent/`,
+        {},
         {
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${accessToken}`,
           },
         },
       );
-      const updatedUnit = response.data;
-      setUnits(
-        units.map((unit) => (unit.id === updatedUnit.id ? updatedUnit : unit)),
-      );
-      setIsEditModalOpen(false);
       toast({
         title: "Success",
-        description: "Unit updated successfully.",
+        description: "Rent request sent successfully.",
       });
     } catch (error) {
-      console.error("Error updating unit:", error);
+      console.error("Error requesting rent:", error);
       toast({
         title: "Error",
-        description: "Failed to update unit. Please try again.",
+        description: "Failed to request rent. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePayRent = async (unitId: string) => {
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      await axios.post(
+        `http://127.0.0.1:8000/api/v1/units/${unitId}/pay-rent/`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+      toast({
+        title: "Success",
+        description: "Rent payment processed successfully.",
+      });
+      // Refresh the units data to reflect the new payment status
+      if (selectedProperty) {
+        fetchUnits(selectedProperty.id);
+      }
+    } catch (error) {
+      console.error("Error paying rent:", error);
+      toast({
+        title: "Error",
+        description: "Failed to process rent payment. Please try again.",
         variant: "destructive",
       });
     }
@@ -399,6 +364,8 @@ export function Units() {
                 <TableHead>Payment Period</TableHead>
                 <TableHead>Floor</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Lease</TableHead>
+                <TableHead>Rent Payment</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -429,6 +396,28 @@ export function Units() {
                           {unit.is_occupied ? "Occupied" : "Vacant"}
                         </span>
                       </TableCell>
+                      <TableCell>
+                        {unit.current_lease ? (
+                          <span className="text-green-600">Active</span>
+                        ) : (
+                          <span className="text-red-600">No Lease</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {unit.rent_payment_status ? (
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs ${
+                              unit.rent_payment_status.payment_status === "PAID"
+                                ? "bg-green-200 text-green-900"
+                                : "bg-yellow-200 text-yellow-900"
+                            }`}
+                          >
+                            {unit.rent_payment_status.payment_status}
+                          </span>
+                        ) : (
+                          <span className="text-gray-500">N/A</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -455,6 +444,18 @@ export function Units() {
                               <FileText className="mr-2 h-4 w-4" />
                               Lease
                             </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleRequestRent(unit.id)}
+                            >
+                              <ClipboardCheck className="mr-2 h-4 w-4" />
+                              Request Rent
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handlePayRent(unit.id)}
+                            >
+                              <DollarSign className="mr-2 h-4 w-4" />
+                              Pay Rent
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -462,14 +463,14 @@ export function Units() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center">
+                    <TableCell colSpan={9} className="text-center">
                       No units found for this property.
                     </TableCell>
                   </TableRow>
                 )
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center">
+                  <TableCell colSpan={9} className="text-center">
                     Please select a property to view its units.
                   </TableCell>
                 </TableRow>
@@ -479,317 +480,20 @@ export function Units() {
         </CardContent>
       </Card>
 
-      {/* Create Unit Modal */}
-      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Create New Unit</DialogTitle>
-            <DialogDescription>
-              Add a new property unit to your inventory.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleCreateUnit}>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="unit_number" className="text-right">
-                  Unit Number
-                </Label>
-                <Input
-                  id="unit_number"
-                  placeholder="e.g. A101"
-                  required
-                  value={newUnit.unit_number || ""}
-                  onChange={(e) =>
-                    setNewUnit((prev) => ({
-                      ...prev,
-                      unit_number: e.target.value,
-                    }))
-                  }
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="unit_type" className="text-right">
-                  Unit Type
-                </Label>
-                <Select
-                  value={newUnit.unit_type}
-                  onValueChange={(value: UnitType) =>
-                    setNewUnit((prev) => ({
-                      ...prev,
-                      unit_type: value,
-                      custom_unit_type: value === UnitType.CUSTOM ? "" : null,
-                    }))
-                  }
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select unit type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.values(UnitType).map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {UNIT_TYPE_LABELS[type]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {newUnit.unit_type === UnitType.CUSTOM && (
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="custom_unit_type" className="text-right">
-                    Custom Type Name
-                  </Label>
-                  <Input
-                    id="custom_unit_type"
-                    placeholder="Enter custom unit type"
-                    required
-                    value={newUnit.custom_unit_type || ""}
-                    onChange={(e) =>
-                      setNewUnit((prev) => ({
-                        ...prev,
-                        custom_unit_type: e.target.value,
-                      }))
-                    }
-                    className="col-span-3"
-                  />
-                </div>
-              )}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="rent" className="text-right">
-                  Rent
-                </Label>
-                <Input
-                  id="rent"
-                  type="number"
-                  placeholder="Monthly rent amount"
-                  required
-                  value={newUnit.rent || ""}
-                  onChange={(e) =>
-                    setNewUnit((prev) => ({ ...prev, rent: e.target.value }))
-                  }
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="payment_period" className="text-right">
-                  Payment Period
-                </Label>
-                <Select
-                  value={newUnit.payment_period}
-                  onValueChange={(value: "MONTHLY" | "QUARTERLY" | "YEARLY") =>
-                    setNewUnit((prev) => ({ ...prev, payment_period: value }))
-                  }
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select payment period" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MONTHLY">Monthly</SelectItem>
-                    <SelectItem value="QUARTERLY">Quarterly</SelectItem>
-                    <SelectItem value="YEARLY">Yearly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="floor" className="text-right">
-                  Floor
-                </Label>
-                <Input
-                  id="floor"
-                  type="number"
-                  placeholder="Floor number"
-                  required
-                  value={newUnit.floor || ""}
-                  onChange={(e) =>
-                    setNewUnit((prev) => ({ ...prev, floor: e.target.value }))
-                  }
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="is_occupied" className="text-right">
-                  Occupancy Status
-                </Label>
-                <Select
-                  value={newUnit.is_occupied ? "true" : "false"}
-                  onValueChange={(value) =>
-                    setNewUnit((prev) => ({
-                      ...prev,
-                      is_occupied: value === "true",
-                    }))
-                  }
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select occupancy status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="false">Vacant</SelectItem>
-                    <SelectItem value="true">Occupied</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit" className="w-full">
-                Create Unit
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <AddUnitModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onCreateUnit={handleCreateUnit}
+        selectedProperty={selectedProperty}
+      />
 
-      {/* Edit Unit Modal */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Edit Unit</DialogTitle>
-            <DialogDescription>
-              Make changes to the unit here. Click save when you're done.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleUpdateUnit}>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit_unit_number" className="text-right">
-                  Unit Number
-                </Label>
-                <Input
-                  id="edit_unit_number"
-                  value={editingUnit?.unit_number}
-                  onChange={(e) =>
-                    setEditingUnit({
-                      ...editingUnit!,
-                      unit_number: e.target.value,
-                    })
-                  }
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit_unit_type" className="text-right">
-                  Unit Type
-                </Label>
-                <Select
-                  value={editingUnit?.unit_type}
-                  onValueChange={(value: UnitType) =>
-                    setEditingUnit({
-                      ...editingUnit!,
-                      unit_type: value,
-                      custom_unit_type: value === UnitType.CUSTOM ? "" : null,
-                    })
-                  }
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select unit type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.values(UnitType).map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {UNIT_TYPE_LABELS[type]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {editingUnit?.unit_type === UnitType.CUSTOM && (
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit_custom_unit_type" className="text-right">
-                    Custom Type Name
-                  </Label>
-                  <Input
-                    id="edit_custom_unit_type"
-                    placeholder="Enter custom unit type"
-                    required
-                    value={editingUnit?.custom_unit_type || ""}
-                    onChange={(e) =>
-                      setEditingUnit({
-                        ...editingUnit!,
-                        custom_unit_type: e.target.value,
-                      })
-                    }
-                    className="col-span-3"
-                  />
-                </div>
-              )}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit_rent" className="text-right">
-                  Rent
-                </Label>
-                <Input
-                  id="edit_rent"
-                  type="number"
-                  value={editingUnit?.rent}
-                  onChange={(e) =>
-                    setEditingUnit({ ...editingUnit!, rent: e.target.value })
-                  }
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit_payment_period" className="text-right">
-                  Payment Period
-                </Label>
-                <Select
-                  value={editingUnit?.payment_period}
-                  onValueChange={(value: "MONTHLY" | "QUARTERLY" | "YEARLY") =>
-                    setEditingUnit({ ...editingUnit!, payment_period: value })
-                  }
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select payment period" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MONTHLY">Monthly</SelectItem>
-                    <SelectItem value="QUARTERLY">Quarterly</SelectItem>
-                    <SelectItem value="YEARLY">Yearly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit_floor" className="text-right">
-                  Floor
-                </Label>
-                <Input
-                  id="edit_floor"
-                  type="number"
-                  value={editingUnit?.floor}
-                  onChange={(e) =>
-                    setEditingUnit({ ...editingUnit!, floor: e.target.value })
-                  }
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit_is_occupied" className="text-right">
-                  Occupancy Status
-                </Label>
-                <Select
-                  value={editingUnit?.is_occupied ? "true" : "false"}
-                  onValueChange={(value) =>
-                    setEditingUnit({
-                      ...editingUnit!,
-                      is_occupied: value === "true",
-                    })
-                  }
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select occupancy status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="false">Vacant</SelectItem>
-                    <SelectItem value="true">Occupied</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit" className="w-full">
-                Save Changes
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <EditUnitModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onUpdateUnit={handleUpdateUnit}
+        editingUnit={editingUnit}
+        setEditingUnit={setEditingUnit}
+      />
     </div>
   );
 }

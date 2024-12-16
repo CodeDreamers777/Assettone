@@ -91,7 +91,7 @@ interface RentPaymentStatus {
   period_end: string;
 }
 
-interface Unit {
+export interface Unit {
   id: string;
   unit_number: string;
   property: string;

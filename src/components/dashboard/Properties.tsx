@@ -33,6 +33,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AddUnitModal } from "./add-unit-modal";
+import { Unit } from "./Units";
+
 import {
   Plus,
   Search,
@@ -68,6 +71,9 @@ export function Properties() {
     null,
   );
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [units, setUnits] = useState<Unit[]>([]);
+
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newProperty, setNewProperty] = useState<Partial<Property>>({
@@ -124,6 +130,9 @@ export function Properties() {
     } catch (error) {
       console.error("Error fetching properties:", error);
     }
+  };
+  const handleCreateUnit = (newUnit: Unit) => {
+    setUnits([...units, newUnit]);
   };
 
   const handleAddEditProperty = async () => {
@@ -366,24 +375,24 @@ export function Properties() {
 
       {/* Property Details Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="max-w-4xl rounded-2xl">
+        <DialogContent className="max-w-4xl rounded-2xl border-2 border-[#38b000] shadow-lg">
           {selectedProperty && (
             <>
               <DialogHeader>
-                <DialogTitle>{selectedProperty.name}</DialogTitle>
+                <DialogTitle className="text-[#38b000]">
+                  {selectedProperty.name}
+                </DialogTitle>
                 <DialogDescription>
                   {selectedProperty.address_line1}, {selectedProperty.city},{" "}
                   {selectedProperty.state}
                 </DialogDescription>
               </DialogHeader>
-
               <div className="grid grid-cols-2 gap-8">
                 {/* Left Column - Property Details */}
                 <div className="space-y-4">
-                  <div className="bg-muted/20 p-4 rounded-lg">
-                    <h3 className="font-semibold mb-2 flex items-center">
-                      <Home className="mr-2 text-primary" /> Property
-                      Information
+                  <div className="bg-[#38b000]/10 p-4 rounded-lg border border-[#38b000]/30">
+                    <h3 className="font-semibold mb-2 flex items-center text-[#38b000]">
+                      <Home className="mr-2" /> Property Information
                     </h3>
                     <p>
                       <strong>Full Address:</strong>{" "}
@@ -404,25 +413,34 @@ export function Properties() {
                       <strong>Country:</strong> {selectedProperty.country}
                     </p>
                   </div>
-
-                  <div className="bg-muted/20 p-4 rounded-lg">
-                    <h3 className="font-semibold mb-2">Description</h3>
+                  <div className="bg-[#38b000]/10 p-4 rounded-lg border border-[#38b000]/30">
+                    <h3 className="font-semibold mb-2 text-[#38b000]">
+                      Description
+                    </h3>
                     <p>{selectedProperty.description}</p>
                   </div>
                 </div>
-
                 {/* Right Column - Units and Actions */}
                 <div className="space-y-4">
-                  <div className="bg-muted/20 p-4 rounded-lg">
-                    <h3 className="font-semibold mb-2 flex items-center">
-                      <Building className="mr-2 text-primary" /> Units
+                  <div className="bg-[#38b000]/10 p-4 rounded-lg border border-[#38b000]/30">
+                    <h3 className="font-semibold mb-2 flex items-center text-[#38b000]">
+                      <Building className="mr-2" /> Units
                     </h3>
                     <p className="text-muted-foreground">No units added yet</p>
-                    <Button className="mt-2" variant="outline">
+                    <Button
+                      className="mt-2"
+                      variant="outline"
+                      onClick={() => setIsCreateModalOpen(true)}
+                    >
                       Add Unit
                     </Button>
+                    <AddUnitModal
+                      isOpen={isCreateModalOpen}
+                      onClose={() => setIsCreateModalOpen(false)}
+                      onCreateUnit={handleCreateUnit}
+                      selectedProperty={selectedProperty}
+                    />
                   </div>
-
                   <div className="flex space-x-4">
                     <Button
                       onClick={() => {

@@ -250,7 +250,7 @@ class Tenant(models.Model):
 
     # Tenant Status
     status = models.CharField(
-        max_length=20, choices=TenantStatus.choices, default=TenantStatus.ACTIVE
+        max_length=20, choices=TenantStatus.choices, default=TenantStatus.INACTIVE
     )
 
     # Emergency Contact
@@ -311,6 +311,13 @@ class Lease(models.Model):
     # Rent Details
     monthly_rent = models.DecimalField(max_digits=10, decimal_places=2)
     security_deposit = models.DecimalField(max_digits=10, decimal_places=2)
+    # Add payment period to lease
+    payment_period = models.CharField(
+        max_length=20,
+        choices=PaymentPeriod.choices,
+        default=PaymentPeriod.MONTHLY,
+        help_text="Rent payment period for this lease",
+    )
 
     # Lease Status
     status = models.CharField(
@@ -358,3 +365,22 @@ class Lease(models.Model):
         if self.start_date and self.end_date:
             if self.start_date >= self.end_date:
                 raise ValidationError("End date must be after start date")
+
+
+class RentPayment(models.Model):
+    """
+    Model to track rent payments for a lease
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    lease = models.ForeignKey(Lease, on_delete=models.CASCADE, related_name="payments")
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    payment_date = models.DateField()
+    payment_method = models.CharField(max_length=50, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Payment of {self.amount} for lease {self.lease}"

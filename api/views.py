@@ -201,20 +201,15 @@ class UserProfileView(APIView):
 
 
 class PropertyViewSet(viewsets.ModelViewSet):
-    """
-    Viewset for Property model with comprehensive CRUD operations
-    """
+    """Viewset for Property model with comprehensive CRUD operations"""
 
     queryset = Property.objects.all()
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
 
     def get_queryset(self):
-        """
-        Custom queryset method to return properties based on user role
-        """
+        """Custom queryset method to return properties based on user role"""
         user = self.request.user
-
         try:
             profile = user.profile
         except Profile.DoesNotExist:
@@ -222,22 +217,29 @@ class PropertyViewSet(viewsets.ModelViewSet):
 
         if user.is_superuser or profile.user_type == UserType.ADMIN:
             return Property.objects.all()
-
         if profile.user_type == UserType.ADMIN:
             return Property.objects.filter(owner=profile)
-
         if profile.user_type == UserType.MANAGER:
             return Property.objects.filter(manager=profile)
-
         return Property.objects.none()
 
     def get_serializer_class(self):
-        """
-        Return different serializers based on the action
-        """
+        """Return different serializers based on the action"""
         if self.action == "retrieve":
             return PropertyDetailSerializer
         return PropertySerializer
+
+    def list(self, request, *args, **kwargs):
+        """Custom list method to return all properties with success message"""
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(
+            {
+                "success": True,
+                "message": "Properties retrieved successfully",
+                "properties": serializer.data,
+            }
+        )
 
     def create(self, request, *args, **kwargs):
         """

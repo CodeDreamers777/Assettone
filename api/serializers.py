@@ -1,16 +1,84 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django.db import transaction
+from django.core.exceptions import ValidationError
 from .models import (
     Profile,
     UserType,
     IdentificationType,
     Property,
+    PaymentPeriod,
+    RentPayment,
     Unit,
     UnitType,
     Tenant,
     TenantStatus,
     Lease,
+    LeaseStatus,
 )
+from decimal import Decimal
+from django.utils import timezone
+from datetime import timedelta
+
+
+def create_occupied_unit(self, validated_data, tenant_id=None):
+    """
+    Create a unit and handle tenant and lease creation if the unit is occupied
+
+    Args:
+        validated_data (dict): Validated unit data
+        tenant_id (UUID, optional): ID of the tenant to be assigned to the unit
+
+    Returns:
+        Unit: The created unit instance
+    """
+    # Check if the unit is marked as occupied
+    is_occupied = validated_data.get("is_occupied", False)
+
+    # If occupied, tenant_id is required
+    if is_occupied and not tenant_id:
+        raise ValidationError(
+            {"tenant_id": "Tenant ID is required when creating an occupied unit"}
+        )
+
+    # Use a transaction to ensure atomic creation
+    with transaction.atomic():
+        # Create the unit first
+        unit = Unit.objects.create(**validated_data)
+
+        # If the unit is occupied, create a lease
+        if is_occupied:
+            try:
+                # Retrieve the tenant
+                tenant = Tenant.objects.get(id=tenant_id)
+                # Activate the tenant
+                tenant.status = TenantStatus.ACTIVE
+                tenant.save()
+
+                # Create a lease for the unit
+                lease = Lease.objects.create(
+                    unit=unit,
+                    tenant=tenant,
+                    start_date=timezone.now().date(),
+                    end_date=timezone.now().date()
+                    + timezone.timedelta(days=365),  # Default 1-year lease
+                    monthly_rent=unit.rent,
+                    security_deposit=unit.rent
+                    * 2,  # Example: security deposit is 2x monthly rent
+                    status=LeaseStatus.ACTIVE,
+                    payment_period=unit.payment_period,
+                )
+
+                # Mark the unit as occupied (redundant, but explicit)
+                unit.is_occupied = True
+                unit.save()
+
+            except Tenant.DoesNotExist:
+                # Rollback the unit creation if tenant not found
+                unit.delete()
+                raise ValidationError({"tenant_id": "Invalid tenant ID provided"})
+
+        return unit
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -204,12 +272,17 @@ class PropertySerializer(serializers.ModelSerializer):
 
 class UnitSerializer(serializers.ModelSerializer):
     """
-    Serializer for Unit model with comprehensive validation
+    Serializer for Unit model with comprehensive validation and additional details
     """
 
     custom_unit_type = serializers.CharField(
         required=False, allow_blank=True, allow_null=True
     )
+
+    # New fields to include lease and payment details
+    current_lease = serializers.SerializerMethodField()
+    rent_payment_status = serializers.SerializerMethodField()
+    tenant_id = serializers.UUIDField(write_only=True, required=False)
 
     class Meta:
         model = Unit
@@ -226,8 +299,106 @@ class UnitSerializer(serializers.ModelSerializer):
             "is_occupied",
             "created_at",
             "updated_at",
+            "current_lease",  # New field
+            "rent_payment_status",  # New field
+            "tenant_id",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+    def create(self, validated_data):
+        tenant_id = validated_data.pop("tenant_id", None)
+        return create_occupied_unit(self, validated_data, tenant_id)
+
+    def get_current_lease(self, obj):
+        """
+        Get the current active lease for the unit
+        """
+        current_lease = Lease.objects.filter(
+            unit=obj, status=LeaseStatus.ACTIVE
+        ).first()
+
+        if not current_lease:
+            return None
+
+        return {
+            "id": str(current_lease.id),
+            "tenant": {
+                "id": str(current_lease.tenant.id),
+                "name": f"{current_lease.tenant.first_name} {current_lease.tenant.last_name}",
+                "email": current_lease.tenant.email,
+                "phone_number": current_lease.tenant.phone_number,
+            },
+            "start_date": current_lease.start_date,
+            "end_date": current_lease.end_date,
+            "monthly_rent": current_lease.monthly_rent,
+            "payment_period": current_lease.payment_period,
+        }
+
+    def get_rent_payment_status(self, obj):
+        """
+        Calculate rent payment status for the current lease
+        """
+        current_lease = Lease.objects.filter(
+            unit=obj, status=LeaseStatus.ACTIVE
+        ).first()
+
+        if not current_lease:
+            return None
+
+        # Determine current payment period
+        current_date = timezone.now().date()
+        payment_period = current_lease.payment_period
+
+        # Calculate rent amount based on payment period
+        if payment_period == PaymentPeriod.MONTHLY:
+            rent_amount = current_lease.monthly_rent
+            period_start = current_date.replace(day=1)
+            period_end = (period_start + timezone.timedelta(days=32)).replace(
+                day=1
+            ) - timezone.timedelta(days=1)
+        elif payment_period == PaymentPeriod.BIMONTHLY:
+            rent_amount = current_lease.monthly_rent * 2
+            period_start = current_date.replace(day=1)
+            period_end = (period_start + timezone.timedelta(days=62)).replace(
+                day=1
+            ) - timezone.timedelta(days=1)
+        elif payment_period == PaymentPeriod.HALF_YEARLY:
+            rent_amount = current_lease.monthly_rent * 6
+            period_start = current_lease.start_date
+            period_end = period_start + timezone.timedelta(days=180)
+        elif payment_period == PaymentPeriod.YEARLY:
+            rent_amount = current_lease.monthly_rent * 12
+            period_start = current_lease.start_date
+            period_end = period_start + timezone.timedelta(days=365)
+
+        # Retrieve payments for the current period
+        payments = RentPayment.objects.filter(
+            lease=current_lease,
+            payment_date__gte=period_start,
+            payment_date__lte=period_end,
+        )
+
+        # Calculate total payments
+        total_payments = sum(payment.amount for payment in payments)
+
+        # Calculate remaining balance
+        remaining_balance = rent_amount - total_payments
+
+        return {
+            "total_rent": float(rent_amount),
+            "total_paid": float(total_payments),
+            "remaining_balance": float(remaining_balance),
+            "payment_status": (
+                "PAID_IN_FULL"
+                if remaining_balance <= 0
+                else "PARTIALLY_PAID"
+                if total_payments > 0
+                else "NOT_PAID"
+            ),
+            "payment_period": payment_period,
+            "period_start": period_start,
+            "period_end": period_end,
+        }
 
     def validate(self, data):
         """
@@ -295,10 +466,8 @@ class PropertyDetailSerializer(PropertySerializer):
 
 
 class TenantSerializer(serializers.ModelSerializer):
-    """
-    Serializer for Tenant model
-    Includes all fields with validation
-    """
+    property_id = serializers.UUIDField(write_only=True, required=False)
+    unit_id = serializers.UUIDField(write_only=True, required=False)
 
     class Meta:
         model = Tenant
@@ -306,16 +475,97 @@ class TenantSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
     def validate(self, data):
-        """
-        Additional validation for tenant creation/update
-        """
         # Validate identification
         if data.get("identification_type") and not data.get("identification_number"):
             raise serializers.ValidationError(
                 "Identification number is required when identification type is specified"
             )
 
+        # Validate property and unit availability if property_id is provided
+        property_id = data.get("property_id")
+        if property_id:
+            try:
+                property_obj = Property.objects.get(id=property_id)
+
+                # Check for available units
+                available_units = Unit.objects.filter(
+                    property=property_obj, is_occupied=False
+                )
+
+                if not available_units.exists():
+                    raise serializers.ValidationError(
+                        {"property_id": "No available units in this property"}
+                    )
+
+            except Property.DoesNotExist:
+                raise serializers.ValidationError({"property_id": "Invalid property"})
+
         return data
+
+    def create(self, validated_data):
+        # Remove property_id before creating tenant
+        property_id = validated_data.pop("property_id", None)
+
+        # Create tenant
+        tenant = Tenant.objects.create(**validated_data)
+
+        # If property_id was provided, create lease
+        if property_id:
+            property_obj = Property.objects.get(id=property_id)
+            unoccupied_unit = Unit.objects.filter(
+                property=property_obj, is_occupied=False
+            ).first()
+
+            Lease.objects.create(
+                tenant=tenant,
+                unit=unoccupied_unit,
+                start_date=timezone.now().date(),
+                end_date=timezone.now().date() + timedelta(days=365),
+                monthly_rent=unoccupied_unit.rent,
+                security_deposit=0,
+                status=LeaseStatus.PENDING,
+            )
+
+            unoccupied_unit.is_occupied = True
+            unoccupied_unit.save()
+
+        return tenant
+
+    def update(self, instance, validated_data):
+        property_id = validated_data.pop("property_id", None)
+
+        # Update tenant fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Handle lease creation if property_id provided
+        if property_id:
+            # Check if tenant already has an active lease
+            if instance.leases.filter(status=LeaseStatus.ACTIVE).exists():
+                raise serializers.ValidationError(
+                    {"property_id": "Tenant already has an active lease"}
+                )
+
+            property_obj = Property.objects.get(id=property_id)
+            unoccupied_unit = Unit.objects.filter(
+                property=property_obj, is_occupied=False
+            ).first()
+
+            Lease.objects.create(
+                tenant=instance,
+                unit=unoccupied_unit,
+                start_date=timezone.now().date(),
+                end_date=timezone.now().date() + timedelta(days=365),
+                monthly_rent=unoccupied_unit.rent,
+                security_deposit=0,
+                status=LeaseStatus.PENDING,
+            )
+
+            unoccupied_unit.is_occupied = True
+            unoccupied_unit.save()
+
+        return instance
 
 
 class LeaseSerializer(serializers.ModelSerializer):
@@ -355,31 +605,37 @@ class LeaseSerializer(serializers.ModelSerializer):
 class LeaseCreateSerializer(serializers.ModelSerializer):
     """
     Serializer for creating or updating a Lease
-    Includes additional validation
+    Includes additional validation and automatic rent calculation
     """
 
     class Meta:
         model = Lease
         fields = "__all__"
-        read_only_fields = ["id", "created_at", "updated_at", "previous_lease"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "previous_lease",
+            "monthly_rent",
+            "security_deposit",
+        ]
 
     def validate(self, data):
         """
         Validate lease creation/update
         """
-        # Ensure unit is not already leased
+        # Ensure unit is provided
         unit = data.get("unit")
-        if unit:
-            active_leases = Lease.objects.filter(unit=unit, status=LeaseStatus.ACTIVE)
+        if not unit:
+            raise serializers.ValidationError("Unit is required")
 
-            # Exclude current lease if it's an update
-            if self.instance:
-                active_leases = active_leases.exclude(pk=self.instance.pk)
-
-            if active_leases.exists():
-                raise serializers.ValidationError(
-                    "This unit already has an active lease."
-                )
+        # Ensure unit is not already leased
+        active_leases = Lease.objects.filter(unit=unit, status=LeaseStatus.ACTIVE)
+        # Exclude current lease if it's an update
+        if self.instance:
+            active_leases = active_leases.exclude(pk=self.instance.pk)
+        if active_leases.exists():
+            raise serializers.ValidationError("This unit already has an active lease.")
 
         # Validate date range
         start_date = data.get("start_date")
@@ -394,15 +650,55 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """
-        Custom create method to update unit occupancy
+        Custom create method to:
+        1. Set monthly rent from unit's rent
+        2. Set security deposit (e.g., as 1.5x monthly rent)
+        3. Update unit occupancy
         """
+        # Get the unit and its rent
+        unit = validated_data.get("unit")
+
+        # Set monthly rent directly from the unit
+        validated_data["monthly_rent"] = unit.rent
+
+        # Set security deposit (e.g., 1.5 times monthly rent)
+        # You can adjust this multiplier as needed
+        validated_data["security_deposit"] = unit.rent * Decimal("1.5")
+
         # Create lease
         lease = super().create(validated_data)
 
         # Update unit occupancy
-        unit = lease.unit
         unit.is_occupied = True
         unit.save()
+
+        return lease
+
+    def update(self, instance, validated_data):
+        """
+        Custom update method similar to create
+        """
+        # Get the unit and its rent
+        unit = validated_data.get("unit", instance.unit)
+
+        # Update monthly rent from unit's rent
+        validated_data["monthly_rent"] = unit.rent
+
+        # Update security deposit
+        validated_data["security_deposit"] = unit.rent * Decimal("1.5")
+
+        # Update lease
+        lease = super().update(instance, validated_data)
+
+        # Update unit occupancy if needed
+        if unit != instance.unit:
+            # Update previous unit's occupancy
+            instance.unit.is_occupied = False
+            instance.unit.save()
+
+            # Update new unit's occupancy
+            unit.is_occupied = True
+            unit.save()
 
         return lease
 

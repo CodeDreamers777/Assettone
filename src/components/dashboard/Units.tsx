@@ -1,7 +1,8 @@
+"use client";
+
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 import {
   MoreHorizontal,
   Pencil,
@@ -9,6 +10,7 @@ import {
   FileText,
   PlusCircle,
   Building2,
+  Check,
 } from "lucide-react";
 import {
   Table,
@@ -17,15 +19,15 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table";
+} from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
-import { Button } from "../ui/button";
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -33,18 +35,19 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../ui/dialog";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
+} from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 // Unit Types Enum
 export enum UnitType {
@@ -87,8 +90,29 @@ interface Unit {
   updated_at: string;
 }
 
+interface Property {
+  id: string;
+  name: string;
+  address_line1: string;
+  address_line2: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+  owner: string;
+  manager: string | null;
+  total_units: number;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export function Units() {
   const [units, setUnits] = useState<Unit[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]); // ✅ Always an array
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -101,19 +125,67 @@ export function Units() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchUnits();
+    fetchProperties();
   }, []);
 
-  const fetchUnits = async () => {
+  useEffect(() => {
+    if (selectedProperty) {
+      fetchUnits(selectedProperty.id);
+    } else {
+      setUnits([]);
+    }
+  }, [selectedProperty]);
+
+  const fetchProperties = async () => {
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      const response = await axios.get(
+        "http://127.0.0.1:8000/api/v1/properties/",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+      const propertiesData = response.data.properties;
+
+      // Ensure propertiesData is always an array
+      const processedProperties = Array.isArray(propertiesData)
+        ? propertiesData
+        : propertiesData
+          ? [propertiesData]
+          : [];
+
+      console.log("Processed properties:", processedProperties);
+
+      setProperties(processedProperties);
+      if (processedProperties.length > 0 && !selectedProperty) {
+        setSelectedProperty(processedProperties[0]);
+      }
+    } catch (error) {
+      console.error("Error fetching properties:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch properties. Please try again.",
+        variant: "destructive",
+      });
+      setProperties([]); // Ensure properties is always an array
+    }
+  };
+
+  const fetchUnits = async (propertyId: string) => {
     setIsLoading(true);
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await axios.get("http://127.0.0.1:8000/api/v1/units/", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
+      const response = await axios.get(
+        `http://127.0.0.1:8000/api/v1/properties/${propertyId}/units/`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         },
-      });
-      setUnits(response.data);
+      );
+      setUnits(response.data.units || []);
     } catch (error) {
       console.error("Error fetching units:", error);
       toast({
@@ -121,6 +193,7 @@ export function Units() {
         description: "Failed to fetch units. Please try again.",
         variant: "destructive",
       });
+      setUnits([]);
     } finally {
       setIsLoading(false);
     }
@@ -128,6 +201,15 @@ export function Units() {
 
   const handleCreateUnit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (!selectedProperty) {
+      toast({
+        title: "Error",
+        description: "Please select a property before creating a unit.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     // Validate custom unit type if CUSTOM is selected
     if (newUnit.unit_type === UnitType.CUSTOM && !newUnit.custom_unit_type) {
@@ -142,8 +224,8 @@ export function Units() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.post(
-        "http://127.0.0.1:8000/api/v1/units/",
-        newUnit,
+        `http://127.0.0.1:8000/api/v1/properties/${selectedProperty.id}/units/`,
+        { ...newUnit, property: selectedProperty.id },
         {
           headers: {
             "Content-Type": "application/json",
@@ -265,10 +347,39 @@ export function Units() {
   return (
     <div className="container mx-auto py-10">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-2xl font-bold flex items-center">
-            <Building2 className="mr-2 h-6 w-6" /> Property Units
-          </CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-green-50">
+          <div className="flex items-center space-x-4">
+            <CardTitle className="text-2xl font-bold flex items-center text-green-900">
+              <Building2 className="mr-2 h-6 w-6 text-green-600" /> Property
+              Units
+            </CardTitle>
+            <Select
+              value={selectedProperty?.id || ""}
+              onValueChange={(value) => {
+                const property = properties.find((p) => p.id === value);
+                if (property) {
+                  setSelectedProperty(property);
+                }
+              }}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Select property" />
+              </SelectTrigger>
+              <SelectContent>
+                {properties.length > 0 ? (
+                  properties.map((property) => (
+                    <SelectItem key={property.id} value={property.id}>
+                      {property.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="none" disabled>
+                    No properties available
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
           <Button
             variant="outline"
             onClick={() => setIsCreateModalOpen(true)}
@@ -280,7 +391,7 @@ export function Units() {
         </CardHeader>
         <CardContent>
           <Table>
-            <TableHeader className="bg-gray-100">
+            <TableHeader className="bg-green-100">
               <TableRow>
                 <TableHead className="w-[100px]">Unit Number</TableHead>
                 <TableHead>Unit Type</TableHead>
@@ -292,57 +403,77 @@ export function Units() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {units.map((unit) => (
-                <TableRow key={unit.id} className="hover:bg-gray-50">
-                  <TableCell className="font-medium">
-                    {unit.unit_number}
-                  </TableCell>
-                  <TableCell>
-                    {unit.unit_type === UnitType.CUSTOM
-                      ? unit.custom_unit_type
-                      : UNIT_TYPE_LABELS[unit.unit_type]}
-                  </TableCell>
-                  <TableCell>${unit.rent}</TableCell>
-                  <TableCell>{unit.payment_period}</TableCell>
-                  <TableCell>{unit.floor}</TableCell>
-                  <TableCell>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        unit.is_occupied
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {unit.is_occupied ? "Occupied" : "Vacant"}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => handleEdit(unit)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(unit.id)}>
-                          <Trash className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleLease(unit.id)}>
-                          <FileText className="mr-2 h-4 w-4" />
-                          Lease
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+              {selectedProperty ? (
+                units.length > 0 ? (
+                  units.map((unit) => (
+                    <TableRow key={unit.id} className="hover:bg-green-50">
+                      <TableCell className="font-medium">
+                        {unit.unit_number}
+                      </TableCell>
+                      <TableCell>
+                        {unit.unit_type === UnitType.CUSTOM
+                          ? unit.custom_unit_type
+                          : UNIT_TYPE_LABELS[unit.unit_type]}
+                      </TableCell>
+                      <TableCell>${unit.rent}</TableCell>
+                      <TableCell>{unit.payment_period}</TableCell>
+                      <TableCell>{unit.floor}</TableCell>
+                      <TableCell>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs ${
+                            unit.is_occupied
+                              ? "bg-green-200 text-green-900"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {unit.is_occupied ? "Occupied" : "Vacant"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleEdit(unit)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(unit.id)}
+                            >
+                              <Trash className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleLease(unit.id)}
+                            >
+                              <FileText className="mr-2 h-4 w-4" />
+                              Lease
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center">
+                      No units found for this property.
+                    </TableCell>
+                  </TableRow>
+                )
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center">
+                    Please select a property to view its units.
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </CardContent>

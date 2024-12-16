@@ -76,8 +76,8 @@ function App() {
                 <Link
                   to="/"
                   className="
-                    text-2xl font-bold text-primary 
-                    hover:text-primary-600 
+                    text-2xl font-bold text-[#38b000]
+                    hover:text-[#2d9d00] 
                     transition-colors 
                     duration-300
                   "
@@ -92,10 +92,10 @@ function App() {
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
                   className="
                     text-gray-600 
-                    hover:text-primary 
+                    hover:text-[#38b000] 
                     focus:outline-none 
                     focus:ring-2 
-                    focus:ring-primary 
+                    focus:ring-[#38b000] 
                     rounded-md 
                     p-2 
                     transition-colors 
@@ -147,9 +147,9 @@ function App() {
                     <Button
                       variant="outline"
                       className="
-                        border-primary 
-                        text-primary 
-                        hover:bg-primary/10 
+                        border-[#38b000]
+                        text-[#38b000] 
+                        hover:bg-[#38b000]/10 
                         transition-colors 
                         duration-300
                       "
@@ -172,8 +172,8 @@ function App() {
                 ) : (
                   <Button
                     className="
-                      bg-primary 
-                      hover:bg-primary-600 
+                      bg-[#38b000]
+                      hover:bg-[#2d9d00] 
                       transition-colors 
                       duration-300
                     "
@@ -231,9 +231,9 @@ function App() {
                           block 
                           px-3 py-2 
                           rounded-md 
-                          bg-primary/10 
-                          text-primary 
-                          hover:bg-primary/20
+                          bg-[#38b000]/10 
+                          text-[#38b000] 
+                          hover:bg-[#38b000]/20
                         "
                       >
                         Dashboard
@@ -259,9 +259,9 @@ function App() {
                         block 
                         px-3 py-2 
                         rounded-md 
-                        bg-primary 
+                        bg-[#38b000] 
                         text-white 
-                        hover:bg-primary-600
+                        hover:bg-[#2d9d00]
                       "
                     >
                       Login / Sign Up

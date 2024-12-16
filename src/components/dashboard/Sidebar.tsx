@@ -26,14 +26,13 @@ const sidebarItems = [
 
 export function Sidebar() {
   const location = useLocation();
-
   return (
     <div className="hidden lg:block border-r bg-gray-100/40 lg:w-60">
       <div className="flex flex-col h-full">
         <div className="h-16 flex items-center border-b px-6">
           <Link to="/" className="flex items-center gap-2 font-semibold">
-            <Home className="h-6 w-6" />
-            <span className="">RentEase</span>
+            <Home className="h-6 w-6" style={{ color: "#38b000" }} />
+            <span className="text-[#38b000]">RentEase</span>
           </Link>
         </div>
         <ScrollArea className="flex-1 py-4">
@@ -47,8 +46,14 @@ export function Sidebar() {
                 }
                 className="w-full justify-start"
               >
-                <Link to={item.href}>
-                  <item.icon className="mr-2 h-4 w-4" />
+                <Link
+                  to={item.href}
+                  className="text-[#38b000] hover:text-[#38b000]/80"
+                >
+                  <item.icon
+                    className="mr-2 h-4 w-4"
+                    style={{ color: "#38b000" }}
+                  />
                   {item.label}
                 </Link>
               </Button>
@@ -57,8 +62,8 @@ export function Sidebar() {
         </ScrollArea>
         <div className="mt-auto p-4">
           <Button variant="outline" className="w-full" asChild>
-            <Link to="/">
-              <LogOut className="mr-2 h-4 w-4" />
+            <Link to="/" className="text-[#38b000] hover:text-[#38b000]/80">
+              <LogOut className="mr-2 h-4 w-4" style={{ color: "#38b000" }} />
               Log out
             </Link>
           </Button>

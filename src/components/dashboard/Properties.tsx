@@ -113,7 +113,8 @@ export function Properties() {
         throw new Error("Failed to fetch properties");
       }
 
-      const data = await response.json();
+      const responseData = await response.json();
+      const data = responseData.properties;
       setProperties(
         data.sort(
           (a: Property, b: Property) =>
@@ -227,7 +228,10 @@ export function Properties() {
         heading="Properties"
         text="Manage and track your real estate investments."
       >
-        <Button onClick={() => openPropertyModal()} className="group">
+        <Button
+          onClick={() => openPropertyModal()}
+          className="group bg-[#38b000] hover:bg-[#38b000]/90 text-white"
+        >
           <Plus className="mr-2 h-4 w-4 group-hover:rotate-90 transition-transform" />
           Add Property
         </Button>
@@ -481,7 +485,7 @@ export function Properties() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 max-w-md mx-auto shadow-sm border-muted-foreground/20 
-            focus:ring-2 focus:ring-primary/50 transition-all"
+  focus:ring-2 focus:ring-[#38b000]/50 transition-all"
           />
         </div>
       </div>
@@ -500,13 +504,13 @@ export function Properties() {
               key={property.id}
               className={cn(
                 "overflow-hidden transition-all duration-300 ",
-                "hover:shadow-xl hover:-translate-y-2 hover:border-primary/50",
+                "hover:shadow-xl hover:-translate-y-2 hover:border-primary/50", // Keep this part
                 "border-transparent border-2",
               )}
             >
               <CardHeader
-                className="bg-gradient-to-r from-primary to-primary/70 
-                text-white p-4 flex flex-row items-center justify-between"
+                className="bg-gradient-to-r from-[#38b000] to-[#38b000]/70 
+  text-white p-4 flex flex-row items-center justify-between"
               >
                 <CardTitle className="text-lg font-bold truncate">
                   {property.name}
@@ -536,7 +540,7 @@ export function Properties() {
                   onClick={() => openPropertyDetails(property)}
                   variant="outline"
                   size="sm"
-                  className="w-full hover:bg-primary hover:text-white transition-colors"
+                  className="w-full hover:bg-[#38b000] hover:text-white transition-colors"
                 >
                   View Details
                 </Button>

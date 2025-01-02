@@ -28,6 +28,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { AddLeaseModal } from "./add-lease-modal";
 import { EditLeaseModal } from "./edit-lease-modal";
@@ -54,8 +61,13 @@ interface Lease {
   tenant: string;
 }
 
+interface PropertyLeases {
+  [key: string]: Lease[];
+}
+
 export function Leases() {
-  const [leases, setLeases] = useState<Lease[]>([]);
+  const [propertyLeases, setPropertyLeases] = useState<PropertyLeases>({});
+  const [selectedProperty, setSelectedProperty] = useState<string>("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedLease, setSelectedLease] = useState<Lease | null>(null);
@@ -74,8 +86,11 @@ export function Leases() {
         },
       });
       if (!response.ok) throw new Error("Failed to fetch leases");
-      const data = await response.json();
-      setLeases(data);
+      const data: PropertyLeases = await response.json();
+      setPropertyLeases(data);
+      if (Object.keys(data).length > 0) {
+        setSelectedProperty(Object.keys(data)[0]);
+      }
     } catch (error) {
       console.error("Error fetching leases:", error);
       toast({
@@ -87,16 +102,20 @@ export function Leases() {
   };
 
   const handleAddLease = (newLease: Lease) => {
-    setLeases([...leases, newLease]);
+    setPropertyLeases((prev) => ({
+      ...prev,
+      [selectedProperty]: [...(prev[selectedProperty] || []), newLease],
+    }));
     setIsAddModalOpen(false);
   };
 
   const handleEditLease = (updatedLease: Lease) => {
-    setLeases(
-      leases.map((lease) =>
+    setPropertyLeases((prev) => ({
+      ...prev,
+      [selectedProperty]: prev[selectedProperty].map((lease) =>
         lease.id === updatedLease.id ? updatedLease : lease,
       ),
-    );
+    }));
     setIsEditModalOpen(false);
     setSelectedLease(null);
   };
@@ -114,7 +133,12 @@ export function Leases() {
         },
       );
       if (!response.ok) throw new Error("Failed to delete lease");
-      setLeases(leases.filter((lease) => lease.id !== id));
+      setPropertyLeases((prev) => ({
+        ...prev,
+        [selectedProperty]: prev[selectedProperty].filter(
+          (lease) => lease.id !== id,
+        ),
+      }));
       toast({
         title: "Success",
         description: "Lease deleted successfully.",
@@ -155,9 +179,12 @@ export function Leases() {
       if (!response.ok)
         throw new Error(`Failed to ${status.toLowerCase()} lease`);
       const updatedLease = await response.json();
-      setLeases(
-        leases.map((lease) => (lease.id === id ? updatedLease : lease)),
-      );
+      setPropertyLeases((prev) => ({
+        ...prev,
+        [selectedProperty]: prev[selectedProperty].map((lease) =>
+          lease.id === id ? updatedLease : lease,
+        ),
+      }));
       toast({
         title: "Success",
         description: `Lease ${status.toLowerCase()}d successfully.`,
@@ -196,6 +223,10 @@ export function Leases() {
     setIsViewModalOpen(true);
   };
 
+  const handlePropertyChange = (value: string) => {
+    setSelectedProperty(value);
+  };
+
   return (
     <DashboardShell>
       <DashboardHeader heading="Leases" text="Manage your property leases.">
@@ -207,12 +238,42 @@ export function Leases() {
         </Button>
       </DashboardHeader>
       <div className="rounded-md border">
+        <div className="bg-green-100 p-4 flex items-center justify-between">
+          <h2 className="text-2xl font-semibold text-green-800">
+            Property Leases
+          </h2>
+          <div className="flex items-center space-x-4">
+            <label
+              htmlFor="property-select"
+              className="text-sm font-medium text-green-700"
+            >
+              Select Property:
+            </label>
+            <Select
+              onValueChange={handlePropertyChange}
+              value={selectedProperty}
+            >
+              <SelectTrigger
+                id="property-select"
+                className="w-[200px] bg-white"
+              >
+                <SelectValue placeholder="Select a property" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.keys(propertyLeases).map((property) => (
+                  <SelectItem key={property} value={property}>
+                    {property}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <Table>
-          <TableHeader className="bg-green-100">
+          <TableHeader>
             <TableRow>
               <TableHead>Tenant Name</TableHead>
               <TableHead>Unit</TableHead>
-              <TableHead>Property</TableHead>
               <TableHead>Start Date</TableHead>
               <TableHead>End Date</TableHead>
               <TableHead>Monthly Rent</TableHead>
@@ -222,91 +283,95 @@ export function Leases() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {leases.map((lease) => (
-              <TableRow key={lease.id} className="hover:bg-green-50">
-                <TableCell className="font-medium">
-                  {lease.tenant_name}
-                </TableCell>
-                <TableCell>{lease.unit_details.unit_number}</TableCell>
-                <TableCell>{lease.unit_details.property_name}</TableCell>
-                <TableCell>
-                  {new Date(lease.start_date).toLocaleDateString()}
-                </TableCell>
-                <TableCell>
-                  {new Date(lease.end_date).toLocaleDateString()}
-                </TableCell>
-                <TableCell>{lease.monthly_rent}</TableCell>
-                <TableCell>{lease.security_deposit}</TableCell>
-                <TableCell>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs ${
-                      lease.status === "ACTIVE"
-                        ? "bg-green-200 text-green-900"
-                        : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {lease.status}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setSelectedLease(lease);
-                          setIsEditModalOpen(true);
-                        }}
-                      >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(lease.id)}>
-                        <Trash className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                      {lease.status === "ACTIVE" ? (
+            {selectedProperty &&
+              propertyLeases[selectedProperty]?.map((lease) => (
+                <TableRow key={lease.id} className="hover:bg-green-50">
+                  <TableCell className="font-medium">
+                    {lease.tenant_name}
+                  </TableCell>
+                  <TableCell>{lease.unit_details.unit_number}</TableCell>
+                  <TableCell>
+                    {new Date(lease.start_date).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(lease.end_date).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>{lease.monthly_rent}</TableCell>
+                  <TableCell>{lease.security_deposit}</TableCell>
+                  <TableCell>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs ${
+                        lease.status === "ACTIVE"
+                          ? "bg-green-200 text-green-900"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {lease.status}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem
-                          onClick={() => handleDeactivate(lease.id)}
+                          onClick={() => {
+                            setSelectedLease(lease);
+                            setIsEditModalOpen(true);
+                          }}
                         >
-                          <X className="mr-2 h-4 w-4" />
-                          Deactivate
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit
                         </DropdownMenuItem>
-                      ) : (
                         <DropdownMenuItem
-                          onClick={() => handleActivate(lease.id)}
+                          onClick={() => handleDelete(lease.id)}
                         >
-                          <Check className="mr-2 h-4 w-4" />
-                          Activate
+                          <Trash className="mr-2 h-4 w-4" />
+                          Delete
                         </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem
-                        onClick={() => handleTransfer(lease.id)}
-                      >
-                        <ArrowRightLeft className="mr-2 h-4 w-4" />
-                        Transfer
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleTerminate(lease.id)}
-                      >
-                        <Ban className="mr-2 h-4 w-4" />
-                        Terminate
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleViewLease(lease)}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        View Details
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
+                        {lease.status === "ACTIVE" ? (
+                          <DropdownMenuItem
+                            onClick={() => handleDeactivate(lease.id)}
+                          >
+                            <X className="mr-2 h-4 w-4" />
+                            Deactivate
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={() => handleActivate(lease.id)}
+                          >
+                            <Check className="mr-2 h-4 w-4" />
+                            Activate
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          onClick={() => handleTransfer(lease.id)}
+                        >
+                          <ArrowRightLeft className="mr-2 h-4 w-4" />
+                          Transfer
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleTerminate(lease.id)}
+                        >
+                          <Ban className="mr-2 h-4 w-4" />
+                          Terminate
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleViewLease(lease)}
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          View Details
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
           </TableBody>
         </Table>
       </div>

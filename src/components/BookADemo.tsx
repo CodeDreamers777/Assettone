@@ -1,9 +1,7 @@
-"use client";
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,6 +9,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import {
   Form,
@@ -22,8 +21,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
-import { CalendarDays, Mail, MessageSquare, User } from "lucide-react";
+import { Mail, MessageSquare, User } from "lucide-react";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -39,7 +37,10 @@ const formSchema = z.object({
 
 export default function BookADemo() {
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const [submitMessage, setSubmitMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -52,8 +53,9 @@ export default function BookADemo() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
+    setSubmitMessage(null);
     try {
-      const response = await fetch("YOUR_API_ENDPOINT", {
+      const response = await fetch("http://127.0.0.1:8000/api/v1/book-demo/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -65,18 +67,15 @@ export default function BookADemo() {
         throw new Error("Failed to submit the form");
       }
 
-      toast({
-        title: "Success!",
-        description:
-          "Your demo request has been submitted. We'll be in touch soon!",
+      setSubmitMessage({
+        type: "success",
+        text: "Your demo request has been submitted successfully.",
       });
       form.reset();
     } catch (error) {
-      toast({
-        title: "Error",
-        description:
-          "There was a problem submitting your request. Please try again.",
-        variant: "destructive",
+      setSubmitMessage({
+        type: "error",
+        text: "There was a problem submitting your request. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -84,13 +83,13 @@ export default function BookADemo() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-green-50 to-white p-4">
+      <Card className="w-full max-w-md border-green-200 shadow-lg shadow-green-100">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center text-green-800">
             Book a Demo
           </CardTitle>
-          <CardDescription className="text-center">
+          <CardDescription className="text-center text-green-600">
             Fill out the form below to request a demo of our product.
           </CardDescription>
         </CardHeader>
@@ -102,18 +101,18 @@ export default function BookADemo() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Your Name</FormLabel>
+                    <FormLabel className="text-green-700">Your Name</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-500" />
                         <Input
                           placeholder="Enter your name"
-                          className="pl-10"
+                          className="pl-10 border-green-200 focus:border-green-500 focus:ring-green-500"
                           {...field}
                         />
                       </div>
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-red-500" />
                   </FormItem>
                 )}
               />
@@ -122,19 +121,19 @@ export default function BookADemo() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel className="text-green-700">Email</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-500" />
                         <Input
                           placeholder="Enter your email"
                           type="email"
-                          className="pl-10"
+                          className="pl-10 border-green-200 focus:border-green-500 focus:ring-green-500"
                           {...field}
                         />
                       </div>
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-red-500" />
                   </FormItem>
                 )}
               />
@@ -143,27 +142,44 @@ export default function BookADemo() {
                 name="message"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Message</FormLabel>
+                    <FormLabel className="text-green-700">Message</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <MessageSquare className="absolute left-3 top-3 text-gray-400" />
+                        <MessageSquare className="absolute left-3 top-3 text-green-500" />
                         <Textarea
                           placeholder="Enter your message"
-                          className="min-h-[100px] pl-10"
+                          className="min-h-[100px] pl-10 border-green-200 focus:border-green-500 focus:ring-green-500"
                           {...field}
                         />
                       </div>
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-red-500" />
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="w-full bg-[#38b000] hover:bg-[#2d8c00] text-white transition-colors"
+                disabled={isLoading}
+              >
                 {isLoading ? "Submitting..." : "Book Demo"}
               </Button>
             </form>
           </Form>
         </CardContent>
+        <CardFooter>
+          {submitMessage && (
+            <div
+              className={`w-full p-4 rounded-md ${
+                submitMessage.type === "success"
+                  ? "bg-green-100 text-green-800"
+                  : "bg-red-100 text-red-800"
+              }`}
+            >
+              {submitMessage.text}
+            </div>
+          )}
+        </CardFooter>
       </Card>
     </div>
   );

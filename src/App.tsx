@@ -14,7 +14,8 @@ import BookADemo from "./components/BookADemo";
 import AboutUs from "./components/AbousUs";
 import ContactUs from "./components/ContactUs";
 import ProfilePage from "./components/Profile";
-import { UnitsPage } from "./components/UnitPage";
+import { ThemeProvider } from "@/components/theme-provider"; // Import ThemeProvider
+import { ModeToggle } from "./components/mode-toggle";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -66,9 +67,9 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-white dark:bg-gray-900">
         {/* Desktop Navbar */}
-        <nav className="bg-white shadow-lg">
+        <nav className="bg-white dark:bg-gray-800 shadow-lg">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16 items-center">
               {/* Logo */}
@@ -76,11 +77,11 @@ function App() {
                 <Link
                   to="/"
                   className="
-                    text-2xl font-bold text-[#38b000]
-                    hover:text-[#2d9d00] 
-                    transition-colors 
-                    duration-300
-                  "
+                      text-2xl font-bold text-[#38b000] dark:text-[#38b000]
+                      hover:text-[#2d9d00] 
+                      transition-colors 
+                      duration-300
+                    "
                 >
                   Assettone
                 </Link>
@@ -91,16 +92,16 @@ function App() {
                 <button
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
                   className="
-                    text-gray-600 
-                    hover:text-[#38b000] 
-                    focus:outline-none 
-                    focus:ring-2 
-                    focus:ring-[#38b000] 
-                    rounded-md 
-                    p-2 
-                    transition-colors 
-                    duration-300
-                  "
+                      text-gray-600 dark:text-white 
+                      hover:text-[#38b000] 
+                      focus:outline-none 
+                      focus:ring-2 
+                      focus:ring-[#38b000] 
+                      rounded-md 
+                      p-2 
+                      transition-colors 
+                      duration-300
+                    "
                 >
                   {isMenuOpen ? (
                     <svg
@@ -147,12 +148,12 @@ function App() {
                     <Button
                       variant="outline"
                       className="
-                        border-[#38b000]
-                        text-[#38b000] 
-                        hover:bg-[#38b000]/10 
-                        transition-colors 
-                        duration-300
-                      "
+      border-[#38b000]
+      text-[#38b000] 
+      hover:bg-[#38b000]/10 
+      transition-colors 
+      duration-300
+    "
                       asChild
                     >
                       <Link to="/dashboard">Dashboard</Link>
@@ -160,23 +161,24 @@ function App() {
                     <Button
                       variant="destructive"
                       className="
-                        hover:bg-red-600 
-                        transition-colors 
-                        duration-300
-                      "
+      hover:bg-red-600 
+      transition-colors 
+      duration-300
+    "
                       onClick={handleLogout}
                     >
                       Logout
                     </Button>
+                    <ModeToggle />
                   </div>
                 ) : (
                   <Button
                     className="
-                      bg-[#38b000]
-                      hover:bg-[#2d9d00] 
-                      transition-colors 
-                      duration-300
-                    "
+                        bg-[#38b000]
+                        hover:bg-[#2d9d00] 
+                        transition-colors 
+                        duration-300
+                      "
                     asChild
                   >
                     <Link to="/login">Login / Sign Up</Link>
@@ -184,96 +186,9 @@ function App() {
                 )}
               </div>
             </div>
-
-            {/* Mobile Menu */}
-            {isMenuOpen && (
-              <div className="sm:hidden">
-                <div className="px-2 pt-2 pb-3 space-y-1">
-                  <NavLink
-                    to="/"
-                    className="
-                      block 
-                      px-3 py-2 
-                      rounded-md 
-                      hover:bg-gray-100
-                    "
-                  >
-                    Home
-                  </NavLink>
-                  <NavLink
-                    to="/about-us"
-                    className="
-                      block 
-                      px-3 py-2 
-                      rounded-md 
-                      hover:bg-gray-100
-                    "
-                  >
-                    About Us
-                  </NavLink>
-                  <NavLink
-                    to="/contact-us"
-                    className="
-                      block 
-                      px-3 py-2 
-                      rounded-md 
-                      hover:bg-gray-100
-                    "
-                  >
-                    Contact Us
-                  </NavLink>
-
-                  {isAuthenticated ? (
-                    <div className="space-y-2">
-                      <Link
-                        to="/dashboard"
-                        className="
-                          block 
-                          px-3 py-2 
-                          rounded-md 
-                          bg-[#38b000]/10 
-                          text-[#38b000] 
-                          hover:bg-[#38b000]/20
-                        "
-                      >
-                        Dashboard
-                      </Link>
-                      <button
-                        onClick={handleLogout}
-                        className="
-                          w-full 
-                          text-left 
-                          px-3 py-2 
-                          rounded-md 
-                          text-red-600 
-                          hover:bg-red-50
-                        "
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  ) : (
-                    <Link
-                      to="/login"
-                      className="
-                        block 
-                        px-3 py-2 
-                        rounded-md 
-                        bg-[#38b000] 
-                        text-white 
-                        hover:bg-[#2d9d00]
-                      "
-                    >
-                      Login / Sign Up
-                    </Link>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </nav>
 
-        {/* Routes remain the same */}
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/book-demo" element={<BookADemo />} />

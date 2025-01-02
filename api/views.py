@@ -1,4 +1,5 @@
 from rest_framework import status, viewsets
+import re
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.views import APIView
@@ -23,6 +24,8 @@ from .serializers import (
 from rest_framework.decorators import action
 from .utils.decorator import jwt_required
 from django.utils.decorators import method_decorator
+import os
+from .utils.send_mail import EmailService
 
 
 class HealthCheckApiview(APIView):
@@ -590,6 +593,39 @@ class TenantViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    def list(self, request, *args, **kwargs):
+        """
+        Override list method to group tenants by property
+        """
+        # Get the base queryset
+        queryset = self.get_queryset()
+
+        # Group tenants by property
+        tenants_by_property = {}
+
+        for tenant in queryset:
+            # Get the properties for this tenant through their leases and units
+            tenant_properties = Property.objects.filter(
+                units__leases__tenant=tenant
+            ).distinct()
+
+            # For each property, add the tenant to the group
+            for property_obj in tenant_properties:
+                if property_obj not in tenants_by_property:
+                    tenants_by_property[property_obj] = []
+
+                # Serialize the tenant
+                serializer = self.get_serializer(tenant)
+                tenants_by_property[property_obj].append(serializer.data)
+
+        # Convert property objects to dictionary keys
+        result = {
+            prop.name: tenants  # Using property name as key
+            for prop, tenants in tenants_by_property.items()
+        }
+
+        return Response(result)
+
     @action(detail=True, methods=["patch"])
     def update_status(self, request, pk=None):
         """
@@ -689,14 +725,42 @@ class LeaseViewSet(viewsets.ModelViewSet):
 
         if status:
             queryset = queryset.filter(status=status)
-
         if unit_id:
             queryset = queryset.filter(unit_id=unit_id)
-
         if tenant_id:
             queryset = queryset.filter(tenant_id=tenant_id)
 
         return queryset
+
+    def list(self, request, *args, **kwargs):
+        """
+        Override list method to group leases by property
+        """
+        # Get the base queryset
+        queryset = self.get_queryset()
+
+        # Group leases by property
+        leases_by_property = {}
+
+        for lease in queryset:
+            # Get the property for this lease through its unit
+            property_obj = lease.unit.property
+
+            # Add the lease to the appropriate property group
+            if property_obj not in leases_by_property:
+                leases_by_property[property_obj] = []
+
+            # Serialize the lease
+            serializer = self.get_serializer(lease)
+            leases_by_property[property_obj].append(serializer.data)
+
+        # Convert property objects to dictionary keys
+        result = {
+            prop.name: leases  # Using property name as key
+            for prop, leases in leases_by_property.items()
+        }
+
+        return Response(result)
 
     @action(detail=False, methods=["GET"])
     def active_leases(self, request):
@@ -842,3 +906,116 @@ class LeaseViewSet(viewsets.ModelViewSet):
             )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BookDemoView(APIView):
+    """
+    API endpoint to book a demo.
+    """
+
+    def post(self, request):
+        # Extract data from the request
+        name = request.data.get("name")
+        email = request.data.get("email")
+        message = request.data.get("message")
+
+        # Validate the input
+        if not name or not email or not message:
+            return Response(
+                {"error": "Name, email, and message are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Prepare context for the email template
+        context = {
+            "name": name,
+            "email": email,
+            "message": message,
+        }
+
+        # Sales email (could also come from settings)
+        sales_email = os.getenv("SALES_EMAIL", "crispusgikonyo@gmail.com")
+
+        # Use the EmailService to send the email
+        email_service = EmailService()
+        try:
+            email_service.send_email(
+                recipient_email=sales_email,
+                recipient_name="Sales Team",
+                subject="New Demo Booking Request",
+                template_name="emails/bookdemo.html",
+                context=context,
+            )
+            return Response(
+                {"message": "Demo booking request sent successfully."},
+                status=status.HTTP_200_OK,
+            )
+        except ValueError as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class ContactUsView(APIView):
+    """
+    API endpoint to handle contact form submissions.
+    """
+
+    def post(self, request):
+        # Extract data from the request
+        name = request.data.get("name")
+        email = request.data.get("email")
+        message = request.data.get("message")
+
+        # Validate the input
+        if not name or not email or not message:
+            return Response(
+                {"error": "Name, email, and message are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Basic email validation
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+            return Response(
+                {"error": "Please provide a valid email address."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Prepare context for the email template
+        context = {
+            "name": name,
+            "email": email,
+            "message": message,
+        }
+
+        # Get contact email from environment variables
+        contact_email = os.getenv("CONTACT_EMAIL", "crispusgikonyo@gmail.com")
+
+        # Use the EmailService to send the email
+        email_service = EmailService()
+        try:
+            email_service.send_email(
+                recipient_email=contact_email,
+                recipient_name="Support Team",
+                subject="New Contact Form Submission",
+                template_name="emails/contact.html",
+                context=context,
+            )
+
+            # Send confirmation email to the user
+            email_service.send_email(
+                recipient_email=email,
+                recipient_name=name,
+                subject="We've Received Your Message",
+                template_name="emails/contact_confirmation.html",
+                context=context,
+            )
+
+            return Response(
+                {"message": "Your message has been sent successfully."},
+                status=status.HTTP_200_OK,
+            )
+        except ValueError as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

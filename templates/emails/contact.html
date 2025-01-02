@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contact Form Submission</title>
+    <style>
+      body,
+      p,
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6 {
+        margin: 0;
+        padding: 0;
+        font-family: "Helvetica Neue", Arial, sans-serif;
+        line-height: 1.6;
+      }
+      body {
+        background-color: #f8f9fa;
+        color: #2d3748;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      .email-container {
+        max-width: 600px;
+        margin: 20px auto;
+        background: #ffffff;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      }
+      .header {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        color: #ffffff;
+        padding: 32px 24px;
+        text-align: center;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+      }
+      .content {
+        padding: 32px 24px;
+        background: #ffffff;
+      }
+      .content p {
+        margin: 16px 0;
+        color: #4a5568;
+        font-size: 16px;
+        line-height: 1.8;
+      }
+      .highlight {
+        color: #4f46e5;
+        font-weight: 600;
+      }
+      .data-row {
+        margin: 24px 0;
+        padding: 16px;
+        background: #f8fafc;
+        border-radius: 8px;
+        border-left: 4px solid #4f46e5;
+      }
+      .data-row strong {
+        color: #2d3748;
+        font-weight: 600;
+        min-width: 100px;
+        display: inline-block;
+      }
+      .footer {
+        background: #f1f5f9;
+        color: #64748b;
+        text-align: center;
+        padding: 24px;
+        font-size: 14px;
+      }
+      .footer p {
+        margin: 8px 0;
+      }
+      .footer a {
+        color: #4f46e5;
+        text-decoration: none;
+        font-weight: 500;
+        padding: 8px 16px;
+        border-radius: 6px;
+        background: rgba(79, 70, 229, 0.1);
+        transition: background 0.3s ease;
+      }
+      @media only screen and (max-width: 600px) {
+        .email-container {
+          margin: 10px;
+          border-radius: 12px;
+        }
+        .header {
+          padding: 24px 16px;
+        }
+        .content {
+          padding: 24px 16px;
+        }
+        .data-row {
+          margin: 16px 0;
+          padding: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+      <div class="header">
+        <h1>New Contact Form Submission</h1>
+      </div>
+      <div class="content">
+        <p>Hello <span class="highlight">Team</span>,</p>
+        <p>
+          You have received a new contact form submission. Please review the
+          details below and respond accordingly.
+        </p>
+        <div class="data-row">
+          <p><strong>Name:</strong> {{ name }}</p>
+          <p><strong>Email:</strong> {{ email }}</p>
+          <p><strong>Message:</strong> {{ message }}</p>
+        </div>
+        <p>
+          Please ensure to respond to this inquiry within our standard response
+          time. If this requires immediate attention, please escalate to the
+          appropriate team member.
+        </p>
+      </div>
+      <div class="footer">
+        <p>Best regards,<br />Contact Form System</p>
+        <p><a href="#">View in Dashboard</a></p>
+      </div>
+    </div>
+  </body>
+</html>

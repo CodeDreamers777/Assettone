@@ -27,6 +27,8 @@ urlpatterns = [
     path("register/", views.UserRegistrationView.as_view(), name="user_register"),
     path("login/", views.UserLoginView.as_view(), name="user_login"),
     path("profile/", views.UserProfileView.as_view(), name="user_profile"),
+    path("book-demo/", views.BookDemoView.as_view(), name="book-demo"),
+    path("contact-us/", views.ContactUsView.as_view(), name="contact-us"),
     # Property-related routes
     path("", include(property_router.urls)),
     path("", include(property_unit_router.urls)),

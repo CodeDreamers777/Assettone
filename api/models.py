@@ -9,6 +9,7 @@ class UserType(models.TextChoices):
     ADMIN = "ADMIN", "Property Owner"
     MANAGER = "MANAGER", "Property Manager"
     CLERK = "CLERK", "Clerk"
+    TENANT = "TENANT", "Tenant"  # Added tenant type
 
 
 class IdentificationType(models.TextChoices):
@@ -288,6 +289,7 @@ class LeaseStatus(models.TextChoices):
     """
 
     ACTIVE = "ACTIVE", _("Active")
+    INACTIVE = "INACTIVE", _("INACTIVE")
     EXPIRED = "EXPIRED", _("Expired")
     TERMINATED = "TERMINATED", _("Terminated")
     PENDING = "PENDING", _("Pending")
@@ -366,6 +368,55 @@ class Lease(models.Model):
             if self.start_date >= self.end_date:
                 raise ValidationError("End date must be after start date")
 
+    def save(self, *args, **kwargs):
+        """Override save to handle tenant and unit status updates"""
+        is_new = not self.pk  # Check if this is a new instance
+        if not is_new:
+            try:
+                old_instance = Lease.objects.get(pk=self.pk)
+                old_status = old_instance.status
+            except Lease.DoesNotExist:
+                old_status = None
+        else:
+            old_status = None
+
+        # Run clean() manually for new instances
+        if is_new:
+            self.clean()
+
+        # Save the lease
+        super().save(*args, **kwargs)
+
+        # Handle status changes
+        if is_new or self.status != old_status:
+            self._update_related_statuses()
+
+    def _update_related_statuses(self):
+        """Update tenant and unit status based on lease status"""
+        if self.status == LeaseStatus.ACTIVE:
+            # When lease becomes active
+            self.unit.is_occupied = True
+            self.unit.save()
+            self.tenant.status = TenantStatus.ACTIVE
+            self.tenant.save()
+        elif self.status in [
+            LeaseStatus.TERMINATED,
+            LeaseStatus.EXPIRED,
+            LeaseStatus.INACTIVE,
+        ]:
+            # When lease is terminated/expired/inactive
+            self.unit.is_occupied = False
+            self.unit.save()
+
+            # Only update tenant status if they don't have other active leases
+            active_leases = Lease.objects.filter(
+                tenant=self.tenant, status=LeaseStatus.ACTIVE
+            ).exclude(pk=self.pk)
+
+            if not active_leases.exists():
+                self.tenant.status = TenantStatus.INACTIVE
+                self.tenant.save()
+
 
 class RentPayment(models.Model):
     """
@@ -384,3 +435,140 @@ class RentPayment(models.Model):
 
     def __str__(self):
         return f"Payment of {self.amount} for lease {self.lease}"
+
+
+class MaintenanceStatus(models.TextChoices):
+    PENDING = "PENDING", _("Pending")
+    APPROVED = "APPROVED", _("Approved")
+    REJECTED = "REJECTED", _("Rejected")
+    IN_PROGRESS = "IN_PROGRESS", _("In Progress")
+    COMPLETED = "COMPLETED", _("Completed")
+
+
+class MaintenancePriority(models.TextChoices):
+    LOW = "LOW", _("Low")
+    MEDIUM = "MEDIUM", _("Medium")
+    HIGH = "HIGH", _("High")
+    EMERGENCY = "EMERGENCY", _("Emergency")
+
+
+class MaintenanceRequest(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Relations
+    unit = models.ForeignKey(
+        "Unit", on_delete=models.CASCADE, related_name="maintenance_requests"
+    )
+    tenant = models.ForeignKey(
+        "Tenant", on_delete=models.CASCADE, related_name="maintenance_requests"
+    )
+    property = models.ForeignKey(
+        "Property", on_delete=models.CASCADE, related_name="maintenance_requests"
+    )
+
+    # Request details
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    priority = models.CharField(
+        max_length=20,
+        choices=MaintenancePriority.choices,
+        default=MaintenancePriority.MEDIUM,
+    )
+
+    # Status and dates
+    status = models.CharField(
+        max_length=20,
+        choices=MaintenanceStatus.choices,
+        default=MaintenanceStatus.PENDING,
+    )
+    requested_date = models.DateTimeField(auto_now_add=True)
+    approved_rejected_date = models.DateTimeField(null=True, blank=True)
+    completed_date = models.DateTimeField(null=True, blank=True)
+
+    # Authorization
+    approved_rejected_by = models.ForeignKey(
+        "Profile",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="handled_maintenance_requests",
+    )
+
+    # Cost - only added upon completion
+    repair_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Cost of repair (filled upon completion)",
+    )
+
+    notes = models.TextField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        if self.status in [MaintenanceStatus.APPROVED, MaintenanceStatus.REJECTED]:
+            if not self.approved_rejected_by:
+                raise ValidationError(
+                    "Approver/Rejector must be specified when changing status"
+                )
+
+        if (
+            self.status == MaintenanceStatus.COMPLETED
+            and not self.approved_rejected_date
+        ):
+            raise ValidationError(
+                "Maintenance request must be approved before marking as completed"
+            )
+
+    def __str__(self):
+        return f"{self.title} - {self.unit} ({self.status})"
+
+
+class CommunicationType(models.TextChoices):
+    EMAIL = "EMAIL", "Email"
+    SMS = "SMS", "SMS"
+    NOTIFICATION = "NOTIFICATION", "In-App Notification"
+
+
+class CommunicationHistory(models.Model):
+    """
+    Model to store all communications with tenants
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    type = models.CharField(
+        max_length=20,
+        choices=CommunicationType.choices,
+        default=CommunicationType.EMAIL,
+    )
+    subject = models.CharField(max_length=255)
+    message = models.TextField()
+    sent_by = models.ForeignKey(
+        "Profile",
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="sent_communications",
+    )
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    # Store as JSON to handle multiple recipients
+    recipients = models.JSONField(
+        help_text="List of recipient details including ID, name, and email"
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("SUCCESS", "Success"),
+            ("FAILED", "Failed"),
+            ("PARTIAL", "Partial Success"),
+        ],
+        default="SUCCESS",
+    )
+    error_message = models.TextField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.type} - {self.subject} ({self.sent_at})"

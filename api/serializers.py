@@ -15,10 +15,18 @@ from .models import (
     TenantStatus,
     Lease,
     LeaseStatus,
+    MaintenanceRequest,
+    MaintenancePriority,
+    CommunicationHistory,
+    MaintenanceStatus,
 )
 from decimal import Decimal
 from django.utils import timezone
 from datetime import timedelta
+import string
+import random
+from django.contrib.auth.password_validation import validate_password
+from .utils.send_mail import EmailService
 
 
 def create_occupied_unit(self, validated_data, tenant_id=None):
@@ -142,57 +150,58 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
-    """
-    Serializer for updating user profile
-    Allows updating of specific fields with validation
-    """
+    username = serializers.CharField(source="user.username", required=False)
+    email = serializers.CharField(source="user.email", required=False)
 
     class Meta:
         model = Profile
-        fields = ["phone_number", "identification_type", "identification_number"]
+        fields = [
+            "username",
+            "email",
+            "phone_number",
+            "user_type",
+            "identification_type",
+            "identification_number",
+            "can_manage_properties",
+            "can_add_units",
+            "can_edit_units",
+            "can_delete_units",
+            "can_view_financial_data",
+        ]
 
-    def validate_identification_type(self, value):
-        """
-        Validate identification type
-        """
-        if value and value not in dict(IdentificationType.choices):
-            raise serializers.ValidationError("Invalid identification type")
-        return value
+    def update(self, instance, validated_data):
+        # Get user data from validated_data
+        user_data = validated_data.pop("user", {})
 
-    def validate(self, data):
-        """
-        Custom validation to ensure identification number
-        is provided when identification type is specified
-        """
-        identification_type = data.get("identification_type") or (
-            self.instance.identification_type if self.instance else None
-        )
-        identification_number = data.get("identification_number") or (
-            self.instance.identification_number if self.instance else None
-        )
+        # Update user fields if they exist in the request
+        if user_data:
+            user = instance.user
+            # Update username if provided
+            if "username" in user_data:
+                # Check if username is already taken
+                new_username = user_data["username"]
+                if (
+                    User.objects.exclude(pk=user.pk)
+                    .filter(username=new_username)
+                    .exists()
+                ):
+                    raise serializers.ValidationError(
+                        {"username": "This username is already taken."}
+                    )
+                user.username = new_username
 
-        # If identification type is provided, identification number is required
-        if identification_type and not identification_number:
-            raise serializers.ValidationError(
-                {
-                    "identification_number": "Identification number is required when identification type is specified"
-                }
-            )
+            # Update email if provided
+            if "email" in user_data:
+                user.email = user_data["email"]
 
-        # Check for unique identification number
-        if identification_number:
-            existing_profiles = Profile.objects.filter(
-                identification_number=identification_number
-            ).exclude(pk=self.instance.pk if self.instance else None)
+            user.save()
 
-            if existing_profiles.exists():
-                raise serializers.ValidationError(
-                    {
-                        "identification_number": "This identification number is already in use"
-                    }
-                )
+        # Update profile fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
 
-        return data
+        return instance
 
 
 class PropertySerializer(serializers.ModelSerializer):
@@ -502,20 +511,70 @@ class TenantSerializer(serializers.ModelSerializer):
 
         return data
 
-    def create(self, validated_data):
-        # Remove property_id before creating tenant
-        property_id = validated_data.pop("property_id", None)
+    def generate_password(self):
+        """Generate a secure random password"""
+        chars = string.ascii_letters + string.digits + string.punctuation
+        password = "".join(random.choice(chars) for _ in range(12))
+        try:
+            validate_password(password)
+            return password
+        except ValidationError:
+            return self.generate_password()
 
-        # Create tenant
+    def create_user_account(self, tenant, password):
+        """Create a user account for the tenant"""
+        username = f"tenant_{tenant.id}"[:30]  # Ensure username length limit
+        user = User.objects.create_user(
+            username=username,
+            email=tenant.email,
+            password=password,
+            first_name=tenant.first_name,
+            last_name=tenant.last_name,
+        )
+        # Create associated profile
+        Profile.objects.create(
+            user=user,
+            phone_number=tenant.phone_number,
+            user_type=UserType.TENANT,
+            identification_type=tenant.identification_type,
+            identification_number=tenant.identification_number,
+        )
+        return username, password
+
+    def send_credentials_email(self, tenant, username, password):
+        """Send login credentials to tenant"""
+        context = {
+            "tenant_name": f"{tenant.first_name} {tenant.last_name}",
+            "username": username,
+            "password": password,
+            "login_url": "https://yourdomain.com/login",  # Replace with actual URL
+        }
+
+        email_service = EmailService()
+        email_service.send_email(
+            recipient_email=tenant.email,
+            recipient_name=f"{tenant.first_name} {tenant.last_name}",
+            subject="Welcome to Our Portal - Your Login Credentials",
+            template_name="emails/tenant_credentials.html",
+            context=context,
+        )
+
+    def create(self, validated_data):
+        property_id = validated_data.pop("property_id", None)
         tenant = Tenant.objects.create(**validated_data)
 
-        # If property_id was provided, create lease
+        # Create user account and send credentials if email is provided
+        if tenant.email:
+            password = self.generate_password()
+            username, _ = self.create_user_account(tenant, password)
+            self.send_credentials_email(tenant, username, password)
+
+        # Handle lease creation if property_id provided
         if property_id:
             property_obj = Property.objects.get(id=property_id)
             unoccupied_unit = Unit.objects.filter(
                 property=property_obj, is_occupied=False
             ).first()
-
             Lease.objects.create(
                 tenant=tenant,
                 unit=unoccupied_unit,
@@ -525,7 +584,6 @@ class TenantSerializer(serializers.ModelSerializer):
                 security_deposit=0,
                 status=LeaseStatus.PENDING,
             )
-
             unoccupied_unit.is_occupied = True
             unoccupied_unit.save()
 
@@ -705,58 +763,270 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
 
 class LeaseTransferSerializer(serializers.Serializer):
     """
-    Serializer for transferring a lease to a new tenant
+    Simplified serializer for transferring a lease to a new tenant while maintaining history
     """
 
-    tenant_id = serializers.PrimaryKeyRelatedField(
-        queryset=Tenant.objects.filter(status=TenantStatus.ACTIVE), required=True
-    )
-    start_date = serializers.DateField(required=True)
-    end_date = serializers.DateField(required=True)
-    monthly_rent = serializers.DecimalField(
-        max_digits=10, decimal_places=2, required=True
-    )
-    security_deposit = serializers.DecimalField(
-        max_digits=10, decimal_places=2, required=True
-    )
-    notes = serializers.CharField(required=False, allow_null=True)
+    tenant = serializers.UUIDField(required=True)
+    notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
-    def validate(self, data):
+    def validate_tenant(self, value):
         """
-        Validate lease transfer details
+        Validate the tenant UUID and check if tenant exists
         """
-        # Get current lease from context
-        current_lease = self.context.get("current_lease")
-        if not current_lease:
-            raise serializers.ValidationError("No current lease found for transfer")
+        try:
+            tenant = Tenant.objects.get(id=value)
+            current_lease = self.context.get("current_lease")
 
-        # Validate start and end dates
-        start_date = data.get("start_date")
-        end_date = data.get("end_date")
-
-        if start_date >= end_date:
-            raise serializers.ValidationError("End date must be after start date")
-
-        # Ensure start date is after current lease's end date
-        if start_date <= current_lease.end_date:
-            raise serializers.ValidationError(
-                "New lease start date must be after current lease end date"
+            # Add debug logging
+            print(
+                f"Validating tenant: {tenant.id}, Current lease tenant: {current_lease.tenant.id}"
             )
 
-        return data
+            if tenant.id == current_lease.tenant.id:
+                raise serializers.ValidationError(
+                    "New tenant must be different from current tenant"
+                )
+            active_leases = Lease.objects.filter(
+                tenant=tenant, status=LeaseStatus.ACTIVE
+            ).exists()
+            if active_leases:
+                raise serializers.ValidationError(
+                    "This tenant already has an active lease"
+                )
+            return tenant  # Returning Tenant instance
+        except Tenant.DoesNotExist:
+            raise serializers.ValidationError("Invalid tenant ID - tenant not found")
 
     def create(self, validated_data):
         """
-        Create a new lease for the transferred unit
+        Create a new lease for the transferred unit while maintaining the same terms
         """
-        # Remove unit from validated data as it will be set from context
-        validated_data.pop("unit", None)
-
-        # Get current lease's unit
         current_lease = self.context.get("current_lease")
-        unit = current_lease.unit
 
-        # Create new lease
-        new_lease = Lease.objects.create(unit=unit, **validated_data)
-
+        new_lease = Lease.objects.create(
+            tenant=validated_data["tenant"],  # Now this is already the Tenant instance
+            unit=current_lease.unit,
+            start_date=timezone.now().date(),
+            end_date=current_lease.end_date,
+            monthly_rent=current_lease.monthly_rent,
+            security_deposit=current_lease.security_deposit,
+            payment_period=current_lease.payment_period,
+            status=LeaseStatus.ACTIVE,
+            previous_lease=current_lease,
+            notes=validated_data.get("notes", ""),
+        )
         return new_lease
+
+
+class MaintenanceRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MaintenanceRequest
+        fields = "__all__"
+        read_only_fields = (
+            "property",
+            "tenant",
+            "unit",
+            "approved_rejected_by",
+            "approved_rejected_date",
+            "completed_date",
+            "status",
+            "repair_cost",
+            "created_at",
+            "updated_at",
+        )
+
+    def validate(self, data):
+        if self.instance and self.instance.status == MaintenanceStatus.COMPLETED:
+            raise serializers.ValidationError(
+                "Cannot modify a completed maintenance request"
+            )
+        return data
+
+
+class MaintenanceRequestCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MaintenanceRequest
+        fields = ["title", "description", "priority"]
+
+
+class MaintenanceRequestCompleteSerializer(serializers.Serializer):
+    repair_cost = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
+
+    def validate_new_password(self, value):
+        """
+        Validate the new password using Django's password validators
+        """
+        try:
+            validate_password(value, self.context["user"])
+        except ValidationError as e:
+            raise serializers.ValidationError(list(e.messages))
+        return value
+
+
+class CommunicationHistorySerializer(serializers.ModelSerializer):
+    sent_by = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CommunicationHistory
+        fields = "__all__"
+
+    def get_sent_by(self, obj):
+        if obj.sent_by:
+            return {
+                "id": obj.sent_by.id,
+                "name": f"{obj.sent_by.user.first_name} {obj.sent_by.user.last_name}",
+                "email": obj.sent_by.user.email,
+            }
+        return None
+
+
+class StaffAccountSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=100)
+    last_name = serializers.CharField(max_length=100)
+    email = serializers.EmailField()
+    phone_number = serializers.CharField(max_length=20)
+    user_type = serializers.ChoiceField(choices=["MANAGER", "CLERK"])
+    identification_type = serializers.ChoiceField(choices=IdentificationType.choices)
+    identification_number = serializers.CharField(max_length=50)
+    property_id = serializers.UUIDField(required=True)  # New field
+
+    def validate_property_id(self, value):
+        try:
+            property_obj = Property.objects.get(id=value)
+            # Ensure the requesting user has access to this property
+            request = self.context.get("request")
+            user_profile = request.user.profile
+
+            if user_profile.user_type == UserType.MANAGER:
+                if not Property.objects.filter(id=value, manager=user_profile).exists():
+                    raise serializers.ValidationError(
+                        "You don't have permission to assign staff to this property"
+                    )
+            return value
+        except Property.DoesNotExist:
+            raise serializers.ValidationError("Invalid property ID")
+
+    def validate_user_type(self, value):
+        # Check if user has permission to create this user type
+        request = self.context.get("request")
+        user_profile = request.user.profile
+
+        if user_profile.user_type == UserType.MANAGER and value == UserType.MANAGER:
+            raise serializers.ValidationError("Managers cannot create other managers")
+
+        return value
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("This email is already registered")
+        return value
+
+    def generate_password(self):
+        chars = string.ascii_letters + string.digits + string.punctuation
+        password = "".join(random.choice(chars) for _ in range(12))
+        try:
+            validate_password(password)
+            return password
+        except ValidationError:
+            return self.generate_password()
+
+    def create_user_account(self, validated_data, password):
+        property_id = validated_data.pop("property_id")
+        username = f"{validated_data['user_type'].lower()}_{validated_data['email'].split('@')[0]}"[
+            :30
+        ]
+
+        user = User.objects.create_user(
+            username=username,
+            email=validated_data["email"],
+            password=password,
+            first_name=validated_data["first_name"],
+            last_name=validated_data["last_name"],
+        )
+
+        profile = Profile.objects.create(
+            user=user,
+            phone_number=validated_data["phone_number"],
+            user_type=validated_data["user_type"],
+            identification_type=validated_data["identification_type"],
+            identification_number=validated_data["identification_number"],
+        )
+
+        # Associate with property
+        property_obj = Property.objects.get(id=property_id)
+        if validated_data["user_type"] == UserType.MANAGER:
+            property_obj.manager = profile
+            property_obj.save()
+
+        return username, password
+
+    def send_credentials_email(self, validated_data, username, password):
+        context = {
+            "name": f"{validated_data['first_name']} {validated_data['last_name']}",
+            "username": username,
+            "password": password,
+            "login_url": "https://yourdomain.com/login",  # Replace with actual URL
+            "user_type": validated_data["user_type"].capitalize(),
+        }
+
+        email_service = EmailService()
+        email_service.send_email(
+            recipient_email=validated_data["email"],
+            recipient_name=f"{validated_data['first_name']} {validated_data['last_name']}",
+            subject=f"Welcome to Our Portal - Your {validated_data['user_type'].capitalize()} Account Credentials",
+            template_name="emails/staff_credentials.html",
+            context=context,
+        )
+
+
+class StaffProfileSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source="user.email")
+    first_name = serializers.CharField(source="user.first_name")
+    last_name = serializers.CharField(source="user.last_name")
+    property_info = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Profile
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "phone_number",
+            "user_type",
+            "identification_type",
+            "identification_number",
+            "can_manage_properties",
+            "can_add_units",
+            "can_edit_units",
+            "can_delete_units",
+            "can_view_financial_data",
+            "property_info",
+        ]
+        read_only_fields = ["id", "property_info"]
+
+    def get_property_info(self, obj):
+        if obj.user_type == UserType.MANAGER:
+            properties = Property.objects.filter(manager=obj)
+        else:
+            # For clerks, find properties where their manager is assigned
+            manager_properties = Property.objects.filter(
+                manager__user_type=UserType.MANAGER
+            )
+            properties = (
+                manager_properties.filter(manager=obj.manager) if obj.manager else []
+            )
+
+        return [
+            {
+                "id": str(prop.id),
+                "name": prop.name,
+                "address": f"{prop.address_line1}, {prop.city}",
+            }
+            for prop in properties
+        ]

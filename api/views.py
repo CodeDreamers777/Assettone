@@ -1,15 +1,43 @@
+from requests import request
 from rest_framework import status, viewsets
+from rest_framework import serializers
 import re
+import threading
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
+
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
-from .models import Profile, Property, Unit, UserType, Tenant, Lease, LeaseStatus
+from django.db.models import Sum, Count, F, Q
+from django.db.models.functions import TruncMonth
+from rest_framework.decorators import (
+    api_view,
+    permission_classes,
+    authentication_classes,
+)
+
+
+from .models import (
+    Profile,
+    Property,
+    Unit,
+    UserType,
+    Tenant,
+    TenantStatus,
+    Lease,
+    LeaseStatus,
+    RentPayment,
+    MaintenanceStatus,
+    MaintenanceRequest,
+    CommunicationHistory,
+    CommunicationType,
+)
 from .serializers import (
     UserRegistrationSerializer,
     UserProfileUpdateSerializer,
@@ -20,12 +48,20 @@ from .serializers import (
     LeaseCreateSerializer,
     LeaseTransferSerializer,
     TenantSerializer,
+    MaintenanceRequestSerializer,
+    MaintenanceRequestCreateSerializer,
+    ChangePasswordSerializer,
+    CommunicationHistorySerializer,
+    StaffAccountSerializer,
+    StaffProfileSerializer,
 )
 from rest_framework.decorators import action
 from .utils.decorator import jwt_required
 from django.utils.decorators import method_decorator
 import os
 from .utils.send_mail import EmailService
+from datetime import datetime, timedelta
+from django.shortcuts import get_object_or_404
 
 
 class HealthCheckApiview(APIView):
@@ -98,6 +134,7 @@ class UserLoginView(APIView):
 
         # Authenticate user
         user = authenticate(username=username, password=password)
+        profile = Profile.objects.get(user=user)
 
         if user:
             # Generate tokens
@@ -108,6 +145,22 @@ class UserLoginView(APIView):
                     "success": True,
                     "message": "Login successful",
                     "user_id": str(user.id),
+                    "profile": {
+                        "user_id": str(profile.user.id),
+                        "username": profile.user.username,
+                        "email": profile.user.email,
+                        "phone_number": profile.phone_number,
+                        "user_type": profile.user_type,
+                        "identification_type": profile.identification_type,
+                        "identification_number": profile.identification_number,
+                        "permissions": {
+                            "can_manage_properties": profile.can_manage_properties,
+                            "can_add_units": profile.can_add_units,
+                            "can_edit_units": profile.can_edit_units,
+                            "can_delete_units": profile.can_delete_units,
+                            "can_view_financial_data": profile.can_view_financial_data,
+                        },
+                    },
                     "username": user.username,
                     "tokens": {
                         "refresh": str(refresh),
@@ -132,9 +185,7 @@ class UserProfileView(APIView):
         Get current user's profile
         """
         try:
-            # Fetch the profile associated with the authenticated user
             profile = Profile.objects.get(user=request.user)
-
             return Response(
                 {
                     "success": True,
@@ -165,32 +216,31 @@ class UserProfileView(APIView):
 
     def patch(self, request):
         """
-        Update user profile
-        Allows updating of specific fields
+        Update user profile and user information
         """
         try:
-            # Fetch the profile associated with the authenticated user
             profile = Profile.objects.get(user=request.user)
-
-            # Use a serializer to validate and update the profile
             serializer = UserProfileUpdateSerializer(
                 profile, data=request.data, partial=True
             )
 
             if serializer.is_valid():
-                # Save the updated profile
-                serializer.save()
+                try:
+                    serializer.save()
+                    return Response(
+                        {
+                            "success": True,
+                            "message": "Profile and user information updated successfully",
+                            "updated_fields": list(request.data.keys()),
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+                except serializers.ValidationError as e:
+                    return Response(
+                        {"success": False, "message": e.detail},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
-                return Response(
-                    {
-                        "success": True,
-                        "message": "Profile updated successfully",
-                        "updated_fields": list(request.data.keys()),
-                    },
-                    status=status.HTTP_200_OK,
-                )
-
-            # If serializer validation fails
             return Response(
                 {"success": False, "message": serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -201,6 +251,49 @@ class UserProfileView(APIView):
                 {"success": False, "message": "Profile not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def post(self, request):
+        """
+        Change user password
+        """
+        serializer = ChangePasswordSerializer(
+            data=request.data, context={"user": request.user}
+        )
+
+        if serializer.is_valid():
+            user = request.user
+
+            # Check if old password is correct
+            if not user.check_password(serializer.validated_data["old_password"]):
+                return Response(
+                    {"success": False, "message": "Current password is incorrect"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Set new password
+            user.set_password(serializer.validated_data["new_password"])
+            user.save()
+
+            # Optional: Invalidate all existing JWT tokens
+            # If you're using SimpleJWT, you can update the user's last_login
+            # which is often used as part of the token validation
+            user.last_login = timezone.now()
+            user.save(update_fields=["last_login"])
+
+            return Response(
+                {"success": True, "message": "Password updated successfully"},
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            {"success": False, "message": serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 class PropertyViewSet(viewsets.ModelViewSet):
@@ -674,6 +767,33 @@ class TenantViewSet(viewsets.ModelViewSet):
 
         return Response({"error": "Invalid status"}, status=status.HTTP_400_BAD_REQUEST)
 
+    def destroy(self, request, *args, **kwargs):
+        tenant = self.get_object()
+
+        # Get tenant's user account if it exists (using exact username format from serializer)
+        username = f"tenant_{tenant.id}"[
+            :30
+        ]  # Match the username format used in create
+        try:
+            user = User.objects.get(username=username)
+            # Delete user profile and user
+            Profile.objects.filter(user=user).delete()
+            user.delete()
+        except User.DoesNotExist:
+            pass
+
+        # Mark units as unoccupied
+        tenant_leases = tenant.leases.all()
+        for lease in tenant_leases:
+            unit = lease.unit
+            unit.is_occupied = False
+            unit.save()
+
+        # Delete tenant
+        tenant.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class LeaseViewSet(viewsets.ModelViewSet):
     """
@@ -797,10 +917,9 @@ class LeaseViewSet(viewsets.ModelViewSet):
     def terminate_lease(self, request, pk=None):
         """
         Terminate an active lease
-        Ensures the user has permission to modify this lease
+        Ensures the user has permission to modify this lease and automatically updates related statuses
         """
         lease = self.get_object()
-
         # Verify user has permission to modify this lease
         user_profile = Profile.objects.get(user=request.user)
 
@@ -832,80 +951,161 @@ class LeaseViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Update lease status and unit occupancy
+        # Update lease status
         lease.status = LeaseStatus.TERMINATED
         lease.end_date = timezone.now().date()
-        lease.save()
+        lease.save()  # This will trigger the automatic status updates
 
-        # Mark the unit as unoccupied
-        unit = lease.unit
-        unit.is_occupied = False
-        unit.save()
-
-        return Response({"status": "Lease terminated", "lease_id": lease.id})
+        return Response(
+            {
+                "status": "Lease terminated successfully",
+                "lease_id": lease.id,
+                "unit_status": "Unoccupied",
+                "tenant_status": lease.tenant.status,
+            }
+        )
 
     @action(detail=True, methods=["POST"])
     def transfer_lease(self, request, pk=None):
         """
-        Transfer a lease to a new tenant
-        Requires new tenant information and optional additional details
-        Ensures the user has permission to modify this lease
+        Transfer a lease to a new tenant while maintaining lease history
         """
-        current_lease = self.get_object()
+        print(f"Looking for lease: {pk}")
+        print(f"Lease exists: {Lease.objects.filter(id=pk).exists()}")
+        try:
+            current_lease = self.get_object()
 
-        # Verify user has permission to modify this lease
-        user_profile = Profile.objects.get(user=request.user)
-
-        # Check if the user owns or manages the property of this lease
-        if user_profile.user_type in [UserType.ADMIN, UserType.MANAGER]:
-            # Validate ownership/management based on user type
-            if user_profile.user_type == UserType.ADMIN:
-                if current_lease.unit.property.owner != user_profile:
-                    return Response(
-                        {"error": "You do not have permission to transfer this lease"},
-                        status=status.HTTP_403_FORBIDDEN,
-                    )
+            # Permission checks
+            user_profile = Profile.objects.get(user=request.user)
+            if user_profile.user_type in [UserType.ADMIN, UserType.MANAGER]:
+                if user_profile.user_type == UserType.ADMIN:
+                    if current_lease.unit.property.owner != user_profile:
+                        return Response(
+                            {
+                                "error": "You do not have permission to transfer this lease"
+                            },
+                            status=status.HTTP_403_FORBIDDEN,
+                        )
+                else:
+                    if current_lease.unit.property.manager != user_profile:
+                        return Response(
+                            {
+                                "error": "You do not have permission to transfer this lease"
+                            },
+                            status=status.HTTP_403_FORBIDDEN,
+                        )
             else:
-                if current_lease.unit.property.manager != user_profile:
-                    return Response(
-                        {"error": "You do not have permission to transfer this lease"},
-                        status=status.HTTP_403_FORBIDDEN,
-                    )
-        else:
-            return Response(
-                {"error": "You do not have permission to transfer leases"},
-                status=status.HTTP_403_FORBIDDEN,
+                return Response(
+                    {"error": "You do not have permission to transfer leases"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            # Validate current lease status
+            if current_lease.status != LeaseStatus.ACTIVE:
+                return Response(
+                    {"error": "Only active leases can be transferred"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            serializer = LeaseTransferSerializer(
+                data=request.data,
+                context={"current_lease": current_lease, "request": request},
             )
 
-        # Validate current lease status
-        if current_lease.status != LeaseStatus.ACTIVE:
+            if serializer.is_valid():
+                try:
+                    with transaction.atomic():
+                        # Get old and new tenants
+                        old_tenant = current_lease.tenant
+                        new_tenant = serializer.validated_data["tenant"]
+                        notes = serializer.validated_data.get("notes", "")
+
+                        print(f"Old tenant ID: {old_tenant.id}")
+                        print(f"New tenant ID: {new_tenant.id}")
+                        print(f"Current lease ID: {current_lease.id}")
+                        print(f"Notes: {notes}")
+
+                        # First, update current lease status
+                        # This needs to happen before creating the new lease
+                        current_lease.status = LeaseStatus.TERMINATED
+                        current_lease.end_date = timezone.now().date()
+                        current_lease.save()
+                        print("Current lease updated successfully")
+
+                        # Force refresh from database to ensure status is updated
+                        current_lease.refresh_from_db()
+
+                        # Create new lease
+                        try:
+                            new_lease = Lease.objects.create(
+                                tenant=new_tenant,
+                                unit=current_lease.unit,
+                                start_date=timezone.now().date(),
+                                end_date=current_lease.end_date,
+                                monthly_rent=current_lease.monthly_rent,
+                                security_deposit=current_lease.security_deposit,
+                                payment_period=current_lease.payment_period,
+                                status=LeaseStatus.ACTIVE,
+                                previous_lease=current_lease,
+                                notes=notes,
+                            )
+                            print(f"New lease created successfully: {new_lease.id}")
+                        except Exception as e:
+                            print(f"Error creating new lease: {str(e)}")
+                            raise
+
+                        # Update tenant statuses
+                        old_tenant_active_leases = (
+                            Lease.objects.filter(
+                                tenant=old_tenant, status=LeaseStatus.ACTIVE
+                            )
+                            .exclude(pk=current_lease.pk)
+                            .exists()
+                        )
+
+                        if not old_tenant_active_leases:
+                            old_tenant.status = TenantStatus.INACTIVE
+                            old_tenant.save()
+                            print(
+                                f"Old tenant {old_tenant.id} status updated to INACTIVE"
+                            )
+
+                        new_tenant.status = TenantStatus.ACTIVE
+                        new_tenant.save()
+                        print(f"New tenant {new_tenant.id} status updated to ACTIVE")
+
+                        return Response(
+                            {
+                                "status": "Lease transferred successfully",
+                                "previous_lease_id": current_lease.id,
+                                "new_lease_id": new_lease.id,
+                                "new_tenant_id": new_tenant.id,
+                                "old_tenant_id": old_tenant.id,
+                                "transfer_date": timezone.now().date().isoformat(),
+                                "lease_end_date": new_lease.end_date.isoformat(),
+                            },
+                            status=status.HTTP_201_CREATED,
+                        )
+
+                except Exception as e:
+                    print(f"Transaction failed: {str(e)}")
+                    return Response(
+                        {"error": f"Failed to transfer lease: {str(e)}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Lease.DoesNotExist:
             return Response(
-                {"error": "Only active leases can be transferred"},
+                {"error": "Lease not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            print(f"Unexpected error: {str(e)}")
+            return Response(
+                {"error": f"An error occurred: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        # Use transfer serializer to validate and process transfer
-        serializer = LeaseTransferSerializer(
-            data=request.data, context={"current_lease": current_lease}
-        )
-
-        if serializer.is_valid():
-            # Create a new lease, marking the current one as transferred
-            current_lease.status = LeaseStatus.TERMINATED
-            current_lease.end_date = timezone.now().date()
-            current_lease.save()
-
-            # Create new lease with reference to previous lease
-            new_lease = serializer.save(
-                previous_lease=current_lease, unit=current_lease.unit
-            )
-
-            return Response(
-                {"status": "Lease transferred", "new_lease_id": new_lease.id},
-                status=status.HTTP_201_CREATED,
-            )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class BookDemoView(APIView):
@@ -1019,3 +1219,771 @@ class ContactUsView(APIView):
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class RentalNoticeViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    @action(detail=True, methods=["post"])
+    def send_notice(self, request, pk=None):
+        try:
+            unit = get_object_or_404(Unit, id=pk)
+            active_lease = (
+                Lease.objects.filter(unit=unit, status="ACTIVE")
+                .select_related("tenant")
+                .first()
+            )
+
+            if not active_lease:
+                return Response(
+                    {"message": "No active lease for this unit"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            current_date = timezone.now().date()
+            period_start = datetime(current_date.year, current_date.month, 1).date()
+            period_end = period_start.replace(
+                month=period_start.month + 1 if period_start.month < 12 else 1,
+                year=period_start.year
+                if period_start.month < 12
+                else period_start.year + 1,
+            ) - timezone.timedelta(days=1)
+
+            total_paid = (
+                RentPayment.objects.filter(
+                    lease=active_lease,
+                    payment_date__gte=period_start,
+                    payment_date__lte=period_end,
+                ).aggregate(total=Sum("amount"))["total"]
+                or 0
+            )
+
+            if total_paid < active_lease.monthly_rent and current_date >= period_start:
+                days_overdue = (current_date - period_start).days
+                remaining_balance = active_lease.monthly_rent - total_paid
+
+                context = {
+                    "tenant_name": f"{active_lease.tenant.first_name} {active_lease.tenant.last_name}",
+                    "unit_number": unit.unit_number,
+                    "property_name": unit.property.name,
+                    "days_overdue": days_overdue,
+                    "amount_due": remaining_balance,
+                    "due_date": period_start.strftime("%B %d, %Y"),
+                    "payment_period": active_lease.payment_period.lower(),
+                }
+
+                email_service = EmailService()
+                email_service.send_email(
+                    recipient_email=active_lease.tenant.email,
+                    recipient_name=f"{active_lease.tenant.first_name} {active_lease.tenant.last_name}",
+                    subject="Important: Rent Payment Reminder",
+                    template_name="emails/rental_notice.html",
+                    context=context,
+                )
+
+                return Response(
+                    {"message": "Rental notice sent successfully"},
+                    status=status.HTTP_200_OK,
+                )
+
+            return Response(
+                {"message": "No overdue rent for this unit"}, status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class MaintenanceRequestViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return MaintenanceRequestCreateSerializer
+        return MaintenanceRequestSerializer
+
+    def get_queryset(self):
+        user_profile = self.request.user.profile
+
+        # If user is tenant, show only their requests
+        if user_profile.user_type == UserType.TENANT:
+            return MaintenanceRequest.objects.filter(
+                tenant__email=self.request.user.email
+            )
+
+        # If user is admin/manager, show requests for their properties
+        elif user_profile.user_type in [UserType.ADMIN, UserType.MANAGER]:
+            return MaintenanceRequest.objects.filter(
+                property__in=user_profile.managed_properties.all()
+                | user_profile.owned_properties.all()
+            )
+
+        # For other staff (clerks), show all requests
+        return MaintenanceRequest.objects.all()
+
+    def perform_create(self, serializer):
+        try:
+            # Get the tenant using the user's email
+            tenant = Tenant.objects.get(email=self.request.user.email)
+
+            # Get the tenant's current active lease
+            active_lease = Lease.objects.filter(
+                tenant=tenant, status=LeaseStatus.ACTIVE
+            ).first()
+
+            if not active_lease:
+                raise serializers.ValidationError(
+                    {
+                        "detail": "You must have an active lease to submit maintenance requests"
+                    }
+                )
+
+            serializer.save(
+                tenant=tenant,
+                unit=active_lease.unit,
+                property=active_lease.unit.property,
+            )
+
+        except Tenant.DoesNotExist:
+            raise serializers.ValidationError(
+                {
+                    "detail": "Only tenants can create maintenance requests. No tenant record found for this user."
+                }
+            )
+        except Exception as e:
+            raise serializers.ValidationError({"detail": str(e)})
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        maintenance_request = self.get_object()
+        user_profile = request.user.profile
+
+        # Check authorization
+        if user_profile.user_type not in [UserType.ADMIN, UserType.MANAGER]:
+            return Response(
+                {"error": "You don't have permission to approve maintenance requests"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if maintenance_request.status != MaintenanceStatus.PENDING:
+            return Response(
+                {"error": "Can only approve pending maintenance requests"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        maintenance_request.status = MaintenanceStatus.APPROVED
+        maintenance_request.approved_rejected_by = user_profile
+        maintenance_request.approved_rejected_date = timezone.now()
+        maintenance_request.save()
+
+        return Response(self.get_serializer(maintenance_request).data)
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        maintenance_request = self.get_object()
+        user_profile = request.user.profile
+
+        if user_profile.user_type not in [UserType.ADMIN, UserType.MANAGER]:
+            return Response(
+                {"error": "You don't have permission to reject maintenance requests"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if maintenance_request.status != MaintenanceStatus.PENDING:
+            return Response(
+                {"error": "Can only reject pending maintenance requests"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        maintenance_request.status = MaintenanceStatus.REJECTED
+        maintenance_request.approved_rejected_by = user_profile
+        maintenance_request.approved_rejected_date = timezone.now()
+        maintenance_request.save()
+
+        return Response(self.get_serializer(maintenance_request).data)
+
+    @action(detail=True, methods=["post"])
+    def complete(self, request, pk=None):
+        maintenance_request = self.get_object()
+        user_profile = request.user.profile
+
+        if user_profile.user_type not in [UserType.ADMIN, UserType.MANAGER]:
+            return Response(
+                {"error": "You don't have permission to complete maintenance requests"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if maintenance_request.status != MaintenanceStatus.APPROVED:
+            return Response(
+                {"error": "Can only complete approved maintenance requests"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate repair cost is provided
+        repair_cost = request.data.get("repair_cost")
+        if not repair_cost:
+            return Response(
+                {"error": "Repair cost is required to complete maintenance request"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            repair_cost = float(repair_cost)
+            if repair_cost < 0:
+                raise ValueError("Repair cost cannot be negative")
+        except (TypeError, ValueError):
+            return Response(
+                {"error": "Invalid repair cost value"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        maintenance_request.status = MaintenanceStatus.COMPLETED
+        maintenance_request.completed_date = timezone.now()
+        maintenance_request.repair_cost = repair_cost
+        maintenance_request.save()
+
+        return Response(self.get_serializer(maintenance_request).data)
+
+    @action(detail=False, methods=["get"])
+    def by_property(self, request):
+        property_id = request.query_params.get("property_id")
+        if not property_id:
+            return Response(
+                {"error": "property_id query parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        property_instance = get_object_or_404(Property, id=property_id)
+        queryset = self.get_queryset().filter(property=property_instance)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def by_tenant(self, request):
+        tenant_id = request.query_params.get("tenant_id")
+        if not tenant_id:
+            return Response(
+                {"error": "tenant_id query parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tenant = get_object_or_404(Tenant, id=tenant_id)
+        queryset = self.get_queryset().filter(tenant=tenant)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def by_unit(self, request):
+        unit_id = request.query_params.get("unit_id")
+        if not unit_id:
+            return Response(
+                {"error": "unit_id query parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        unit = get_object_or_404(Unit, id=unit_id)
+        queryset = self.get_queryset().filter(unit=unit)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+def get_date_range():
+    today = timezone.now().date()
+    start_of_month = today.replace(day=1)
+    end_of_month = (start_of_month + timedelta(days=32)).replace(day=1) - timedelta(
+        days=1
+    )
+    return start_of_month, end_of_month
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+@authentication_classes([JWTAuthentication])
+def dashboard_metrics(request):
+    # Get current date range
+    start_date, end_date = get_date_range()
+
+    # Get user profile and related properties
+    user_profile = request.user.profile
+
+    # Base queryset for properties (filtered by user role)
+    if user_profile.user_type == "ADMIN":
+        properties = Property.objects.filter(owner=user_profile)
+    elif user_profile.user_type == "MANAGER":
+        properties = Property.objects.filter(manager=user_profile)
+    else:
+        properties = Property.objects.none()
+
+    # Property metrics
+    property_metrics = {
+        "total_properties": properties.count(),
+        "total_units": Unit.objects.filter(property__in=properties).count(),
+    }
+
+    # Occupancy metrics
+    units = Unit.objects.filter(property__in=properties)
+    occupancy_metrics = {
+        "total_units": units.count(),
+        "occupied_units": units.filter(is_occupied=True).count(),
+        "vacant_units": units.filter(is_occupied=False).count(),
+    }
+    if occupancy_metrics["total_units"] > 0:
+        occupancy_metrics["occupancy_rate"] = round(
+            (occupancy_metrics["occupied_units"] / occupancy_metrics["total_units"])
+            * 100,
+            2,
+        )
+    else:
+        occupancy_metrics["occupancy_rate"] = 0
+
+    # Financial metrics - Current month
+    active_leases = Lease.objects.filter(
+        unit__property__in=properties,
+        status=LeaseStatus.ACTIVE,
+        start_date__lte=end_date,
+        end_date__gte=start_date,
+    )
+
+    # Expected rent
+    expected_rent = active_leases.aggregate(total=Sum("monthly_rent"))["total"] or 0
+
+    # Actual rent collected
+    rent_collected = (
+        RentPayment.objects.filter(
+            lease__in=active_leases, payment_date__range=(start_date, end_date)
+        ).aggregate(total=Sum("amount"))["total"]
+        or 0
+    )
+
+    # Maintenance expenses
+    maintenance_expenses = (
+        MaintenanceRequest.objects.filter(
+            property__in=properties,
+            status=MaintenanceStatus.COMPLETED,
+            completed_date__range=(start_date, end_date),
+        ).aggregate(total=Sum("repair_cost"))["total"]
+        or 0
+    )
+
+    # Calculate rent collection rate
+    rent_collection_rate = (
+        round((rent_collected / expected_rent * 100), 2) if expected_rent > 0 else 0
+    )
+
+    financial_metrics = {
+        "expected_rent": expected_rent,
+        "rent_collected": rent_collected,
+        "rent_collection_rate": rent_collection_rate,
+        "maintenance_expenses": maintenance_expenses,
+        "net_income": rent_collected - maintenance_expenses,
+    }
+
+    # Maintenance metrics
+    maintenance_metrics = {
+        "total_requests": MaintenanceRequest.objects.filter(
+            property__in=properties
+        ).count(),
+        "pending_requests": MaintenanceRequest.objects.filter(
+            property__in=properties, status=MaintenanceStatus.PENDING
+        ).count(),
+        "in_progress_requests": MaintenanceRequest.objects.filter(
+            property__in=properties, status=MaintenanceStatus.IN_PROGRESS
+        ).count(),
+    }
+
+    # Monthly trend data (last 6 months)
+    six_months_ago = start_date - timedelta(days=180)
+
+    # Get rent payments by month
+    monthly_rent = (
+        RentPayment.objects.filter(
+            lease__unit__property__in=properties, payment_date__gte=six_months_ago
+        )
+        .annotate(month=TruncMonth("payment_date"))
+        .values("month")
+        .annotate(rent_collected=Sum("amount"))
+        .order_by("month")
+    )
+
+    # Get maintenance costs by month
+    monthly_maintenance = (
+        MaintenanceRequest.objects.filter(
+            property__in=properties,
+            status=MaintenanceStatus.COMPLETED,
+            completed_date__gte=six_months_ago,
+        )
+        .annotate(month=TruncMonth("completed_date"))
+        .values("month")
+        .annotate(maintenance_cost=Sum("repair_cost"))
+        .order_by("month")
+    )
+
+    # Combine the data
+    monthly_data = {}
+
+    for item in monthly_rent:
+        month_str = item["month"].strftime("%Y-%m")
+        if month_str not in monthly_data:
+            monthly_data[month_str] = {
+                "month": item["month"].strftime("%B %Y"),
+                "rent_collected": 0,
+                "maintenance_cost": 0,
+            }
+        monthly_data[month_str]["rent_collected"] = item["rent_collected"] or 0
+
+    for item in monthly_maintenance:
+        month_str = item["month"].strftime("%Y-%m")
+        if month_str not in monthly_data:
+            monthly_data[month_str] = {
+                "month": item["month"].strftime("%B %Y"),
+                "rent_collected": 0,
+                "maintenance_cost": 0,
+            }
+        monthly_data[month_str]["maintenance_cost"] = item["maintenance_cost"] or 0
+
+    # Convert to list and calculate net income
+    trend_data = []
+    for month_str in sorted(monthly_data.keys()):
+        data = monthly_data[month_str]
+        data["net_income"] = data["rent_collected"] - data["maintenance_cost"]
+        trend_data.append(data)
+
+    return Response(
+        {
+            "property_metrics": property_metrics,
+            "occupancy_metrics": occupancy_metrics,
+            "financial_metrics": financial_metrics,
+            "maintenance_metrics": maintenance_metrics,
+            "monthly_trends": trend_data,
+            "date_range": {
+                "start_date": start_date.strftime("%Y-%m-%d"),
+                "end_date": end_date.strftime("%Y-%m-%d"),
+            },
+        }
+    )
+
+
+class EmailTenantsView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def send_tenant_email(
+        self, tenant_email: str, tenant_name: str, subject: str, message: str
+    ):
+        """Helper method to send email to a single tenant"""
+        context = {"name": tenant_name, "message": message, "email": tenant_email}
+        email_service = EmailService()
+        try:
+            email_service.send_email(
+                recipient_email=tenant_email,
+                recipient_name=tenant_name,
+                subject=subject,
+                template_name="emails/tenant_message.html",
+                context=context,
+            )
+            return True, None
+        except Exception as e:
+            return False, str(e)
+
+    def post(self, request):
+        """
+        Send emails to multiple tenants using threading and store communication history
+        """
+        try:
+            # Validate request data
+            required_fields = ["message", "subject", "tenants"]
+            if not all(field in request.data for field in required_fields):
+                return Response(
+                    {"success": False, "message": "Missing required fields"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            message = request.data["message"]
+            subject = request.data["subject"]
+            tenant_ids = request.data["tenants"]
+
+            # Get all tenants
+            tenants = Tenant.objects.filter(id__in=tenant_ids)
+            if not tenants:
+                return Response(
+                    {"success": False, "message": "No valid tenants found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Prepare recipients list for history
+            recipients_list = []
+            success_count = 0
+            failed_recipients = []
+
+            # Create threads for sending emails
+            threads = []
+            results = {}  # Dictionary to store results for each tenant
+
+            for tenant in tenants:
+                if tenant.email:
+                    tenant_name = f"{tenant.first_name} {tenant.last_name}"
+                    recipient_info = {
+                        "id": str(tenant.id),
+                        "name": tenant_name,
+                        "email": tenant.email,
+                    }
+                    recipients_list.append(recipient_info)
+
+                    thread = threading.Thread(
+                        target=lambda: results.update(
+                            {
+                                str(tenant.id): self.send_tenant_email(
+                                    tenant.email, tenant_name, subject, message
+                                )
+                            }
+                        )
+                    )
+                    threads.append(thread)
+                    thread.start()
+
+            # Wait for all threads to complete
+            for thread in threads:
+                thread.join()
+
+            # Process results
+            for tenant_id, (success, error) in results.items():
+                if success:
+                    success_count += 1
+                else:
+                    failed_recipients.append({"tenant_id": tenant_id, "error": error})
+
+            # Determine overall status
+            if success_count == len(recipients_list):
+                status_value = "SUCCESS"
+            elif success_count == 0:
+                status_value = "FAILED"
+            else:
+                status_value = "PARTIAL"
+
+            # Store communication history
+            CommunicationHistory.objects.create(
+                type=CommunicationType.EMAIL,
+                subject=subject,
+                message=message,
+                sent_by=request.user.profile,
+                recipients=recipients_list,
+                status=status_value,
+                error_message=str(failed_recipients) if failed_recipients else None,
+            )
+
+            return Response(
+                {
+                    "success": True,
+                    "message": f"Emails sent successfully to {success_count} tenants",
+                    "failed": failed_recipients,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            return Response(
+                {"success": False, "message": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class CommunicationHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def get(self, request):
+        """
+        Retrieve communication history with optional filters
+        """
+        try:
+            # Get query parameters
+            type_filter = request.query_params.get("type")
+            start_date = request.query_params.get("start_date")
+            end_date = request.query_params.get("end_date")
+            tenant_id = request.query_params.get("tenant_id")
+
+            # Base queryset
+            queryset = CommunicationHistory.objects.all().order_by("-sent_at")
+
+            # Apply filters
+            if type_filter:
+                queryset = queryset.filter(type=type_filter)
+            if start_date:
+                queryset = queryset.filter(sent_at__gte=start_date)
+            if end_date:
+                queryset = queryset.filter(sent_at__lte=end_date)
+            if tenant_id:
+                queryset = queryset.filter(recipients__contains=[{"id": tenant_id}])
+
+            # Serialize data
+            serializer = CommunicationHistorySerializer(queryset, many=True)
+
+            return Response(
+                {"success": True, "data": serializer.data}, status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {"success": False, "message": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class CreateStaffAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def post(self, request):
+        # Check if user has permission to create staff accounts
+        user_profile = request.user.profile
+        if user_profile.user_type not in [UserType.ADMIN, UserType.MANAGER]:
+            return Response(
+                {"error": "You don't have permission to create staff accounts"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = StaffAccountSerializer(
+            data=request.data, context={"request": request}
+        )
+        if serializer.is_valid():
+            try:
+                # Generate password and create account
+                password = serializer.generate_password()
+                username, password = serializer.create_user_account(
+                    serializer.validated_data, password
+                )
+
+                # Send credentials via email
+                serializer.send_credentials_email(
+                    serializer.validated_data, username, password
+                )
+
+                return Response(
+                    {
+                        "message": "Staff account created successfully",
+                        "username": username,
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
+
+            except Exception as e:
+                return Response(
+                    {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class StaffAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def get_queryset(self):
+        user_profile = self.request.user.profile
+
+        # Admins can see all staff
+        if user_profile.user_type == UserType.ADMIN:
+            return Profile.objects.filter(
+                user_type__in=[UserType.MANAGER, UserType.CLERK]
+            )
+
+        # Managers can only see clerks
+        elif user_profile.user_type == UserType.MANAGER:
+            return Profile.objects.filter(user_type=UserType.CLERK)
+
+        return Profile.objects.none()
+
+    def get(self, request, staff_id=None):
+        if request.user.profile.user_type not in [UserType.ADMIN, UserType.MANAGER]:
+            return Response(
+                {"error": "You don't have permission to view staff accounts"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if staff_id:
+            staff = get_object_or_404(self.get_queryset(), id=staff_id)
+            serializer = StaffProfileSerializer(staff)
+            return Response(serializer.data)
+        else:
+            queryset = self.get_queryset()
+
+            # Apply search filters if provided
+            search = request.query_params.get("search", "")
+            if search:
+                queryset = queryset.filter(
+                    Q(user__first_name__icontains=search)
+                    | Q(user__last_name__icontains=search)
+                    | Q(user__email__icontains=search)
+                    | Q(phone_number__icontains=search)
+                )
+
+            # Apply user type filter if provided
+            user_type = request.query_params.get("user_type", "")
+            if user_type in [UserType.MANAGER, UserType.CLERK]:
+                queryset = queryset.filter(user_type=user_type)
+
+            # Group staff by property
+            staff_by_property = {}
+            for staff in queryset:
+                serialized_staff = StaffProfileSerializer(staff).data
+                for property_info in serialized_staff["property_info"]:
+                    property_id = property_info["id"]
+                    if property_id not in staff_by_property:
+                        staff_by_property[property_id] = {
+                            "property_info": property_info,
+                            "staff": [],
+                        }
+                    staff_by_property[property_id]["staff"].append(serialized_staff)
+
+            return Response(list(staff_by_property.values()))
+
+    def put(self, request, staff_id):
+        if request.user.profile.user_type not in [UserType.ADMIN, UserType.MANAGER]:
+            return Response(
+                {"error": "You don't have permission to update staff accounts"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        staff = get_object_or_404(self.get_queryset(), id=staff_id)
+
+        # Prevent managers from updating managers
+        if (
+            request.user.profile.user_type == UserType.MANAGER
+            and staff.user_type == UserType.MANAGER
+        ):
+            return Response(
+                {"error": "Managers cannot update other managers' accounts"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = StaffProfileSerializer(staff, data=request.data, partial=True)
+        if serializer.is_valid():
+            # Update User model fields
+            user_data = serializer.validated_data.pop("user", {})
+            for attr, value in user_data.items():
+                setattr(staff.user, attr, value)
+            staff.user.save()
+
+            # Update Profile model fields
+            serializer.save()
+
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, staff_id):
+        if request.user.profile.user_type != UserType.ADMIN:
+            return Response(
+                {"error": "Only administrators can delete staff accounts"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        staff = get_object_or_404(self.get_queryset(), id=staff_id)
+
+        # Delete the user (this will cascade delete the profile)
+        staff.user.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)

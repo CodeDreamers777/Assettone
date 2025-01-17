@@ -1,0 +1,82 @@
+<!-- templates/emails/tenant_message.html -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ subject }}</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        color: #333333;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .header {
+        background-color: green;
+        color: white;
+        padding: 20px;
+        text-align: center;
+        border-radius: 5px 5px 0 0;
+      }
+      .content {
+        background-color: #ffffff;
+        padding: 30px;
+        border: 1px solid #e2e8f0;
+        border-radius: 0 0 5px 5px;
+      }
+      .footer {
+        text-align: center;
+        margin-top: 20px;
+        padding: 20px;
+        font-size: 12px;
+        color: #666666;
+      }
+      .greeting {
+        font-size: 18px;
+        margin-bottom: 20px;
+      }
+      .message {
+        background-color: #f8fafc;
+        padding: 20px;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+      .contact {
+        background-color: #f8fafc;
+        padding: 15px;
+        border-radius: 5px;
+        margin-top: 20px;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h2>Important Notice</h2>
+    </div>
+
+    <div class="content">
+      <div class="greeting">Dear {{ name }},</div>
+
+      <div class="message">{{ message|linebreaks }}</div>
+
+      <div class="contact">
+        <p><strong>Need assistance?</strong></p>
+        <p>
+          If you have any questions or concerns, please don't hesitate to
+          contact your property manager.
+        </p>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>This email was sent to {{ email }}</p>
+      <p>
+        &copy; {% now "Y" %} Assettone Property Management. All rights reserved.
+      </p>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,135 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rent Payment Reminder</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        color: #333333;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f0f7f4;
+      }
+      .header {
+        background-color: #22c55e;
+        color: white;
+        padding: 30px;
+        text-align: center;
+        border-radius: 8px 8px 0 0;
+      }
+      .content {
+        padding: 30px;
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0 0 8px 8px;
+      }
+      .important-info {
+        background-color: #dcfce7;
+        padding: 15px;
+        border-left: 4px solid #22c55e;
+        margin: 20px 0;
+      }
+      .details-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        background-color: #f8fafc;
+      }
+      .details-table td {
+        padding: 12px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .details-table td:first-child {
+        font-weight: bold;
+        width: 40%;
+        color: #15803d;
+      }
+      .footer {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 0.9em;
+        color: #15803d;
+        background-color: #f0f7f4;
+        padding: 20px;
+        border-radius: 8px;
+      }
+      .cta-button {
+        display: inline-block;
+        background-color: #22c55e;
+        color: white;
+        padding: 14px 28px;
+        text-decoration: none;
+        border-radius: 6px;
+        margin: 20px 0;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>Rent Payment Reminder</h1>
+    </div>
+    <div class="content">
+      <p>Dear {{ tenant_name }},</p>
+      <p>
+        We hope this email finds you well. This is a friendly reminder regarding
+        your rent payment for Unit {{ unit_number }} at {{ property_name }}.
+      </p>
+      <div class="important-info">
+        <p>
+          Your rent payment is currently
+          <strong>{{ days_overdue }} days overdue</strong>.
+        </p>
+      </div>
+      <table class="details-table">
+        <tr>
+          <td>Property:</td>
+          <td>{{ property_name }}</td>
+        </tr>
+        <tr>
+          <td>Unit Number:</td>
+          <td>{{ unit_number }}</td>
+        </tr>
+        <tr>
+          <td>Amount Due:</td>
+          <td>${{ amount_due }}</td>
+        </tr>
+        <tr>
+          <td>Due Date:</td>
+          <td>{{ due_date }}</td>
+        </tr>
+        <tr>
+          <td>Payment Period:</td>
+          <td>{{ payment_period }}</td>
+        </tr>
+      </table>
+      <p>
+        To maintain your good standing and avoid any late fees, please arrange
+        for the payment as soon as possible. If you have already made the
+        payment, please disregard this notice and provide us with the payment
+        details for our records.
+      </p>
+      <center>
+        <a href="#" class="cta-button">Make Payment Now</a>
+      </center>
+      <p>
+        If you are experiencing any difficulties or would like to discuss a
+        payment plan, please don't hesitate to contact our office. We are here
+        to help and can work with you to find a suitable solution.
+      </p>
+      <p>Thank you for your prompt attention to this matter.</p>
+      <p>
+        Best regards,<br />
+        {{ property_name }} Management Team
+      </p>
+    </div>
+    <div class="footer">
+      <p>This is an automated reminder. Please do not reply to this email.</p>
+      <p>For any questions or concerns, please contact our office directly.</p>
+    </div>
+  </body>
+</html>

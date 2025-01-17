@@ -105,12 +105,41 @@ export function Tenants() {
   };
 
   const handleDelete = async (id: string) => {
-    // Implement delete functionality
-    toast({
-      title: "Not Implemented",
-      description: "Delete functionality is not yet implemented.",
-      variant: "default",
-    });
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/v1/tenants/${id}/`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      if (!response.ok) throw new Error("Failed to delete tenant");
+
+      // If successful (204 No Content), update the local state
+      setPropertyTenants((prev) => ({
+        ...prev,
+        [selectedProperty]: prev[selectedProperty]?.filter(
+          (tenant) => tenant.id !== id,
+        ),
+      }));
+
+      toast({
+        title: "Success",
+        description: "Tenant successfully deleted",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error("Error deleting tenant:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete tenant. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleLease = (id: string) => {

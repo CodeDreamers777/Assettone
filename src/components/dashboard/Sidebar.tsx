@@ -1,5 +1,5 @@
-import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Home,
@@ -10,6 +10,8 @@ import {
   Settings,
   LogOut,
   Box,
+  PenToolIcon as Tool,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { ScrollArea } from "../ui/scroll-area";
@@ -17,15 +19,26 @@ import { ScrollArea } from "../ui/scroll-area";
 const sidebarItems = [
   { icon: LayoutDashboard, label: "Overview", href: "/dashboard" },
   { icon: Building, label: "Properties", href: "/dashboard/properties" },
-  { icon: Box, label: "Units", href: "/dashboard/Units" },
+  { icon: Box, label: "Units", href: "/dashboard/units" },
   { icon: Users, label: "Tenants", href: "/dashboard/tenants" },
   { icon: FileText, label: "Leases", href: "/dashboard/leases" },
-  { icon: User, label: "Profile", href: "/profile" },
+  { icon: Tool, label: "Maintenance", href: "/dashboard/maintenance" },
+  { icon: MessageSquare, label: "Messages", href: "/dashboard/messages" }, // New item
+  { icon: User, label: "Profile", href: "/dashboard/profile" },
   { icon: Settings, label: "Settings", href: "/dashboard/settings" },
 ];
 
 export function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
+
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken");
+    setIsAuthenticated(false);
+    navigate("/login");
+  };
+
   return (
     <div className="hidden lg:block border-r bg-gray-100/40 lg:w-60">
       <div className="flex flex-col h-full">
@@ -61,11 +74,13 @@ export function Sidebar() {
           </nav>
         </ScrollArea>
         <div className="mt-auto p-4">
-          <Button variant="outline" className="w-full" asChild>
-            <Link to="/" className="text-[#38b000] hover:text-[#38b000]/80">
-              <LogOut className="mr-2 h-4 w-4" style={{ color: "#38b000" }} />
-              Log out
-            </Link>
+          <Button
+            variant="outline"
+            className="w-full text-[#38b000] hover:text-[#38b000]/80"
+            onClick={handleLogout}
+          >
+            <LogOut className="mr-2 h-4 w-4" style={{ color: "#38b000" }} />
+            Log out
           </Button>
         </div>
       </div>

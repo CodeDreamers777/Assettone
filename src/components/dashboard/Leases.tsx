@@ -39,6 +39,7 @@ import { toast } from "@/hooks/use-toast";
 import { AddLeaseModal } from "./add-lease-modal";
 import { EditLeaseModal } from "./edit-lease-modal";
 import { ViewLeaseDetailsModal } from "./view-lease-details-modal";
+import { TransferLeaseModal, TransferLeaseData } from "./transfer-lease-modal";
 
 interface UnitDetails {
   id: string;
@@ -72,6 +73,7 @@ export function Leases() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedLease, setSelectedLease] = useState<Lease | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
 
   useEffect(() => {
     fetchLeases();
@@ -201,21 +203,86 @@ export function Leases() {
   };
 
   const handleTransfer = (id: string) => {
-    // Implement transfer functionality
-    toast({
-      title: "Not Implemented",
-      description: "Transfer functionality is not yet implemented.",
-      variant: "default",
-    });
+    setSelectedLease(
+      propertyLeases[selectedProperty].find((lease) => lease.id === id) || null,
+    );
+    setIsTransferModalOpen(true);
   };
 
-  const handleTerminate = (id: string) => {
-    // Implement terminate functionality
-    toast({
-      title: "Not Implemented",
-      description: "Terminate functionality is not yet implemented.",
-      variant: "default",
-    });
+  const handleLeaseTransfer = async (transferData: TransferLeaseData) => {
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/v1/leases/${selectedLease?.id}/transfer_lease/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(transferData),
+        },
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to transfer lease");
+      }
+      await fetchLeases();
+      setIsTransferModalOpen(false);
+      toast({
+        title: "Success",
+        description: "Lease transferred successfully.",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error("Error transferring lease:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to transfer lease. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTerminate = async (id: string) => {
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/v1/leases/${id}/terminate_lease/`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      if (!response.ok) throw new Error("Failed to terminate lease");
+
+      // Update the lease status in the local state
+      setPropertyLeases((prev) => ({
+        ...prev,
+        [selectedProperty]: prev[selectedProperty].map((lease) =>
+          lease.id === id ? { ...lease, status: "TERMINATED" } : lease,
+        ),
+      }));
+
+      toast({
+        title: "Success",
+        description: "Lease terminated successfully.",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error("Error terminating lease:", error);
+      toast({
+        title: "Error",
+        description: "Failed to terminate lease. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleViewLease = (lease: Lease) => {
@@ -393,6 +460,12 @@ export function Leases() {
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         lease={selectedLease}
+      />
+      <TransferLeaseModal
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        onTransfer={handleLeaseTransfer}
+        leaseId={selectedLease?.id || ""}
       />
     </DashboardShell>
   );

@@ -6,8 +6,10 @@ import { Properties } from "./dashboard/Properties";
 import { Tenants } from "./dashboard/Tenants";
 import { Leases } from "./dashboard/Leases";
 import { Settings } from "./dashboard/Settings";
+import { Messages } from "./dashboard/Messages";
 import ProfilePage from "./Profile";
 import { Units } from "./dashboard/Units";
+import Maintenance from "./dashboard/Maintenance";
 
 export function Dashboard() {
   return (
@@ -19,9 +21,12 @@ export function Dashboard() {
           <Route path="/properties" element={<Properties />} />
           <Route path="/tenants" element={<Tenants />} />
           <Route path="/leases" element={<Leases />} />
-          <Route path="/settings" element={<ProfilePage />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/units" element={<Units />} />
-          <Route path="/units" element={<Settings />} />
+
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/maintenance" element={<Maintenance />} />
         </Routes>
       </main>
     </div>

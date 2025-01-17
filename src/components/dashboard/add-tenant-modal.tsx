@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface Property {
   id: string;
@@ -52,6 +52,8 @@ export function AddTenantModal({
   });
   const [properties, setProperties] = useState<Property[]>([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (isOpen) {
@@ -92,6 +94,8 @@ export function AddTenantModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch("http://127.0.0.1:8000/api/v1/tenants/", {
@@ -102,25 +106,34 @@ export function AddTenantModal({
         },
         body: JSON.stringify(formData),
       });
-      if (!response.ok) throw new Error("Failed to add tenant");
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
       const newTenant = await response.json();
       onAdd(newTenant);
+
       toast({
         title: "Success",
         description: "Tenant added successfully.",
         variant: "default",
       });
+
       setIsSubmitted(true);
-      setTimeout(() => {
-        onClose();
-      }, 2000);
+      setTimeout(onClose, 2000);
     } catch (error) {
       console.error("Error adding tenant:", error);
       toast({
         title: "Error",
-        description: "Failed to add tenant. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to add tenant. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -232,8 +245,9 @@ export function AddTenantModal({
             <Button
               type="submit"
               className="w-full bg-[#38b000] hover:bg-[#2d8a00]"
+              disabled={isLoading}
             >
-              Add Tenant
+              {isLoading ? "Adding Tenant..." : "Add Tenant"}
             </Button>
           </form>
         ) : (

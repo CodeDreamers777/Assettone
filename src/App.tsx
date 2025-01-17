@@ -14,7 +14,8 @@ import BookADemo from "./components/BookADemo";
 import AboutUs from "./components/AbousUs";
 import ContactUs from "./components/ContactUs";
 import ProfilePage from "./components/Profile";
-import { ThemeProvider } from "@/components/theme-provider"; // Import ThemeProvider
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "./components/ui/toaster";
 import { ModeToggle } from "./components/mode-toggle";
 
 function App() {
@@ -68,30 +69,31 @@ function App() {
   return (
     <Router>
       <div className="min-h-screen bg-white dark:bg-gray-900">
-        {/* Desktop Navbar */}
-        <nav className="bg-white dark:bg-gray-800 shadow-lg">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16 items-center">
-              {/* Logo */}
-              <div className="flex-shrink-0 flex items-center">
-                <Link
-                  to="/"
-                  className="
+        {/* Only show navbar when user is not authenticated */}
+        {!isAuthenticated && (
+          <nav className="bg-white dark:bg-gray-800 shadow-lg">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex justify-between h-16 items-center">
+                {/* Logo */}
+                <div className="flex-shrink-0 flex items-center">
+                  <Link
+                    to="/"
+                    className="
                       text-2xl font-bold text-[#38b000] dark:text-[#38b000]
                       hover:text-[#2d9d00] 
                       transition-colors 
                       duration-300
                     "
-                >
-                  Assettone
-                </Link>
-              </div>
+                  >
+                    Assettone
+                  </Link>
+                </div>
 
-              {/* Mobile Menu Button */}
-              <div className="sm:hidden">
-                <button
-                  onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="
+                {/* Mobile Menu Button */}
+                <div className="sm:hidden">
+                  <button
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className="
                       text-gray-600 dark:text-white 
                       hover:text-[#38b000] 
                       focus:outline-none 
@@ -102,102 +104,88 @@ function App() {
                       transition-colors 
                       duration-300
                     "
-                >
-                  {isMenuOpen ? (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-6 w-6"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-6 w-6"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 6h16M4 12h16M4 18h16"
-                      />
-                    </svg>
-                  )}
-                </button>
-              </div>
+                  >
+                    {isMenuOpen ? (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 6h16M4 12h16M4 18h16"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                </div>
 
-              {/* Desktop Navigation Links */}
-              <div className="hidden sm:flex sm:items-center sm:space-x-4">
-                <NavLink to="/">Home</NavLink>
-                <NavLink to="/about-us">About Us</NavLink>
-                <NavLink to="/contact-us">Contact Us</NavLink>
-
-                {isAuthenticated ? (
-                  <div className="flex items-center space-x-4">
-                    <Button
-                      variant="outline"
-                      className="
-      border-[#38b000]
-      text-[#38b000] 
-      hover:bg-[#38b000]/10 
-      transition-colors 
-      duration-300
-    "
-                      asChild
-                    >
-                      <Link to="/dashboard">Dashboard</Link>
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      className="
-      hover:bg-red-600 
-      transition-colors 
-      duration-300
-    "
-                      onClick={handleLogout}
-                    >
-                      Logout
-                    </Button>
-                    <ModeToggle />
-                  </div>
-                ) : (
+                {/* Desktop Navigation Links */}
+                <div className="hidden sm:flex sm:items-center sm:space-x-4">
+                  <NavLink to="/">Home</NavLink>
+                  <NavLink to="/about-us">About Us</NavLink>
+                  <NavLink to="/contact-us">Contact Us</NavLink>
                   <Button
                     className="
-                        bg-[#38b000]
-                        hover:bg-[#2d9d00] 
-                        transition-colors 
-                        duration-300
-                      "
+                      bg-[#38b000]
+                      hover:bg-[#2d9d00] 
+                      transition-colors 
+                      duration-300
+                    "
                     asChild
                   >
                     <Link to="/login">Login / Sign Up</Link>
                   </Button>
-                )}
+                </div>
               </div>
             </div>
-          </div>
-        </nav>
+          </nav>
+        )}
+
+        <Toaster />
 
         <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/book-demo" element={<BookADemo />} />
-          <Route path="/about-us" element={<AboutUs />} />
-          <Route path="/contact-us" element={<ContactUs />} />
           <Route
-            path="/profile"
+            path="/"
             element={
-              isAuthenticated ? <ProfilePage /> : <Navigate to="/login" />
+              isAuthenticated ? <Navigate to="/dashboard" /> : <LandingPage />
+            }
+          />
+          <Route
+            path="/book-demo"
+            element={
+              isAuthenticated ? <Navigate to="/dashboard" /> : <BookADemo />
+            }
+          />
+          <Route
+            path="/about-us"
+            element={
+              isAuthenticated ? <Navigate to="/dashboard" /> : <AboutUs />
+            }
+          />
+          <Route
+            path="/contact-us"
+            element={
+              isAuthenticated ? <Navigate to="/dashboard" /> : <ContactUs />
             }
           />
           <Route

@@ -16,6 +16,9 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { User, Lock } from "lucide-react";
 
+// Define available user types
+export type UserType = "ADMIN" | "MANAGER" | "CLERK" | "TENANT";
+
 interface LoginProps {
   onLoginSuccess: () => void;
 }
@@ -31,7 +34,6 @@ const loginSchema = z.object({
 
 export function Login({ onLoginSuccess }: LoginProps) {
   const [error, setError] = useState<string | null>(null);
-
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -56,6 +58,14 @@ export function Login({ onLoginSuccess }: LoginProps) {
 
       // Save token to localStorage
       localStorage.setItem("accessToken", data.tokens.access);
+
+      // Save user type to localStorage
+      const userType = data.profile?.user_type;
+      if (userType) {
+        localStorage.setItem("userType", userType);
+      } else {
+        console.warn("User type not found in response");
+      }
 
       // Call onLoginSuccess
       onLoginSuccess();

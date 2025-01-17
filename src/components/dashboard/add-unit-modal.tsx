@@ -69,8 +69,13 @@ export function AddUnitModal({
           },
         },
       );
+
+      // Extract the array of tenants from the "Nairobi apartments" key
+      const tenantsArray = response.data["Nairobi apartments"];
+
+      // Set tenants (if further filtering for inactive tenants is needed)
       setTenants(
-        response.data.filter((tenant: Tenant) => tenant.status === "INACTIVE"),
+        tenantsArray.filter((tenant: Tenant) => tenant.status === "INACTIVE"),
       );
     } catch (error) {
       console.error("Error fetching tenants:", error);

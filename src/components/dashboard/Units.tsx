@@ -35,6 +35,7 @@ import {
   FileText,
   DollarSign,
   ClipboardCheck,
+  Bell,
 } from "lucide-react";
 import { AddUnitModal } from "./add-unit-modal";
 import { EditUnitModal } from "./edit-unit-modal";
@@ -216,6 +217,31 @@ export function Units() {
     setUnits(
       units.map((unit) => (unit.id === updatedUnit.id ? updatedUnit : unit)),
     );
+  };
+  const handleSendReminder = async (unitId: string) => {
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      const response = await axios.post(
+        `http://127.0.0.1:8000/api/v1/rental-notices/${unitId}/send_notice/`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+      toast({
+        title: "Success",
+        description: "Reminder sent successfully.",
+      });
+    } catch (error) {
+      console.error("Error sending reminder:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send reminder. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -445,16 +471,21 @@ export function Units() {
                               Lease
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleRequestRent(unit.id)}
-                            >
-                              <ClipboardCheck className="mr-2 h-4 w-4" />
-                              Request Rent
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
                               onClick={() => handlePayRent(unit.id)}
                             >
                               <DollarSign className="mr-2 h-4 w-4" />
                               Pay Rent
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleSendReminder(unit.id)}
+                              disabled={
+                                !unit.current_lease ||
+                                unit.rent_payment_status?.payment_status ===
+                                  "PAID"
+                              }
+                            >
+                              <Bell className="mr-2 h-4 w-4" />
+                              Send Reminder
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

@@ -62,7 +62,7 @@ export function AddUnitModal({
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.get(
-        "http://127.0.0.1:8000/api/v1/tenants/",
+        "https://assettoneestates.pythonanywhere.com/api/v1/tenants/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -130,7 +130,7 @@ export function AddUnitModal({
       };
 
       const response = await axios.post(
-        `http://127.0.0.1:8000/api/v1/units/`,
+        `https://assettoneestates.pythonanywhere.com/api/v1/units/`,
         requestData,
         {
           headers: {

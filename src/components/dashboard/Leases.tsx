@@ -82,11 +82,14 @@ export function Leases() {
   const fetchLeases = async () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch("http://127.0.0.1:8000/api/v1/leases/", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
+      const response = await fetch(
+        "https://assettoneestates.pythonanywhere.com/api/v1/leases/",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         },
-      });
+      );
       if (!response.ok) throw new Error("Failed to fetch leases");
       const data: PropertyLeases = await response.json();
       setPropertyLeases(data);
@@ -126,7 +129,7 @@ export function Leases() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `http://127.0.0.1:8000/api/v1/leases/${id}/`,
+        `https://assettoneestates.pythonanywhere.com/api/v1/leases/${id}/`,
         {
           method: "DELETE",
           headers: {
@@ -168,7 +171,7 @@ export function Leases() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `http://127.0.0.1:8000/api/v1/leases/${id}/`,
+        `https://assettoneestates.pythonanywhere.com/api/v1/leases/${id}/`,
         {
           method: "PATCH",
           headers: {
@@ -213,7 +216,7 @@ export function Leases() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `http://127.0.0.1:8000/api/v1/leases/${selectedLease?.id}/transfer_lease/`,
+        `https://assettoneestates.pythonanywhere.com/api/v1/leases/${selectedLease?.id}/transfer_lease/`,
         {
           method: "POST",
           headers: {
@@ -251,7 +254,7 @@ export function Leases() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `http://127.0.0.1:8000/api/v1/leases/${id}/terminate_lease/`,
+        `https://assettoneestates.pythonanywhere.com/api/v1/leases/${id}/terminate_lease/`,
         {
           method: "POST",
           headers: {

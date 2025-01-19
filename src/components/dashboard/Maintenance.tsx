@@ -99,7 +99,7 @@ const Maintenance: React.FC = () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "http://127.0.0.1:8000/api/v1/maintenance-requests/",
+        "https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -125,11 +125,14 @@ const Maintenance: React.FC = () => {
   const fetchProperties = async () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch("http://127.0.0.1:8000/api/v1/properties/", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
+      const response = await fetch(
+        "https://assettoneestates.pythonanywhere.com/api/v1/properties/",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         },
-      });
+      );
       const data = await response.json();
       if (data.success && Array.isArray(data.properties)) {
         setProperties(data.properties);
@@ -146,11 +149,14 @@ const Maintenance: React.FC = () => {
   const fetchUnits = async () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch("http://127.0.0.1:8000/api/v1/units/", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
+      const response = await fetch(
+        "https://assettoneestates.pythonanywhere.com/api/v1/units/",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         },
-      });
+      );
       const data = await response.json();
       if (Array.isArray(data)) {
         setUnits(data);
@@ -167,11 +173,14 @@ const Maintenance: React.FC = () => {
   const fetchTenants = async () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch("http://127.0.0.1:8000/api/v1/tenants/", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
+      const response = await fetch(
+        "https://assettoneestates.pythonanywhere.com/api/v1/tenants/",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         },
-      });
+      );
       const data = await response.json();
       const allTenants = Object.values(data).flat();
       if (Array.isArray(allTenants)) {
@@ -189,14 +198,15 @@ const Maintenance: React.FC = () => {
   const handleFilter = async () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
-      let url = "http://127.0.0.1:8000/api/v1/maintenance-requests/";
+      let url =
+        "https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/";
 
       if (selectedProperty) {
-        url = `http://127.0.0.1:8000/api/v1/maintenance-requests/by_property/?property_id=${selectedProperty}`;
+        url = `https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/by_property/?property_id=${selectedProperty}`;
       } else if (selectedUnit) {
-        url = `http://127.0.0.1:8000/api/v1/maintenance-requests/by_unit/?unit_id=${selectedUnit}`;
+        url = `https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/by_unit/?unit_id=${selectedUnit}`;
       } else if (selectedTenant) {
-        url = `http://127.0.0.1:8000/api/v1/maintenance-requests/by_tenant/?tenant_id=${selectedTenant}`;
+        url = `https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/by_tenant/?tenant_id=${selectedTenant}`;
       }
 
       const response = await fetch(url, {
@@ -215,7 +225,7 @@ const Maintenance: React.FC = () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
       await fetch(
-        `http://127.0.0.1:8000/api/v1/maintenance-requests/${id}/approve/`,
+        `https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/${id}/approve/`,
         {
           method: "POST",
           headers: {
@@ -233,7 +243,7 @@ const Maintenance: React.FC = () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
       await fetch(
-        `http://127.0.0.1:8000/api/v1/maintenance-requests/${id}/reject/`,
+        `https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/${id}/reject/`,
         {
           method: "POST",
           headers: {
@@ -252,7 +262,7 @@ const Maintenance: React.FC = () => {
       try {
         const accessToken = localStorage.getItem("accessToken");
         await fetch(
-          `http://127.0.0.1:8000/api/v1/maintenance-requests/${selectedRequestId}/complete/`,
+          `https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/${selectedRequestId}/complete/`,
           {
             method: "POST",
             headers: {
@@ -279,7 +289,7 @@ const Maintenance: React.FC = () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "http://127.0.0.1:8000/api/v1/maintenance-requests/",
+        "https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/",
         {
           method: "POST",
           headers: {

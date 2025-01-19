@@ -154,7 +154,7 @@ export function Units() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.get(
-        "http://127.0.0.1:8000/api/v1/properties/",
+        "https://assettoneestates.pythonanywhere.com/api/v1/properties/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -188,7 +188,7 @@ export function Units() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/v1/properties/${propertyId}/units/`,
+        `https://assettoneestates.pythonanywhere.com/api/v1/properties/${propertyId}/units/`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -222,7 +222,7 @@ export function Units() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.post(
-        `http://127.0.0.1:8000/api/v1/rental-notices/${unitId}/send_notice/`,
+        `https://assettoneestates.pythonanywhere.com/api/v1/rental-notices/${unitId}/send_notice/`,
         {},
         {
           headers: {
@@ -247,11 +247,14 @@ export function Units() {
   const handleDelete = async (id: string) => {
     try {
       const accessToken = localStorage.getItem("accessToken");
-      await axios.delete(`http://127.0.0.1:8000/api/v1/units/${id}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
+      await axios.delete(
+        `https://assettoneestates.pythonanywhere.com/api/v1/units/${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         },
-      });
+      );
       setUnits(units.filter((unit) => unit.id !== id));
       toast({
         title: "Success",
@@ -275,7 +278,7 @@ export function Units() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       await axios.post(
-        `http://127.0.0.1:8000/api/v1/units/${unitId}/request-rent/`,
+        `https://assettoneestates.pythonanywhere.com/api/v1/units/${unitId}/request-rent/`,
         {},
         {
           headers: {
@@ -301,7 +304,7 @@ export function Units() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       await axios.post(
-        `http://127.0.0.1:8000/api/v1/units/${unitId}/pay-rent/`,
+        `https://assettoneestates.pythonanywhere.com/api/v1/units/${unitId}/pay-rent/`,
         {},
         {
           headers: {

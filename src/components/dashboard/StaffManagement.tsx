@@ -85,11 +85,14 @@ export function StaffManagement() {
 
   const fetchStaff = async () => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/v1/staff/", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+      const response = await fetch(
+        "https://assettoneestates.pythonanywhere.com/api/v1/staff/",
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+          },
         },
-      });
+      );
       if (!response.ok) throw new Error("Failed to fetch staff");
       const data: PropertyStaff[] = await response.json();
       setPropertyStaff(data);
@@ -108,7 +111,7 @@ export function StaffManagement() {
   const handleCreateStaff = async () => {
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/v1/create-staff-account/",
+        "https://assettoneestates.pythonanywhere.com/api/v1/create-staff-account/",
         {
           method: "POST",
           headers: {
@@ -138,7 +141,7 @@ export function StaffManagement() {
     if (!selectedStaff) return;
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/api/v1/staff/${selectedStaff.id}/`,
+        `https://assettoneestates.pythonanywhere.com/api/v1/staff/${selectedStaff.id}/`,
         {
           method: "PUT",
           headers: {
@@ -167,7 +170,7 @@ export function StaffManagement() {
   const handleDeleteStaff = async (id: string) => {
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/api/v1/staff/${id}/`,
+        `https://assettoneestates.pythonanywhere.com/api/v1/staff/${id}/`,
         {
           method: "DELETE",
           headers: {

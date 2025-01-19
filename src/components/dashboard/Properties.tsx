@@ -109,11 +109,14 @@ export function Properties() {
         return;
       }
 
-      const response = await fetch("http://127.0.0.1:8000/api/v1/properties/", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
+      const response = await fetch(
+        "https://assettoneestates.pythonanywhere.com/api/v1/properties/",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         },
-      });
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch properties");
@@ -144,8 +147,8 @@ export function Properties() {
       }
 
       const url = selectedProperty
-        ? `http://127.0.0.1:8000/api/v1/properties/${selectedProperty.id}/`
-        : "http://127.0.0.1:8000/api/v1/properties/";
+        ? `https://assettoneestates.pythonanywhere.com/api/v1/properties/${selectedProperty.id}/`
+        : "https://assettoneestates.pythonanywhere.com/api/v1/properties/";
 
       const method = selectedProperty ? "PUT" : "POST";
 
@@ -196,7 +199,7 @@ export function Properties() {
       }
 
       const response = await fetch(
-        `http://127.0.0.1:8000/api/v1/properties/${selectedProperty.id}/`,
+        `https://assettoneestates.pythonanywhere.com/api/v1/properties/${selectedProperty.id}/`,
         {
           method: "DELETE",
           headers: {

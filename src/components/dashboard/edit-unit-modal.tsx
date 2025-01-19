@@ -55,7 +55,7 @@ export function EditUnitModal({
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.put(
-        `http://127.0.0.1:8000/api/v1/units/${editingUnit.id}`,
+        `https://assettoneestates.pythonanywhere.com/api/v1/units/${editingUnit.id}`,
         editingUnit,
         {
           headers: {

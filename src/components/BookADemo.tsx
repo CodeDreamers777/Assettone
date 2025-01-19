@@ -55,13 +55,16 @@ export default function BookADemo() {
     setIsLoading(true);
     setSubmitMessage(null);
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/v1/book-demo/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        "https://assettoneestates.pythonanywhere.com/api/v1/book-demo/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(values),
         },
-        body: JSON.stringify(values),
-      });
+      );
 
       if (!response.ok) {
         throw new Error("Failed to submit the form");

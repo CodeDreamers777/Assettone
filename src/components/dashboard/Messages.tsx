@@ -49,11 +49,14 @@ export function Messages() {
   const fetchTenants = async () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch("http://127.0.0.1:8000/api/v1/tenants/", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
+      const response = await fetch(
+        "https://assettoneestates.pythonanywhere.com/api/v1/tenants/",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         },
-      });
+      );
       if (!response.ok) throw new Error("Failed to fetch tenants");
       const data: PropertyTenants = await response.json();
       setPropertyTenants(data);
@@ -111,7 +114,7 @@ export function Messages() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "http://127.0.0.1:8000/api/v1/email-tenants/",
+        "https://assettoneestates.pythonanywhere.com/api/v1/email-tenants/",
         {
           method: "POST",
           headers: {

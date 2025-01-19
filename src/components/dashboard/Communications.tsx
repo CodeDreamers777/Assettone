@@ -46,7 +46,8 @@ const CommunicationHistory = () => {
     try {
       setLoading(true);
       const accessToken = localStorage.getItem("accessToken");
-      let url = "http://127.0.0.1:8000/api/v1/communication-history/";
+      let url =
+        "https://assettoneestates.pythonanywhere.com/api/v1/communication-history/";
 
       const params = new URLSearchParams();
       if (type && type !== "ALL") params.append("type", type);

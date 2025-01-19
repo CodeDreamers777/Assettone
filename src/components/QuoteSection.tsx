@@ -18,16 +18,19 @@ const QuoteSection = () => {
     setQuote(null);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/v1/get-quote/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        "https://assettoneestates.pythonanywhere.com/api/v1/get-quote/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            number_of_units: parseInt(numberOfUnits),
+            average_rent: parseInt(averageRent),
+          }),
         },
-        body: JSON.stringify({
-          number_of_units: parseInt(numberOfUnits),
-          average_rent: parseInt(averageRent),
-        }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch quote");

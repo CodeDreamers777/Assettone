@@ -30,7 +30,7 @@ interface TransferLeaseModalProps {
   leaseId: string;
 }
 
-interface TransferLeaseData {
+export interface TransferLeaseData {
   tenant: string;
   notes?: string;
 }

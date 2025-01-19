@@ -11,7 +11,7 @@ const QuoteSection = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleGetQuote = async (e) => {
+  const handleGetQuote = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");

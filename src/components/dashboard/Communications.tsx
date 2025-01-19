@@ -181,7 +181,7 @@ const CommunicationHistory = () => {
           <Button
             onClick={() => {
               setType("ALL");
-              setStartDate(null);
+              setStartDate(undefined); // Use undefined here
               setTenantId("");
               setSearchTerm("");
             }}

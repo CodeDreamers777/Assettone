@@ -145,7 +145,7 @@ export function Tenants() {
     }
   };
 
-  const handleLease = (id: string) => {
+  const handleLease = () => {
     // Implement lease functionality
     toast({
       title: "Not Implemented",
@@ -154,7 +154,7 @@ export function Tenants() {
     });
   };
 
-  const handleTerminateLease = (id: string) => {
+  const handleTerminateLease = () => {
     // Implement terminate lease functionality
     toast({
       title: "Not Implemented",
@@ -163,7 +163,7 @@ export function Tenants() {
     });
   };
 
-  const handleDeactivateLease = (id: string) => {
+  const handleDeactivateLease = () => {
     // Implement deactivate lease functionality
     toast({
       title: "Not Implemented",
@@ -172,7 +172,7 @@ export function Tenants() {
     });
   };
 
-  const handleTransferLease = (id: string) => {
+  const handleTransferLease = () => {
     // Implement transfer lease functionality
     toast({
       title: "Not Implemented",

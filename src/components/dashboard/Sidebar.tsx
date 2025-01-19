@@ -41,7 +41,7 @@ const tenantItems = [
 export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [userType, setUserType] = useState(null);
+  const [userType, setUserType] = useState<string | null>(null);
   const { logout } = useContext(AuthContext);
 
   useEffect(() => {

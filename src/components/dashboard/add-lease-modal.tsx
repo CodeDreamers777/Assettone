@@ -28,6 +28,7 @@ interface Tenant {
 }
 
 interface Unit {
+  is_occupied: boolean;
   id: string;
   unit_number: string;
   property_name: string;

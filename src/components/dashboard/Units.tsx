@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -181,6 +181,14 @@ export function Units() {
       setProperties([]);
     }
   };
+  const handleEdit = () => {
+    // Implement lease functionality
+    toast({
+      title: "Not Implemented",
+      description: "Edit is not yet implemented.",
+      variant: "default",
+    });
+  };
 
   const fetchUnits = async (propertyId: string) => {
     setIsLoading(true);
@@ -229,6 +237,7 @@ export function Units() {
           },
         },
       );
+      console.log(response);
       toast({
         title: "Success",
         description: "Reminder sent successfully.",
@@ -271,32 +280,6 @@ export function Units() {
 
   const handleLease = (id: string) => {
     navigate(`/dashboard/leases/create?unitId=${id}`);
-  };
-
-  const handleRequestRent = async (unitId: string) => {
-    try {
-      const accessToken = localStorage.getItem("accessToken");
-      await axios.post(
-        `https://assettoneestates.pythonanywhere.com/api/v1/units/${unitId}/request-rent/`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      );
-      toast({
-        title: "Success",
-        description: "Rent request sent successfully.",
-      });
-    } catch (error) {
-      console.error("Error requesting rent:", error);
-      toast({
-        title: "Error",
-        description: "Failed to request rent. Please try again.",
-        variant: "destructive",
-      });
-    }
   };
 
   const handlePayRent = async (unitId: string) => {

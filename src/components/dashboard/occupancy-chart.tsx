@@ -46,7 +46,7 @@ export function OccupancyChart({ metrics }: OccupancyChartProps) {
                 dataKey="value"
                 label
               >
-                {data.map((entry, index) => (
+                {data.map((_item, index) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={COLORS[index % COLORS.length]}

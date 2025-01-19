@@ -185,9 +185,10 @@ const Maintenance: React.FC = () => {
         },
       );
       const data = await response.json();
-      const allTenants = Object.values(data).flat();
-      if (Array.isArray(allTenants)) {
-        setTenants(allTenants);
+
+      // Explicitly type-check or assert data
+      if (Array.isArray(data) && data.every((item) => isTenant(item))) {
+        setTenants(data);
       } else {
         console.error("Fetched tenants data is not as expected:", data);
         setTenants([]);
@@ -196,6 +197,15 @@ const Maintenance: React.FC = () => {
       console.error("Error fetching tenants:", error);
       setTenants([]);
     }
+  };
+
+  // Helper function to validate Tenant objects
+  const isTenant = (item: any): item is Tenant => {
+    return (
+      typeof item.id === "string" &&
+      typeof item.first_name === "string" &&
+      typeof item.last_name === "string"
+    );
   };
 
   const handleFilter = async () => {

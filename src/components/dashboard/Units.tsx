@@ -181,8 +181,8 @@ export function Units() {
       setProperties([]);
     }
   };
-  const handleEdit = () => {
-    // Implement lease functionality
+  const handleEdit = (unit: Unit) => {
+    console.log(unit);
     toast({
       title: "Not Implemented",
       description: "Edit is not yet implemented.",

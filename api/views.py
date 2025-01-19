@@ -1987,3 +1987,49 @@ class StaffAccountView(APIView):
         staff.user.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DynamicSubscriptionQuoteView(APIView):
+    def post(self, request, *args, **kwargs):
+        try:
+            # Inputs
+            number_of_units = int(request.data.get("number_of_units", 0))
+            average_rent = float(request.data.get("average_rent", 0))
+
+            if number_of_units <= 0 or average_rent <= 0:
+                return Response(
+                    {
+                        "error": "Number of units and average rent must be greater than zero."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Calculate Total Revenue
+            total_revenue = number_of_units * average_rent
+
+            # Dynamic Percentage Logic (example)
+            if total_revenue > 5_000_000:
+                percentage_rate = 0.001  # 0.10% for revenue > 5M
+            elif total_revenue > 1_000_000:
+                percentage_rate = 0.0015  # 0.15% for revenue > 1M
+            else:
+                percentage_rate = 0.002  # 0.20% for lower revenue
+
+            # Subscription Fee Calculation
+            subscription_fee = total_revenue * percentage_rate
+
+            # Response Data
+            data = {
+                "Total Revenue": f"{total_revenue:,.2f} KES",
+                "Subscription Fee": f"{subscription_fee:,.2f} KES",
+                "Percentage Rate Used": f"{percentage_rate * 100:.2f}%",
+            }
+            return Response(data, status=status.HTTP_200_OK)
+
+        except ValueError:
+            return Response(
+                {
+                    "error": "Invalid input. Please provide valid numbers for units and rent."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )

@@ -30,6 +30,7 @@ router.register(
 urlpatterns = [
     # Authentication and user-related endpoints
     path("health/", views.HealthCheckApiview.as_view(), name="health-check"),
+    path("get-quote/", views.DynamicSubscriptionQuoteView.as_view(), name="get-quote"),
     path("register/", views.UserRegistrationView.as_view(), name="user_register"),
     path("login/", views.UserLoginView.as_view(), name="user_login"),
     path(

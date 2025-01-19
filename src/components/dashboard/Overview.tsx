@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useEffect, useState } from "react";
 import { DashboardHeader } from "./header";
 import { DashboardShell } from "./shell";
@@ -30,7 +29,6 @@ export function Overview() {
         setIsLoading(false);
       }
     };
-
     fetchData();
   }, []);
 
@@ -52,20 +50,31 @@ export function Overview() {
         heading="Dashboard"
         text="Welcome back! Here's an overview of your rental properties."
       />
-      <DateRangePicker
-        startDate={dashboardData.date_range.start_date}
-        endDate={dashboardData.date_range.end_date}
-      />
+      <div className="relative mb-6">
+        <DateRangePicker
+          startDate={dashboardData.date_range.start_date}
+          endDate={dashboardData.date_range.end_date}
+        />
+      </div>
+
       <div className="grid gap-6">
-        <div className="grid gap-6 md:grid-cols-2">
-          <PropertyMetrics metrics={dashboardData.property_metrics} />
-          <FinancialMetrics metrics={dashboardData.financial_metrics} />
+        <div className="relative grid gap-6 md:grid-cols-2">
+          <div className="relative z-10">
+            <PropertyMetrics metrics={dashboardData.property_metrics} />
+          </div>
+          <div className="relative z-20 md:transform md:transition-transform md:hover:scale-102 md:hover:shadow-lg">
+            <FinancialMetrics metrics={dashboardData.financial_metrics} />
+          </div>
         </div>
-        <div className="grid gap-6 md:grid-cols-2">
+
+        <div className="relative z-0 grid gap-6 md:grid-cols-2">
           <OccupancyChart metrics={dashboardData.occupancy_metrics} />
           <MaintenanceMetrics metrics={dashboardData.maintenance_metrics} />
         </div>
-        <MonthlyTrends trends={dashboardData.monthly_trends} />
+
+        <div className="relative z-0">
+          <MonthlyTrends trends={dashboardData.monthly_trends} />
+        </div>
       </div>
     </DashboardShell>
   );

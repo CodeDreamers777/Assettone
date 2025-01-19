@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -15,33 +15,52 @@ import {
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { ScrollArea } from "../ui/scroll-area";
+import { AuthContext } from "../../App"; // Adjust the import path as needed
 
-const sidebarItems = [
+// Admin menu items
+const adminItems = [
   { icon: LayoutDashboard, label: "Overview", href: "/dashboard" },
   { icon: Building, label: "Properties", href: "/dashboard/properties" },
   { icon: Box, label: "Units", href: "/dashboard/units" },
   { icon: Users, label: "Tenants", href: "/dashboard/tenants" },
   { icon: FileText, label: "Leases", href: "/dashboard/leases" },
   { icon: Tool, label: "Maintenance", href: "/dashboard/maintenance" },
-  { icon: MessageSquare, label: "Messages", href: "/dashboard/messages" }, // New item
+  { icon: MessageSquare, label: "Messages", href: "/dashboard/messages" },
   { icon: User, label: "Profile", href: "/dashboard/profile" },
   { icon: Settings, label: "Settings", href: "/dashboard/settings" },
+];
+
+// Tenant menu items
+const tenantItems = [
+  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
+  { icon: Tool, label: "Maintenance", href: "/dashboard/maintenance" },
+  { icon: Settings, label: "Settings", href: "/dashboard/settings" },
+  { icon: User, label: "Profile", href: "/dashboard/profile" },
 ];
 
 export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [userType, setUserType] = useState(null);
+  const { logout } = useContext(AuthContext);
+
+  useEffect(() => {
+    const storedUserType = localStorage.getItem("userType");
+    setUserType(storedUserType);
+  }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    setIsAuthenticated(false);
-    navigate("/login");
+    logout(); // This will clear localStorage and update authentication state
+    navigate("/login", { replace: true });
   };
+
+  // Determine which menu items to show based on user type
+  const sidebarItems = userType === "TENANT" ? tenantItems : adminItems;
 
   return (
     <div className="hidden lg:block border-r bg-gray-100/40 lg:w-60">
       <div className="flex flex-col h-full">
+        {/* Rest of the component remains the same */}
         <div className="h-16 flex items-center border-b px-6">
           <Link to="/" className="flex items-center gap-2 font-semibold">
             <Home className="h-6 w-6" style={{ color: "#38b000" }} />
@@ -87,3 +106,5 @@ export function Sidebar() {
     </div>
   );
 }
+
+export default Sidebar;

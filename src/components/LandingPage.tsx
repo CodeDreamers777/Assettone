@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Building2, Key, BarChart3, Shield, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Building2, Key, BarChart3, Shield, MessageSquare } from "lucide-react";
+import QuoteSection from "./QuoteSection"; // Import the new QuoteSection component
 
 export function LandingPage() {
   const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-green-50">
       {/* Hero Section */}
@@ -29,6 +32,9 @@ export function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* Quote Section - Now using the new component */}
+      <QuoteSection />
 
       {/* Features Section */}
       <section className="py-20 bg-white">

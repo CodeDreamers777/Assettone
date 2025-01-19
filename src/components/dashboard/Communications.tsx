@@ -47,7 +47,7 @@ const CommunicationHistory = () => {
   const [history, setHistory] = useState<CommunicationHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [type, setType] = useState("ALL");
-  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [tenantId, setTenantId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -157,7 +157,7 @@ const CommunicationHistory = () => {
               <Calendar
                 mode="single"
                 selected={startDate}
-                onSelect={setStartDate}
+                onSelect={(day) => setStartDate(day || undefined)} // Handle potential undefined
                 initialFocus
               />
             </PopoverContent>

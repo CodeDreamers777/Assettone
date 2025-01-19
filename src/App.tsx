@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, createContext } from "react";
 import {
   BrowserRouter as Router,
   Route,
@@ -15,11 +15,15 @@ import AboutUs from "./components/AbousUs";
 import ContactUs from "./components/ContactUs";
 import { Toaster } from "./components/ui/toaster";
 
-// Create an auth context to share authentication state
-import { createContext } from "react";
-export const AuthContext = createContext({
+// AuthContext with proper typing
+interface AuthContextType {
+  isAuthenticated: boolean;
+  setIsAuthenticated: (value: boolean) => void;
+  logout: () => void;
+}
+export const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
-  setIsAuthenticated: (value: boolean) => {},
+  setIsAuthenticated: () => {},
   logout: () => {},
 });
 
@@ -29,23 +33,26 @@ function App() {
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
-    if (token) {
-      setIsAuthenticated(true);
-    } else {
-      setIsAuthenticated(false);
-    }
+    setIsAuthenticated(!!token); // Simplified logic
   }, []);
 
   const logout = () => {
-    localStorage.clear(); // Clear all storage
+    localStorage.clear();
     setIsAuthenticated(false);
   };
 
-  const NavLink = ({
+  // NavLink Props Interface
+  interface NavLinkProps {
+    to: string;
+    children: React.ReactNode;
+    className?: string;
+    activeClassName?: string;
+  }
+
+  const NavLink: React.FC<NavLinkProps> = ({
     to,
     children,
     className = "",
-    activeClassName = "border-primary text-primary",
   }) => {
     return (
       <Link

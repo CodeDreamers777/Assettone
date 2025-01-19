@@ -5,7 +5,6 @@ import {
   Routes,
   Link,
   Navigate,
-  useNavigate,
 } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LandingPage } from "./components/LandingPage";
@@ -14,10 +13,7 @@ import AuthScreen from "./components/Authscreen";
 import BookADemo from "./components/BookADemo";
 import AboutUs from "./components/AbousUs";
 import ContactUs from "./components/ContactUs";
-import ProfilePage from "./components/Profile";
-import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "./components/ui/toaster";
-import { ModeToggle } from "./components/mode-toggle";
 
 // Create an auth context to share authentication state
 import { createContext } from "react";

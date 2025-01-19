@@ -34,7 +34,6 @@ import {
   Trash,
   FileText,
   DollarSign,
-  ClipboardCheck,
   Bell,
 } from "lucide-react";
 import { AddUnitModal } from "./add-unit-modal";

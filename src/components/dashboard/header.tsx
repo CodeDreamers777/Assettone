@@ -1,5 +1,3 @@
-import { cn } from "@/lib/utils";
-
 interface DashboardHeaderProps {
   heading: string;
   text?: string;

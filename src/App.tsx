@@ -174,6 +174,48 @@ function App() {
                     </Button>
                   </div>
                 </div>
+
+                {/* Mobile Menu */}
+                {isMenuOpen && (
+                  <div className="sm:hidden">
+                    <div className="px-2 pt-2 pb-3 space-y-1">
+                      <Link
+                        to="/"
+                        className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-[#38b000] hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors duration-300"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Home
+                      </Link>
+                      <Link
+                        to="/about-us"
+                        className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-[#38b000] hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors duration-300"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        About Us
+                      </Link>
+                      <Link
+                        to="/contact-us"
+                        className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-[#38b000] hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors duration-300"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Contact Us
+                      </Link>
+                      <div className="px-3 py-2">
+                        <Button
+                          className="w-full bg-[#38b000] hover:bg-[#2d9d00] transition-colors duration-300"
+                          asChild
+                        >
+                          <Link
+                            to="/login"
+                            onClick={() => setIsMenuOpen(false)}
+                          >
+                            Login / Sign Up
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </nav>
           )}

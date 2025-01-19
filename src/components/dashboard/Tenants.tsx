@@ -145,8 +145,9 @@ export function Tenants() {
     }
   };
 
-  const handleLease = () => {
+  const handleLease = (id: string) => {
     // Implement lease functionality
+    console.log(id);
     toast({
       title: "Not Implemented",
       description: "Lease functionality is not yet implemented.",
@@ -154,8 +155,10 @@ export function Tenants() {
     });
   };
 
-  const handleTerminateLease = () => {
+  const handleTerminateLease = (id: string) => {
     // Implement terminate lease functionality
+    console.log(id);
+
     toast({
       title: "Not Implemented",
       description: "Terminate lease functionality is not yet implemented.",
@@ -163,8 +166,10 @@ export function Tenants() {
     });
   };
 
-  const handleDeactivateLease = () => {
+  const handleDeactivateLease = (id: string) => {
     // Implement deactivate lease functionality
+    console.log(id);
+
     toast({
       title: "Not Implemented",
       description: "Deactivate lease functionality is not yet implemented.",
@@ -172,8 +177,10 @@ export function Tenants() {
     });
   };
 
-  const handleTransferLease = () => {
+  const handleTransferLease = (id: string) => {
     // Implement transfer lease functionality
+    console.log(id);
+
     toast({
       title: "Not Implemented",
       description: "Transfer lease functionality is not yet implemented.",

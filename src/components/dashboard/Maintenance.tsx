@@ -32,8 +32,8 @@ interface MaintenanceRequest {
   id: string;
   title: string;
   description: string;
-  priority: string;
-  status: string;
+  priority: Priority; // Update this
+  status: Status;
   requested_date: string;
   approved_rejected_date: string | null;
   completed_date: string | null;
@@ -62,6 +62,9 @@ interface Tenant {
   first_name: string;
   last_name: string;
 }
+
+type Priority = "HIGH" | "MEDIUM" | "LOW";
+type Status = "PENDING" | "APPROVED" | "REJECTED" | "COMPLETED";
 
 const Maintenance: React.FC = () => {
   const [maintenanceRequests, setMaintenanceRequests] = useState<
@@ -310,23 +313,23 @@ const Maintenance: React.FC = () => {
     }
   };
 
-  const getPriorityStyles = (priority: string) => {
-    const styles = {
+  const getPriorityStyles = (priority: Priority): string => {
+    const styles: Record<Priority, string> = {
       HIGH: "bg-red-100 text-red-800 hover:bg-red-200",
       MEDIUM: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
       LOW: "bg-green-100 text-green-800 hover:bg-green-200",
     };
-    return styles[priority] || "bg-gray-100 text-gray-800 hover:bg-gray-200";
+    return styles[priority];
   };
 
-  const getStatusStyles = (status: string) => {
-    const styles = {
+  const getStatusStyles = (status: Status): string => {
+    const styles: Record<Status, string> = {
       PENDING: "bg-yellow-100 text-yellow-800",
       APPROVED: "bg-green-100 text-green-800",
       REJECTED: "bg-red-100 text-red-800",
       COMPLETED: "bg-blue-100 text-blue-800",
     };
-    return styles[status] || "bg-gray-100 text-gray-800";
+    return styles[status];
   };
 
   return (
@@ -440,12 +443,18 @@ const Maintenance: React.FC = () => {
                       {request.description}
                     </TableCell>
                     <TableCell>
-                      <Badge className={getPriorityStyles(request.priority)}>
+                      <Badge
+                        className={getPriorityStyles(
+                          request.priority as Priority,
+                        )}
+                      >
                         {request.priority}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStatusStyles(request.status)}>
+                      <Badge
+                        className={getStatusStyles(request.status as Status)}
+                      >
                         {request.status}
                       </Badge>
                     </TableCell>

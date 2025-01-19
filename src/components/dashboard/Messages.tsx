@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { DashboardShell } from "./shell";
 import { DashboardHeader } from "./header";
 import { Button } from "@/components/ui/button";

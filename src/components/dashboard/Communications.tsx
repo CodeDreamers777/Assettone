@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,11 +30,24 @@ import {
   AlertCircle,
 } from "lucide-react";
 
+// Define the type for communication history items
+interface CommunicationHistoryItem {
+  id: string;
+  type: string;
+  subject: string;
+  message: string;
+  sent_by: { name: string };
+  sent_at: string;
+  recipients: { id: string; name: string }[];
+  status: string;
+  error_message?: string;
+}
+
 const CommunicationHistory = () => {
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState<CommunicationHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [type, setType] = useState("ALL");
-  const [startDate, setStartDate] = useState(null);
+  const [startDate, setStartDate] = useState<Date | null>(null);
   const [tenantId, setTenantId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -67,7 +80,9 @@ const CommunicationHistory = () => {
 
       if (!response.ok) throw new Error("Failed to fetch history");
 
-      const { data } = await response.json();
+      const { data } = (await response.json()) as {
+        data: CommunicationHistoryItem[];
+      };
       setHistory(data);
     } catch (error) {
       console.error("Error fetching history:", error);
@@ -83,7 +98,7 @@ const CommunicationHistory = () => {
       item.sent_by.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "SUCCESS":
         return "bg-green-100 text-green-800";
@@ -94,7 +109,7 @@ const CommunicationHistory = () => {
     }
   };
 
-  const getTypeIcon = (type) => {
+  const getTypeIcon = (type: string) => {
     switch (type) {
       case "EMAIL":
         return <Mail className="w-4 h-4" />;
@@ -234,12 +249,17 @@ const CommunicationHistory = () => {
 
                 <div className="text-sm">
                   <strong className="text-gray-600">Recipients: </strong>
-                  {item.recipients.map((recipient, index) => (
-                    <span key={recipient.id}>
-                      {recipient.name}
-                      {index < item.recipients.length - 1 ? ", " : ""}
-                    </span>
-                  ))}
+                  {item.recipients.map(
+                    (
+                      recipient: { id: string; name: string },
+                      index: number,
+                    ) => (
+                      <span key={recipient.id}>
+                        {recipient.name}
+                        {index < item.recipients.length - 1 ? ", " : ""}
+                      </span>
+                    ),
+                  )}
                 </div>
               </div>
             ))

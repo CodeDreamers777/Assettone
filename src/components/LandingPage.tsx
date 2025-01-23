@@ -3,14 +3,23 @@ import { useNavigate } from "react-router-dom";
 import { Building2, Key, BarChart3, Shield, MessageSquare } from "lucide-react";
 import QuoteSection from "./QuoteSection"; // Import the new QuoteSection component
 
+import companyLogo from "../assets/Assettone Estates Logo.jpg";
+
 export function LandingPage() {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-green-50">
       {/* Hero Section */}
-      <section className="pt-32 pb-20 bg-gradient-to-br from-green-50/20 to-green-100/20">
-        <div className="container mx-auto px-4 text-center">
+      <section className="pt-32 pb-20 bg-gradient-to-br from-green-50/20 to-green-100/20 relative">
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-10"
+          style={{
+            backgroundImage: `url(${companyLogo})`,
+            backgroundSize: "contain",
+          }}
+        />
+        <div className="container mx-auto px-4 text-center relative z-10">
           <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-[#38b000] to-green-600 animate-gradient">
             Simplify Your Rental Property Management
           </h1>

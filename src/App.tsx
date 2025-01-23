@@ -15,6 +15,7 @@ import AboutUs from "./components/AbousUs";
 import ContactUs from "./components/ContactUs";
 import { Toaster } from "./components/ui/toaster";
 
+import companyLogo from "../src/assets/Assettone Estates Logo transparent (2).png";
 // AuthContext with proper typing
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -96,13 +97,17 @@ function App() {
                     <Link
                       to="/"
                       className="
-                        text-2xl font-bold text-[#38b000] dark:text-[#38b000]
-                        hover:text-[#2d9d00] 
-                        transition-colors 
-                        duration-300
-                      "
+      flex items-center
+      hover:opacity-80 
+      transition-opacity 
+      duration-300
+    "
                     >
-                      Assettone
+                      <img
+                        src={companyLogo}
+                        alt="Assettone Logo"
+                        className="h-20 md:h-32 lg:h-48 w-auto object-contain"
+                      />
                     </Link>
                   </div>
 

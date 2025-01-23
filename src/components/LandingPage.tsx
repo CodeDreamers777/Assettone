@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Building2, Key, BarChart3, Shield, MessageSquare } from "lucide-react";
+import { Building2, BarChart3, Shield, MessageSquare } from "lucide-react";
 import QuoteSection from "./QuoteSection"; // Import the new QuoteSection component
 
 import companyLogo from "../assets/Assettone Estates Logo.jpg";

@@ -40,7 +40,7 @@ export default function AboutUs() {
       <div className="max-w-7xl mx-auto">
         <div className="text-center">
           <h1 className="text-3xl font-extrabold text-green-800 sm:text-4xl">
-            About RentEase
+            About Assettone Estates
           </h1>
           <p className="mt-4 text-xl text-green-600">
             Your all-in-one property management solution
@@ -79,7 +79,7 @@ export default function AboutUs() {
             </CardHeader>
             <CardContent>
               <p className="text-lg text-green-600">
-                At RentEase, we're committed to simplifying property management
+                At Assettone, we're committed to simplifying property management
                 for landlords and tenants alike. Our comprehensive platform
                 streamlines every aspect of property management, from rent
                 collection to maintenance requests, ensuring a smooth and
@@ -94,7 +94,7 @@ export default function AboutUs() {
           </h2>
           <p className="mt-4 text-lg text-green-600">
             Join thousands of satisfied users who have transformed their
-            property management experience with RentEase.
+            property management experience with Assettone.
           </p>
         </div>
       </div>

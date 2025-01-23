@@ -222,20 +222,23 @@ export default function ContactUs() {
                     <MapPin className="h-4 w-4 text-[#38b000]" />
                   </div>
                   <span className="text-green-600">
-                    123 Property St, New York, NY 10001
+                    The Promenade, General Mathenge Rd, Nairobi, Kenya
                   </span>
                 </div>
                 <div className="flex items-center space-x-3">
                   <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
                     <Phone className="h-4 w-4 text-[#38b000]" />
                   </div>
-                  <span className="text-green-600">+1 (555) 123-4567</span>
+                  <span className="text-green-600">+254 718 115537</span>
+                  <span className="text-green-600">+254 716 288400</span>
                 </div>
                 <div className="flex items-center space-x-3">
                   <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
                     <Mail className="h-4 w-4 text-[#38b000]" />
                   </div>
-                  <span className="text-green-600">contact@rentease.com</span>
+                  <span className="text-green-600">
+                    info@assettoneestates.com
+                  </span>
                 </div>
               </CardContent>
             </Card>

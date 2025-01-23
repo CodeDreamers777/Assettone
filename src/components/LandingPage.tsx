@@ -25,7 +25,7 @@ export function LandingPage() {
           </h1>
           <p className="text-xl text-gray-700 mb-8 max-w-2xl mx-auto">
             Streamline your property management with our all-in-one solution.
-            From tenant screening to maintenance requests, we've got you
+            From tenant management to maintenance requests, we've got you
             covered.
           </p>
           <div className="flex gap-4 justify-center">
@@ -55,11 +55,6 @@ export function LandingPage() {
               icon={<Building2 className="w-10 h-10 text-[#38b000]" />}
               title="Property Management"
               description="Easily manage multiple properties from a single dashboard with detailed property insights."
-            />
-            <FeatureCard
-              icon={<Key className="w-10 h-10 text-[#38b000]" />}
-              title="Tenant Screening"
-              description="Comprehensive tenant screening with background checks and rental history verification."
             />
             <FeatureCard
               icon={<BarChart3 className="w-10 h-10 text-[#38b000]" />}

@@ -13,10 +13,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { User, Lock } from "lucide-react";
+import { User, Lock, Eye, EyeOff } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
-// Define available user types
 export type UserType = "ADMIN" | "MANAGER" | "CLERK" | "TENANT";
 
 interface LoginProps {
@@ -33,7 +32,9 @@ const loginSchema = z.object({
 });
 
 export function Login({ onLoginSuccess }: LoginProps) {
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const [showPassword, setShowPassword] = useState(false);
+
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -56,27 +57,53 @@ export function Login({ onLoginSuccess }: LoginProps) {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "An error occurred");
+        toast({
+          title: "Login Failed",
+          description: data.message || "An error occurred",
+          variant: "destructive",
+        });
+        return;
       }
 
-      // Save token to localStorage
+      // Save tokens and user info to localStorage
       localStorage.setItem("accessToken", data.tokens.access);
+      localStorage.setItem("refreshToken", data.tokens.refresh);
 
       // Save user type to localStorage
       const userType = data.profile?.user_type;
       if (userType) {
         localStorage.setItem("userType", userType);
-      } else {
-        console.warn("User type not found in response");
       }
+
+      // Save last session to localStorage
+      const lastSession = data.last_session;
+      if (lastSession) {
+        localStorage.setItem("lastSession", lastSession);
+
+        // Show last session toast in green
+        toast({
+          title: "Last Session",
+          description: `Previous login: ${new Date(lastSession).toLocaleString()}`,
+          variant: "default",
+          className: "bg-green-500 text-white",
+        });
+      }
+
+      // Show success toast
+      toast({
+        title: "Login Successful",
+        description: `Welcome, ${data.profile.username}!`,
+      });
 
       // Call onLoginSuccess
       onLoginSuccess();
-
-      // Log success (you can remove this in production)
-      console.log("Login successful");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      toast({
+        title: "Login Error",
+        description:
+          err instanceof Error ? err.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
     }
   }
 
@@ -113,22 +140,24 @@ export function Login({ onLoginSuccess }: LoginProps) {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                   <Input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
-                    className="pl-10"
+                    className="pl-10 pr-10"
                     {...field}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
                 </div>
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
         <Button type="submit" className="w-full">
           Sign In
         </Button>

@@ -21,10 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { User, Mail, Phone, Lock, CreditCard } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { User, Mail, Phone, Lock, CreditCard, Eye, EyeOff } from "lucide-react";
 
-// Updated Zod schema to match backend field names
 const signUpSchema = z.object({
   first_name: z.string().min(1, { message: "First name is required" }),
   last_name: z.string().min(1, { message: "Last name is required" }),
@@ -49,7 +48,8 @@ interface SignUpProps {
 }
 
 export function SignUp({ onSignUpSuccess }: SignUpProps) {
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<z.infer<typeof signUpSchema>>({
     resolver: zodResolver(signUpSchema),
@@ -67,7 +67,6 @@ export function SignUp({ onSignUpSuccess }: SignUpProps) {
 
   async function onSubmit(values: z.infer<typeof signUpSchema>) {
     try {
-      console.log("Submitting signup data:", values); // Added for debugging
       const response = await fetch(
         "https://assettoneestates.pythonanywhere.com/api/v1/register/",
         {
@@ -79,17 +78,37 @@ export function SignUp({ onSignUpSuccess }: SignUpProps) {
 
       const data = await response.json();
 
-      console.log("Response from server:", response, data); // Added for debugging
+      if (!data.success) {
+        // Handle specific error messages
+        const errorMessages = Object.entries(data.message)
+          .map(
+            ([field, errors]) => `${field}: ${(errors as string[]).join(", ")}`,
+          )
+          .join("\n");
 
-      if (!response.ok) {
-        throw new Error(data.error || "An error occurred during signup");
+        toast({
+          title: "Sign Up Failed",
+          description: errorMessages || "An error occurred during signup",
+          variant: "destructive",
+        });
+        return;
       }
+
+      // Show success toast
+      toast({
+        title: "Sign Up Successful",
+        description: `Welcome, ${values.username}! Please log in.`,
+      });
 
       // Call the onSignUpSuccess callback to switch to the login tab
       onSignUpSuccess();
     } catch (err) {
-      console.error("Signup error:", err); // Added for debugging
-      setError(err instanceof Error ? err.message : "An error occurred");
+      toast({
+        title: "Sign Up Error",
+        description:
+          err instanceof Error ? err.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
     }
   }
 
@@ -240,22 +259,24 @@ export function SignUp({ onSignUpSuccess }: SignUpProps) {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                   <Input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
-                    className="pl-10"
+                    className="pl-10 pr-10"
                     {...field}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
                 </div>
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
         <Button type="submit" className="w-full">
           Create Account
         </Button>

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { toast } from "@/hooks/use-toast";
 import { DashboardHeader } from "./header";
 import { DashboardShell } from "./shell";
 import { PropertyMetrics } from "./property-metrics";
@@ -19,6 +20,21 @@ export function Overview() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Fetch last login from local storage and show toast
+    const lastSession = localStorage.getItem("lastSession");
+    if (lastSession) {
+      try {
+        const lastSessionDate = new Date(lastSession);
+        toast({
+          title: "Last Login",
+          description: `You last logged in on: ${lastSessionDate.toLocaleString()}`,
+        });
+      } catch (error) {
+        console.error("Error parsing last session date:", error);
+      }
+    }
+
+    // Fetch dashboard data
     const fetchData = async () => {
       try {
         const data = await fetchDashboardMetrics();
@@ -56,7 +72,6 @@ export function Overview() {
           endDate={dashboardData.date_range.end_date}
         />
       </div>
-
       <div className="grid gap-6">
         <div className="relative grid gap-6 md:grid-cols-2">
           <div className="relative z-10">
@@ -66,12 +81,10 @@ export function Overview() {
             <FinancialMetrics metrics={dashboardData.financial_metrics} />
           </div>
         </div>
-
         <div className="relative z-0 grid gap-6 md:grid-cols-2">
           <OccupancyChart metrics={dashboardData.occupancy_metrics} />
           <MaintenanceMetrics metrics={dashboardData.maintenance_metrics} />
         </div>
-
         <div className="relative z-0">
           <MonthlyTrends trends={dashboardData.monthly_trends} />
         </div>

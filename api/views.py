@@ -118,11 +118,12 @@ class UserLoginView(APIView):
 
     def post(self, request):
         """
-        Handle user login
+        Handle user login with comprehensive error handling
         """
         username = request.data.get("username")
         password = request.data.get("password")
 
+        # Validate input
         if not username or not password:
             return Response(
                 {
@@ -132,19 +133,58 @@ class UserLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Authenticate user
-        user = authenticate(username=username, password=password)
-        profile = Profile.objects.get(user=user)
+        try:
+            # Check if user exists
+            try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                return Response(
+                    {
+                        "success": False,
+                        "message": "User does not exist",
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
-        if user:
+            # Authenticate user
+            authenticated_user = authenticate(username=username, password=password)
+
+            if authenticated_user is None:
+                return Response(
+                    {
+                        "success": False,
+                        "message": "Invalid password",
+                    },
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+
+            # Retrieve or create profile
+            try:
+                profile = Profile.objects.get(user=authenticated_user)
+            except Profile.DoesNotExist:
+                return Response(
+                    {
+                        "success": False,
+                        "message": "Profile not found for the user",
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Update last session timestamp
+            profile.last_session = timezone.now()
+            profile.save()
+
             # Generate tokens
-            refresh = RefreshToken.for_user(user)
+            refresh = RefreshToken.for_user(authenticated_user)
 
             return Response(
                 {
                     "success": True,
                     "message": "Login successful",
-                    "user_id": str(user.id),
+                    "user_id": str(authenticated_user.id),
+                    "last_session": profile.last_session.isoformat()
+                    if profile.last_session
+                    else None,
                     "profile": {
                         "user_id": str(profile.user.id),
                         "username": profile.user.username,
@@ -161,7 +201,7 @@ class UserLoginView(APIView):
                             "can_view_financial_data": profile.can_view_financial_data,
                         },
                     },
-                    "username": user.username,
+                    "username": authenticated_user.username,
                     "tokens": {
                         "refresh": str(refresh),
                         "access": str(refresh.access_token),
@@ -170,10 +210,16 @@ class UserLoginView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        return Response(
-            {"success": False, "message": "Invalid credentials"},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
+        except Exception as e:
+            # Catch any unexpected errors
+            return Response(
+                {
+                    "success": False,
+                    "message": "An unexpected error occurred",
+                    "error": str(e),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class UserProfileView(APIView):

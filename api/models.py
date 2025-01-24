@@ -24,6 +24,7 @@ class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
+    last_session = models.DateTimeField(null=True, blank=True)
     user_type = models.CharField(
         max_length=10, choices=UserType.choices, default=UserType.CLERK
     )

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import { Sidebar } from "./dashboard/Sidebar";
 import { Overview } from "./dashboard/Overview";
@@ -11,9 +12,25 @@ import { Units } from "./dashboard/Units";
 import Maintenance from "./dashboard/Maintenance";
 
 export function Dashboard() {
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:block">
+        <Sidebar />
+      </div>
+
+      {/* Mobile Sidebar Toggle */}
+      <div className="lg:hidden">
+        <Sidebar
+          isMobileOpen={isMobileSidebarOpen}
+          onClose={() => setIsMobileSidebarOpen(false)}
+          onMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+        />
+      </div>
+
+      {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto">
         <Routes>
           <Route path="/" element={<Overview />} />
@@ -23,7 +40,6 @@ export function Dashboard() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/units" element={<Units />} />
-
           <Route path="/messages" element={<Messages />} />
           <Route path="/maintenance" element={<Maintenance />} />
         </Routes>

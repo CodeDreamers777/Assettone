@@ -205,16 +205,16 @@ export function StaffManagement() {
     : [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <Card className="border-green-100">
-        <CardHeader className="bg-green-50/50">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-green-800 flex items-center gap-2">
+        <CardHeader className="bg-green-50/50 p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
+            <div className="text-center sm:text-left w-full">
+              <CardTitle className="text-green-800 flex items-center justify-center sm:justify-start gap-2 mb-2">
                 <User className="h-5 w-5" />
                 Staff Management
               </CardTitle>
-              <CardDescription className="text-green-600 mt-1">
+              <CardDescription className="text-green-600 text-center sm:text-left">
                 Manage your property staff and their permissions
               </CardDescription>
             </div>
@@ -223,7 +223,7 @@ export function StaffManagement() {
               onOpenChange={setIsCreateModalOpen}
             >
               <DialogTrigger asChild>
-                <Button className="bg-green-600 hover:bg-green-700">
+                <Button className="bg-green-600 hover:bg-green-700 w-full sm:w-auto">
                   <UserPlus className="h-4 w-4 mr-2" />
                   Add New Staff
                 </Button>
@@ -426,22 +426,22 @@ export function StaffManagement() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 mb-6">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative w-full sm:max-w-sm">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-green-500" />
               <Input
                 placeholder="Search staff..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 border-green-100 focus:ring-green-500"
+                className="pl-9 border-green-100 focus:ring-green-500 w-full"
               />
             </div>
-            <div className="flex-1 max-w-sm">
+            <div className="w-full sm:max-w-sm">
               <Select
                 value={selectedProperty || ""}
                 onValueChange={(value) => setSelectedProperty(value)}
               >
-                <SelectTrigger className="border-green-100 focus:ring-green-500">
+                <SelectTrigger className="border-green-100 focus:ring-green-500 w-full">
                   <Building className="h-4 w-4 mr-2 text-green-500" />
                   <SelectValue placeholder="Select property" />
                 </SelectTrigger>
@@ -466,17 +466,19 @@ export function StaffManagement() {
                 className="hover:shadow-md transition-shadow border-green-100"
               >
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="bg-green-100 rounded-full p-3">
+                  <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
+                    <div className="flex flex-col sm:flex-row items-center gap-4 w-full">
+                      <div className="bg-green-100 rounded-full p-3 self-center">
                         <User className="h-6 w-6 text-green-600" />
                       </div>
-                      <div>
+                      <div className="text-center sm:text-left w-full">
                         <h3 className="font-semibold text-gray-900">
                           {`${staff.first_name} ${staff.last_name}`}
                         </h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          <p className="text-sm text-gray-500">{staff.email}</p>
+                        <div className="flex flex-col sm:flex-row items-center gap-2 mt-1 justify-center sm:justify-start">
+                          <p className="text-sm text-gray-500 text-center sm:text-left">
+                            {staff.email}
+                          </p>
                           <Badge
                             variant="outline"
                             className="bg-green-50 text-green-700 border-green-200"
@@ -488,7 +490,7 @@ export function StaffManagement() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 mt-4 sm:mt-0">
                       <Button
                         variant="outline"
                         size="icon"
@@ -541,7 +543,7 @@ export function StaffManagement() {
       </Card>
 
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-full sm:max-w-2xl mx-4 sm:mx-auto">
           <DialogHeader>
             <DialogTitle className="text-green-800">Staff Details</DialogTitle>
           </DialogHeader>
@@ -637,7 +639,7 @@ export function StaffManagement() {
       </Dialog>
 
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-full sm:max-w-2xl mx-4 sm:mx-auto">
           <DialogHeader>
             <DialogTitle className="text-green-800">Edit Staff</DialogTitle>
           </DialogHeader>

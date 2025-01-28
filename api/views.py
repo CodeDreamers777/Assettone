@@ -1,5 +1,8 @@
 from requests import request
 from rest_framework import status, viewsets
+from django_filters import rest_framework as filters
+from decimal import Decimal
+
 from rest_framework import serializers
 import re
 import threading
@@ -37,6 +40,8 @@ from .models import (
     MaintenanceRequest,
     CommunicationHistory,
     CommunicationType,
+    RentPeriodStatus,
+    PaymentPeriod,
 )
 from .serializers import (
     UserRegistrationSerializer,
@@ -54,6 +59,7 @@ from .serializers import (
     CommunicationHistorySerializer,
     StaffAccountSerializer,
     StaffProfileSerializer,
+    RentPaymentSerializer,
 )
 from rest_framework.decorators import action
 from .utils.decorator import jwt_required
@@ -2079,3 +2085,205 @@ class DynamicSubscriptionQuoteView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+@authentication_classes([JWTAuthentication])
+def record_rent_payment(request):
+    """
+    Record a rent payment and update the rent period status
+    """
+    # Check if user has permission
+    if not (request.user.profile.user_type in [UserType.ADMIN, UserType.MANAGER]):
+        return Response(
+            {"error": "You don't have permission to record payments"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    serializer = RentPaymentSerializer(data=request.data)
+
+    if serializer.is_valid():
+        try:
+            with transaction.atomic():
+                # Create the payment record
+                payment = serializer.save()
+                lease = payment.lease
+
+                # Get or create rent period for the payment date
+                period_start = payment.payment_date.replace(
+                    day=1
+                )  # First day of the month
+                if lease.payment_period == PaymentPeriod.MONTHLY:
+                    period_end = (period_start + timezone.timedelta(days=32)).replace(
+                        day=1
+                    ) - timezone.timedelta(days=1)
+                elif lease.payment_period == PaymentPeriod.BIMONTHLY:
+                    period_end = (period_start + timezone.timedelta(days=62)).replace(
+                        day=1
+                    ) - timezone.timedelta(days=1)
+                elif lease.payment_period == PaymentPeriod.HALF_YEARLY:
+                    period_end = (period_start + timezone.timedelta(days=182)).replace(
+                        day=1
+                    ) - timezone.timedelta(days=1)
+                else:  # YEARLY
+                    period_end = (period_start + timezone.timedelta(days=365)).replace(
+                        day=1
+                    ) - timezone.timedelta(days=1)
+
+                rent_period, created = RentPeriodStatus.objects.get_or_create(
+                    lease=lease,
+                    period_start_date=period_start,
+                    period_end_date=period_end,
+                    defaults={"amount_due": lease.monthly_rent},
+                )
+
+                # Update the amount paid
+                rent_period.amount_paid += payment.amount
+                rent_period.update_payment_status()
+
+                return Response(
+                    {
+                        "message": "Payment recorded successfully",
+                        "payment_id": payment.id,
+                        "period_status": "Paid"
+                        if rent_period.is_paid
+                        else "Partially Paid",
+                        "remaining_balance": max(
+                            Decimal("0"),
+                            rent_period.amount_due - rent_period.amount_paid,
+                        ),
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ReportFilter(filters.FilterSet):
+    start_date = filters.DateFilter(field_name="created_at", lookup_expr="gte")
+    end_date = filters.DateFilter(field_name="created_at", lookup_expr="lte")
+    property = filters.UUIDFilter(field_name="property__id")
+    status = filters.CharFilter(field_name="status")
+
+
+class ReportsViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_class = ReportFilter
+
+    @action(detail=False, methods=["get"])
+    def lease_report(self, request):
+        queryset = Lease.objects.all()
+
+        # Apply filters
+        property_id = request.query_params.get("property")
+        start_date = request.query_params.get("start_date")
+        end_date = request.query_params.get("end_date")
+        status = request.query_params.get("status")
+
+        if property_id:
+            queryset = queryset.filter(unit__property_id=property_id)
+        if start_date:
+            queryset = queryset.filter(start_date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(end_date__lte=end_date)
+        if status:
+            queryset = queryset.filter(status=status)
+
+        serializer = ReportLeaseSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def payment_report(self, request):
+        queryset = RentPayment.objects.all()
+
+        # Apply filters
+        property_id = request.query_params.get("property")
+        start_date = request.query_params.get("start_date")
+        end_date = request.query_params.get("end_date")
+
+        if property_id:
+            queryset = queryset.filter(lease__unit__property_id=property_id)
+        if start_date:
+            queryset = queryset.filter(payment_date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(payment_date__lte=end_date)
+
+        serializer = ReportPaymentSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def maintenance_report(self, request):
+        queryset = MaintenanceRequest.objects.all()
+
+        # Apply filters
+        property_id = request.query_params.get("property")
+        start_date = request.query_params.get("start_date")
+        end_date = request.query_params.get("end_date")
+        status = request.query_params.get("status")
+        priority = request.query_params.get("priority")
+
+        if property_id:
+            queryset = queryset.filter(property_id=property_id)
+        if start_date:
+            queryset = queryset.filter(requested_date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(requested_date__lte=end_date)
+        if status:
+            queryset = queryset.filter(status=status)
+        if priority:
+            queryset = queryset.filter(priority=priority)
+
+        serializer = ReportMaintenanceSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def dashboard_summary(self, request):
+        property_id = request.query_params.get("property")
+
+        # Base querysets with property filter if provided
+        property_filter = {"property_id": property_id} if property_id else {}
+        lease_filter = {"unit__property_id": property_id} if property_id else {}
+
+        # Get current date
+        today = timezone.now().date()
+
+        # Calculate various metrics
+        total_units = Unit.objects.filter(**property_filter).count()
+        occupied_units = Unit.objects.filter(
+            is_occupied=True, **property_filter
+        ).count()
+        vacant_units = total_units - occupied_units
+
+        active_leases = Lease.objects.filter(status="ACTIVE", **lease_filter).count()
+
+        maintenance_pending = MaintenanceRequest.objects.filter(
+            status="PENDING", **property_filter
+        ).count()
+
+        # Calculate total revenue for current month
+        current_month_revenue = (
+            RentPayment.objects.filter(
+                payment_date__year=today.year,
+                payment_date__month=today.month,
+                lease__unit__property_id=property_id if property_id else None,
+            ).aggregate(total=Sum("amount"))["total"]
+            or 0
+        )
+
+        return Response(
+            {
+                "total_units": total_units,
+                "occupied_units": occupied_units,
+                "vacant_units": vacant_units,
+                "occupancy_rate": (occupied_units / total_units * 100)
+                if total_units > 0
+                else 0,
+                "active_leases": active_leases,
+                "maintenance_pending": maintenance_pending,
+                "current_month_revenue": current_month_revenue,
+            }
+        )

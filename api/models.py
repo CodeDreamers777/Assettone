@@ -573,3 +573,34 @@ class CommunicationHistory(models.Model):
 
     def __str__(self):
         return f"{self.type} - {self.subject} ({self.sent_at})"
+
+
+class PaymentMethod(models.TextChoices):
+    CASH = "CASH", _("Cash")
+    BANK_TRANSFER = "BANK_TRANSFER", _("Bank Transfer")
+    CREDIT_CARD = "CREDIT_CARD", _("Credit Card")
+    MOBILE_MONEY = "MOBILE_MONEY", _("Mobile Money")
+    CHECK = "CHECK", _("Check")
+    OTHER = "OTHER", _("Other")
+
+
+class RentPeriodStatus(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    lease = models.ForeignKey(
+        Lease, on_delete=models.CASCADE, related_name="rent_periods"
+    )
+    period_start_date = models.DateField()
+    period_end_date = models.DateField()
+    amount_due = models.DecimalField(max_digits=10, decimal_places=2)
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    is_paid = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ("lease", "period_start_date", "period_end_date")
+
+    def __str__(self):
+        return f"{self.lease} - {self.period_start_date} to {self.period_end_date}"
+
+    def update_payment_status(self):
+        self.is_paid = self.amount_paid >= self.amount_due
+        self.save()

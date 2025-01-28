@@ -1030,3 +1030,79 @@ class StaffProfileSerializer(serializers.ModelSerializer):
             }
             for prop in properties
         ]
+
+
+class RentPaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RentPayment
+        fields = ["id", "lease", "amount", "payment_date", "payment_method", "notes"]
+        read_only_fields = ["id"]
+
+    def validate(self, data):
+        # Ensure the lease is active
+        if data["lease"].status != LeaseStatus.ACTIVE:
+            raise serializers.ValidationError(
+                "Cannot record payment for inactive lease"
+            )
+        return data
+
+
+class ReportLeaseSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source="unit.property.name")
+    unit_number = serializers.CharField(source="unit.unit_number")
+    tenant_name = serializers.CharField(source="tenant.first_name")
+    tenant_phone = serializers.CharField(source="tenant.phone_number")
+
+    class Meta:
+        model = Lease
+        fields = [
+            "id",
+            "property_name",
+            "unit_number",
+            "tenant_name",
+            "tenant_phone",
+            "start_date",
+            "end_date",
+            "monthly_rent",
+            "status",
+            "payment_period",
+        ]
+
+
+class ReportPaymentSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source="lease.unit.property.name")
+    unit_number = serializers.CharField(source="lease.unit.unit_number")
+    tenant_name = serializers.CharField(source="lease.tenant.first_name")
+
+    class Meta:
+        model = RentPayment
+        fields = [
+            "id",
+            "property_name",
+            "unit_number",
+            "tenant_name",
+            "amount",
+            "payment_date",
+            "payment_method",
+        ]
+
+
+class ReportMaintenanceSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source="property.name")
+    unit_number = serializers.CharField(source="unit.unit_number")
+    tenant_name = serializers.CharField(source="tenant.first_name")
+
+    class Meta:
+        model = MaintenanceRequest
+        fields = [
+            "id",
+            "property_name",
+            "unit_number",
+            "tenant_name",
+            "title",
+            "priority",
+            "status",
+            "requested_date",
+            "completed_date",
+            "repair_cost",
+        ]

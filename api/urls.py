@@ -20,6 +20,7 @@ unit_router.register(r"units", views.UnitViewSet)
 router = DefaultRouter()
 router.register(r"tenants", views.TenantViewSet, basename="tenant")
 router.register(r"leases", views.LeaseViewSet, basename="lease")
+router.register(r"reports", views.ReportsViewSet, basename="reports")
 router.register(r"rental-notices", views.RentalNoticeViewSet, basename="rental-notices")
 router.register(
     r"maintenance-requests",
@@ -37,6 +38,7 @@ urlpatterns = [
         "change-password/", views.ChangePasswordView.as_view(), name="change-password"
     ),
     path("profile/", views.UserProfileView.as_view(), name="user_profile"),
+    path("payments/", views.record_rent_payment, name="record_rent_payment"),
     path("book-demo/", views.BookDemoView.as_view(), name="book-demo"),
     path("email-tenants/", views.EmailTenantsView.as_view(), name="email-tenants"),
     path("contact-us/", views.ContactUsView.as_view(), name="contact-us"),

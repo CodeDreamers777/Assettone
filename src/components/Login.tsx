@@ -45,14 +45,11 @@ export function Login({ onLoginSuccess }: LoginProps) {
 
   async function onSubmit(values: z.infer<typeof loginSchema>) {
     try {
-      const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/login/",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
-        },
-      );
+      const response = await fetch("http://127.0.0.1:8000/api/v1/login/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
 
       const data = await response.json();
 

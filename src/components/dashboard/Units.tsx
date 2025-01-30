@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { AddUnitModal } from "./add-unit-modal";
 import { EditUnitModal } from "./edit-unit-modal";
+import { PayRentModal } from "./pay-rent-modal";
 
 // Unit Types Enum
 export enum UnitType {
@@ -135,6 +136,8 @@ export function Units() {
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isPayRentModalOpen, setIsPayRentModalOpen] = useState(false);
+  const [selectedLeaseId, setSelectedLeaseId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -282,7 +285,12 @@ export function Units() {
     navigate(`/dashboard/leases/create?unitId=${id}`);
   };
 
-  const handlePayRent = async (unitId: string) => {
+  const handlePayRent = (leaseId: string) => {
+    setSelectedLeaseId(leaseId);
+    setIsPayRentModalOpen(true);
+  };
+
+  const handlePayRentOld = async (unitId: string) => {
     try {
       const accessToken = localStorage.getItem("accessToken");
       await axios.post(
@@ -456,7 +464,10 @@ export function Units() {
                               Lease
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handlePayRent(unit.id)}
+                              onClick={() =>
+                                handlePayRent(unit.current_lease?.id || "")
+                              }
+                              disabled={!unit.current_lease}
                             >
                               <DollarSign className="mr-2 h-4 w-4" />
                               Pay Rent
@@ -509,6 +520,16 @@ export function Units() {
         onUpdateUnit={handleUpdateUnit}
         editingUnit={editingUnit}
         setEditingUnit={setEditingUnit}
+      />
+      <PayRentModal
+        isOpen={isPayRentModalOpen}
+        onClose={() => setIsPayRentModalOpen(false)}
+        leaseId={selectedLeaseId || ""}
+        onPaymentComplete={() => {
+          if (selectedProperty) {
+            fetchUnits(selectedProperty.id);
+          }
+        }}
       />
     </div>
   );

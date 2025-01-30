@@ -290,36 +290,6 @@ export function Units() {
     setIsPayRentModalOpen(true);
   };
 
-  const handlePayRentOld = async (unitId: string) => {
-    try {
-      const accessToken = localStorage.getItem("accessToken");
-      await axios.post(
-        `https://assettoneestates.pythonanywhere.com/api/v1/units/${unitId}/pay-rent/`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      );
-      toast({
-        title: "Success",
-        description: "Rent payment processed successfully.",
-      });
-      // Refresh the units data to reflect the new payment status
-      if (selectedProperty) {
-        fetchUnits(selectedProperty.id);
-      }
-    } catch (error) {
-      console.error("Error paying rent:", error);
-      toast({
-        title: "Error",
-        description: "Failed to process rent payment. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">

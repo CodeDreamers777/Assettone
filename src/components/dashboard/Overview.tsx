@@ -16,13 +16,21 @@ interface DateRange {
 }
 
 interface DashboardData {
-  date_range?: DateRange;
+  date_range: DateRange;
   tenant_metrics?: any;
-  property_metrics?: any;
-  occupancy_metrics?: any;
-  financial_metrics?: any;
-  maintenance_metrics?: any;
-  monthly_trends?: any;
+  property_metrics: {
+    total_properties: number;
+    total_units: number;
+  };
+  occupancy_metrics: {
+    total_units: number;
+    occupied_units: number;
+    vacant_units: number;
+    occupancy_rate: number;
+  };
+  financial_metrics: any;
+  maintenance_metrics: any;
+  monthly_trends: any[];
 }
 
 export function Overview() {

@@ -147,7 +147,7 @@ export function TenantMetrics({ metrics }: TenantMetricsProps) {
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="value" fill={(entry) => entry.color} />
+                  <Bar dataKey="value" fill={paymentData[0].color} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -170,7 +170,7 @@ export function TenantMetrics({ metrics }: TenantMetricsProps) {
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="value" fill={(entry) => entry.color} />
+                  <Bar dataKey="value" fill={maintenanceData[0].color} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

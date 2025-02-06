@@ -1566,10 +1566,16 @@ def dashboard_metrics(request):
     # Get user profile and related properties
     user_profile = request.user.profile
 
-    if user_profile.user_type == "TENANT":
+    if user_profile.user_type == UserType.TENANT:
+        # Get tenant record associated with this user
+        try:
+            tenant = Tenant.objects.get(email=request.user.email)
+        except Tenant.DoesNotExist:
+            return Response({"error": "No tenant record found"}, status=404)
+
         # Get active leases for tenant
         active_leases = Lease.objects.filter(
-            tenant__profile=user_profile,
+            tenant=tenant,
             status=LeaseStatus.ACTIVE,
             start_date__lte=end_date,
             end_date__gte=start_date,
@@ -1585,9 +1591,7 @@ def dashboard_metrics(request):
         )
 
         # Get maintenance requests
-        maintenance_requests = MaintenanceRequest.objects.filter(
-            tenant__profile=user_profile
-        )
+        maintenance_requests = MaintenanceRequest.objects.filter(tenant=tenant)
 
         # Get rent periods and payments
         rent_periods = RentPeriodStatus.objects.filter(lease__in=active_leases)
@@ -1618,9 +1622,9 @@ def dashboard_metrics(request):
         )
 
     # Original admin/manager logic continues...
-    if user_profile.user_type == "ADMIN":
+    if user_profile.user_type == UserType.ADMIN:
         properties = Property.objects.filter(owner=user_profile)
-    elif user_profile.user_type == "MANAGER":
+    elif user_profile.user_type == UserType.MANAGER:
         properties = Property.objects.filter(manager=user_profile)
     else:
         properties = Property.objects.none()

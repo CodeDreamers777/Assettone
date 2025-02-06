@@ -1,17 +1,29 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { DashboardHeader } from "./header";
 import { DashboardShell } from "./shell";
-import { PropertyMetrics } from "./property-metrics";
-import { OccupancyChart } from "./occupancy-chart";
-import { FinancialMetrics } from "./financial-metrics";
-import { MaintenanceMetrics } from "./maintenance-metrics";
-import { MonthlyTrends } from "./monthly-trends";
 import { DateRangePicker } from "./date-range-picker";
+import { TenantMetrics } from "./TenantMetrics";
+import { AdminDashboard } from "./AdminDashboard";
 import { fetchDashboardMetrics } from "@/lib/api";
-import { DashboardData } from "@/types/dashboard";
 import { Loader2 } from "lucide-react";
+
+interface DateRange {
+  start_date: string;
+  end_date: string;
+}
+
+interface DashboardData {
+  date_range?: DateRange;
+  tenant_metrics?: any;
+  property_metrics?: any;
+  occupancy_metrics?: any;
+  financial_metrics?: any;
+  maintenance_metrics?: any;
+  monthly_trends?: any;
+}
 
 export function Overview() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(
@@ -20,7 +32,6 @@ export function Overview() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch last login from local storage and show toast
     const lastSession = localStorage.getItem("lastSession");
     if (lastSession) {
       try {
@@ -34,17 +45,22 @@ export function Overview() {
       }
     }
 
-    // Fetch dashboard data
     const fetchData = async () => {
       try {
         const data = await fetchDashboardMetrics();
         setDashboardData(data);
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch dashboard data",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
     };
+
     fetchData();
   }, []);
 
@@ -60,35 +76,31 @@ export function Overview() {
     return <div>Failed to load dashboard data</div>;
   }
 
+  const isTenant = !!dashboardData.tenant_metrics;
+
   return (
     <DashboardShell>
       <DashboardHeader
         heading="Dashboard"
-        text="Welcome back! Here's an overview of your rental properties."
+        text={
+          isTenant
+            ? "Welcome back! Here's an overview of your rental status."
+            : "Welcome back! Here's an overview of your rental properties."
+        }
       />
-      <div className="relative mb-6">
-        <DateRangePicker
-          startDate={dashboardData.date_range.start_date}
-          endDate={dashboardData.date_range.end_date}
-        />
-      </div>
-      <div className="grid gap-6">
-        <div className="relative grid gap-6 md:grid-cols-2">
-          <div className="relative z-10">
-            <PropertyMetrics metrics={dashboardData.property_metrics} />
-          </div>
-          <div className="relative z-20 md:transform md:transition-transform md:hover:scale-102 md:hover:shadow-lg">
-            <FinancialMetrics metrics={dashboardData.financial_metrics} />
-          </div>
+      {dashboardData.date_range && (
+        <div className="relative mb-6">
+          <DateRangePicker
+            startDate={dashboardData.date_range.start_date}
+            endDate={dashboardData.date_range.end_date}
+          />
         </div>
-        <div className="relative z-0 grid gap-6 md:grid-cols-2">
-          <OccupancyChart metrics={dashboardData.occupancy_metrics} />
-          <MaintenanceMetrics metrics={dashboardData.maintenance_metrics} />
-        </div>
-        <div className="relative z-0">
-          <MonthlyTrends trends={dashboardData.monthly_trends} />
-        </div>
-      </div>
+      )}
+      {isTenant ? (
+        <TenantMetrics metrics={dashboardData.tenant_metrics} />
+      ) : (
+        <AdminDashboard data={dashboardData} />
+      )}
     </DashboardShell>
   );
 }

@@ -40,6 +40,31 @@ import { AddUnitModal } from "./add-unit-modal";
 import { EditUnitModal } from "./edit-unit-modal";
 import { PayRentModal } from "./pay-rent-modal";
 
+// Payment Status Enum and Labels
+enum PaymentStatus {
+  PAID_IN_FULL = "PAID_IN_FULL",
+  PARTIALLY_PAID = "PARTIALLY_PAID",
+  NOT_PAID = "NOT_PAID",
+}
+
+const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  [PaymentStatus.PAID_IN_FULL]: "Fully Paid",
+  [PaymentStatus.PARTIALLY_PAID]: "Partially Paid",
+  [PaymentStatus.NOT_PAID]: "Not Paid",
+};
+
+const PAYMENT_STATUS_STYLES: Record<
+  PaymentStatus,
+  { bg: string; text: string }
+> = {
+  [PaymentStatus.PAID_IN_FULL]: { bg: "bg-green-200", text: "text-green-900" },
+  [PaymentStatus.PARTIALLY_PAID]: {
+    bg: "bg-yellow-200",
+    text: "text-yellow-900",
+  },
+  [PaymentStatus.NOT_PAID]: { bg: "bg-red-200", text: "text-red-900" },
+};
+
 // Unit Types Enum
 export enum UnitType {
   STUDIO = "STUDIO",
@@ -396,12 +421,23 @@ export function Units() {
                         {unit.rent_payment_status ? (
                           <span
                             className={`px-2 py-1 rounded-full text-xs ${
-                              unit.rent_payment_status.payment_status === "PAID"
-                                ? "bg-green-200 text-green-900"
-                                : "bg-yellow-200 text-yellow-900"
+                              PAYMENT_STATUS_STYLES[
+                                unit.rent_payment_status
+                                  .payment_status as PaymentStatus
+                              ].bg
+                            } ${
+                              PAYMENT_STATUS_STYLES[
+                                unit.rent_payment_status
+                                  .payment_status as PaymentStatus
+                              ].text
                             }`}
                           >
-                            {unit.rent_payment_status.payment_status}
+                            {
+                              PAYMENT_STATUS_LABELS[
+                                unit.rent_payment_status
+                                  .payment_status as PaymentStatus
+                              ]
+                            }
                           </span>
                         ) : (
                           <span className="text-gray-500">N/A</span>

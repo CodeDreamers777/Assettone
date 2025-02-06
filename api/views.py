@@ -2222,131 +2222,293 @@ def record_rent_payment(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class ReportFilter(filters.FilterSet):
-    start_date = filters.DateFilter(field_name="created_at", lookup_expr="gte")
-    end_date = filters.DateFilter(field_name="created_at", lookup_expr="lte")
-    property = filters.UUIDFilter(field_name="property__id")
-    status = filters.CharFilter(field_name="status")
-
-
-class ReportsViewSet(viewsets.ViewSet):
+class ExtendedReportsViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
-    filter_class = ReportFilter
 
-    @action(detail=False, methods=["get"])
-    def lease_report(self, request):
-        queryset = Lease.objects.all()
-
-        # Apply filters
-        property_id = request.query_params.get("property")
-        start_date = request.query_params.get("start_date")
-        end_date = request.query_params.get("end_date")
-        status = request.query_params.get("status")
-
-        if property_id:
-            queryset = queryset.filter(unit__property_id=property_id)
+    def _get_date_range_filter(self, start_date=None, end_date=None):
+        """
+        Helper method to create date range filter
+        """
+        date_filter = Q()
         if start_date:
-            queryset = queryset.filter(start_date__gte=start_date)
+            date_filter &= Q(created_at__gte=start_date)
         if end_date:
-            queryset = queryset.filter(end_date__lte=end_date)
-        if status:
-            queryset = queryset.filter(status=status)
+            date_filter &= Q(created_at__lte=end_date)
+        return date_filter
 
-        serializer = ReportLeaseSerializer(queryset, many=True)
-        return Response(serializer.data)
+    @action(detail=False, methods=["GET"])
+    def tenant_report(self, request):
+        """
+        Comprehensive tenant report
+        """
+        try:
+            # Get query parameters
+            start_date = request.query_params.get("start_date")
+            end_date = request.query_params.get("end_date")
+            tenant_id = request.query_params.get("tenant_id")
 
-    @action(detail=False, methods=["get"])
-    def payment_report(self, request):
-        queryset = RentPayment.objects.all()
+            # Base date filter
+            date_filter = self._get_date_range_filter(start_date, end_date)
 
-        # Apply filters
-        property_id = request.query_params.get("property")
-        start_date = request.query_params.get("start_date")
-        end_date = request.query_params.get("end_date")
+            # Tenant filter
+            tenant_filter = Q(tenant_id=tenant_id) if tenant_id else Q()
 
-        if property_id:
-            queryset = queryset.filter(lease__unit__property_id=property_id)
-        if start_date:
-            queryset = queryset.filter(payment_date__gte=start_date)
-        if end_date:
-            queryset = queryset.filter(payment_date__lte=end_date)
-
-        serializer = ReportPaymentSerializer(queryset, many=True)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=["get"])
-    def maintenance_report(self, request):
-        queryset = MaintenanceRequest.objects.all()
-
-        # Apply filters
-        property_id = request.query_params.get("property")
-        start_date = request.query_params.get("start_date")
-        end_date = request.query_params.get("end_date")
-        status = request.query_params.get("status")
-        priority = request.query_params.get("priority")
-
-        if property_id:
-            queryset = queryset.filter(property_id=property_id)
-        if start_date:
-            queryset = queryset.filter(requested_date__gte=start_date)
-        if end_date:
-            queryset = queryset.filter(requested_date__lte=end_date)
-        if status:
-            queryset = queryset.filter(status=status)
-        if priority:
-            queryset = queryset.filter(priority=priority)
-
-        serializer = ReportMaintenanceSerializer(queryset, many=True)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=["get"])
-    def dashboard_summary(self, request):
-        property_id = request.query_params.get("property")
-
-        # Base querysets with property filter if provided
-        property_filter = {"property_id": property_id} if property_id else {}
-        lease_filter = {"unit__property_id": property_id} if property_id else {}
-
-        # Get current date
-        today = timezone.now().date()
-
-        # Calculate various metrics
-        total_units = Unit.objects.filter(**property_filter).count()
-        occupied_units = Unit.objects.filter(
-            is_occupied=True, **property_filter
-        ).count()
-        vacant_units = total_units - occupied_units
-
-        active_leases = Lease.objects.filter(status="ACTIVE", **lease_filter).count()
-
-        maintenance_pending = MaintenanceRequest.objects.filter(
-            status="PENDING", **property_filter
-        ).count()
-
-        # Calculate total revenue for current month
-        current_month_revenue = (
-            RentPayment.objects.filter(
-                payment_date__year=today.year,
-                payment_date__month=today.month,
-                lease__unit__property_id=property_id if property_id else None,
-            ).aggregate(total=Sum("amount"))["total"]
-            or 0
-        )
-
-        return Response(
-            {
-                "total_units": total_units,
-                "occupied_units": occupied_units,
-                "vacant_units": vacant_units,
-                "occupancy_rate": (occupied_units / total_units * 100)
-                if total_units > 0
-                else 0,
-                "active_leases": active_leases,
-                "maintenance_pending": maintenance_pending,
-                "current_month_revenue": current_month_revenue,
+            # Aggregate tenant data
+            tenant_report = {
+                "total_leases": Lease.objects.filter(
+                    tenant_filter & date_filter
+                ).count(),
+                "active_leases": Lease.objects.filter(
+                    tenant_filter & Q(status=LeaseStatus.ACTIVE)
+                ).count(),
+                "terminated_leases": Lease.objects.filter(
+                    tenant_filter & Q(status=LeaseStatus.TERMINATED) & date_filter
+                ).count(),
+                "lease_transfers": Lease.objects.filter(
+                    tenant_filter & Q(previous_lease__isnull=False) & date_filter
+                ).count(),
+                "total_rent_paid": RentPayment.objects.filter(
+                    lease__tenant_filter & date_filter
+                ).aggregate(total=Sum("amount"))["total"]
+                or 0,
+                "payment_history": list(
+                    RentPayment.objects.filter(
+                        lease__tenant_filter & date_filter
+                    ).values("payment_date", "amount", "lease__unit__property__name")
+                ),
+                "maintenance_requests": list(
+                    MaintenanceRequest.objects.filter(
+                        tenant_filter & date_filter
+                    ).values(
+                        "title",
+                        "status",
+                        "priority",
+                        "requested_date",
+                        "unit__property__name",
+                    )
+                ),
             }
-        )
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Tenant report generated successfully",
+                    "data": tenant_report,
+                }
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": f"Error generating tenant report: {str(e)}",
+                    "data": None,
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @action(detail=False, methods=["GET"])
+    def unit_report(self, request):
+        """
+        Comprehensive unit report
+        """
+        try:
+            # Get query parameters
+            start_date = request.query_params.get("start_date")
+            end_date = request.query_params.get("end_date")
+            unit_id = request.query_params.get("unit_id")
+
+            # Base date filter
+            date_filter = self._get_date_range_filter(start_date, end_date)
+
+            # Unit filter
+            unit_filter = Q(unit_id=unit_id) if unit_id else Q()
+
+            # Aggregate unit data
+            unit_report = {
+                "total_leases": Lease.objects.filter(unit_filter & date_filter).count(),
+                "current_lease": Lease.objects.filter(
+                    unit_filter & Q(status=LeaseStatus.ACTIVE)
+                )
+                .first()
+                .to_dict()
+                if Lease.objects.filter(
+                    unit_filter & Q(status=LeaseStatus.ACTIVE)
+                ).exists()
+                else None,
+                "lease_history": list(
+                    Lease.objects.filter(unit_filter & date_filter).values(
+                        "tenant__first_name",
+                        "tenant__last_name",
+                        "start_date",
+                        "end_date",
+                        "status",
+                    )
+                ),
+                "rent_payments": list(
+                    RentPayment.objects.filter(lease__unit_filter & date_filter).values(
+                        "payment_date",
+                        "amount",
+                        "lease__tenant__first_name",
+                        "lease__tenant__last_name",
+                    )
+                ),
+                "maintenance_requests": list(
+                    MaintenanceRequest.objects.filter(unit_filter & date_filter).values(
+                        "title", "status", "priority", "requested_date"
+                    )
+                ),
+            }
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Unit report generated successfully",
+                    "data": unit_report,
+                }
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": f"Error generating unit report: {str(e)}",
+                    "data": None,
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @action(detail=False, methods=["GET"])
+    def property_report(self, request):
+        """
+        Comprehensive property report
+        """
+        try:
+            # Get query parameters
+            start_date = request.query_params.get("start_date")
+            end_date = request.query_params.get("end_date")
+            property_id = request.query_params.get("property_id")
+
+            # Base date filter
+            date_filter = self._get_date_range_filter(start_date, end_date)
+
+            # Property filter
+            property_filter = Q(property_id=property_id) if property_id else Q()
+
+            # Aggregate property data
+            property_report = {
+                "total_units": Unit.objects.filter(property_filter).count(),
+                "occupied_units": Unit.objects.filter(
+                    property_filter & Q(is_occupied=True)
+                ).count(),
+                "total_leases": Lease.objects.filter(
+                    unit__property_filter & date_filter
+                ).count(),
+                "active_leases": Lease.objects.filter(
+                    unit__property_filter & Q(status=LeaseStatus.ACTIVE)
+                ).count(),
+                "total_rent_collected": RentPayment.objects.filter(
+                    lease__unit__property_filter & date_filter
+                ).aggregate(total=Sum("amount"))["total"]
+                or 0,
+                "monthly_rent_breakdown": list(
+                    RentPayment.objects.filter(
+                        lease__unit__property_filter & date_filter
+                    )
+                    .annotate(month=TruncMonth("payment_date"))
+                    .values("month")
+                    .annotate(total_rent=Sum("amount"))
+                    .order_by("month")
+                ),
+                "maintenance_requests": {
+                    "total": MaintenanceRequest.objects.filter(
+                        property_filter & date_filter
+                    ).count(),
+                    "by_status": list(
+                        MaintenanceRequest.objects.filter(property_filter & date_filter)
+                        .values("status")
+                        .annotate(count=Count("id"))
+                    ),
+                    "by_priority": list(
+                        MaintenanceRequest.objects.filter(property_filter & date_filter)
+                        .values("priority")
+                        .annotate(count=Count("id"))
+                    ),
+                },
+            }
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Property report generated successfully",
+                    "data": property_report,
+                }
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": f"Error generating property report: {str(e)}",
+                    "data": None,
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @action(detail=False, methods=["GET"])
+    def staff_report(self, request):
+        """
+        Comprehensive staff report
+        """
+        try:
+            # Get query parameters
+            start_date = request.query_params.get("start_date")
+            end_date = request.query_params.get("end_date")
+            staff_id = request.query_params.get("staff_id")
+
+            # Base date filter
+            date_filter = self._get_date_range_filter(start_date, end_date)
+
+            # Staff filter
+            staff_filter = Q(profile_id=staff_id) if staff_id else Q()
+
+            # Aggregate staff data
+            staff_report = {
+                "managed_properties": list(
+                    Property.objects.filter(staff_filter).values("name", "id")
+                ),
+                "maintenance_requests_handled": list(
+                    MaintenanceRequest.objects.filter(
+                        approved_rejected_by__profile_filter & date_filter
+                    ).values(
+                        "title", "status", "property__name", "approved_rejected_date"
+                    )
+                ),
+                "communication_history": list(
+                    CommunicationHistory.objects.filter(
+                        sent_by__profile_filter & date_filter
+                    ).values("type", "subject", "sent_at", "status")
+                ),
+            }
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Staff report generated successfully",
+                    "data": staff_report,
+                }
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": f"Error generating staff report: {str(e)}",
+                    "data": None,
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class MpesaPaymentView(APIView):

@@ -39,6 +39,7 @@ urlpatterns = [
     ),
     path("profile/", views.UserProfileView.as_view(), name="user_profile"),
     path("payments/", views.record_rent_payment, name="record_rent_payment"),
+    path("mpesa-payment/", views.MpesaPaymentView.as_view(), name="mpesa-payment"),
     path("book-demo/", views.BookDemoView.as_view(), name="book-demo"),
     path("email-tenants/", views.EmailTenantsView.as_view(), name="email-tenants"),
     path("contact-us/", views.ContactUsView.as_view(), name="contact-us"),

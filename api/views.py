@@ -42,6 +42,7 @@ from .models import (
     CommunicationType,
     RentPeriodStatus,
     PaymentPeriod,
+    PaymentMethod,
 )
 from .serializers import (
     UserRegistrationSerializer,
@@ -60,6 +61,9 @@ from .serializers import (
     StaffAccountSerializer,
     StaffProfileSerializer,
     RentPaymentSerializer,
+    ReportLeaseSerializer,
+    ReportMaintenanceSerializer,
+    ReportPaymentSerializer,
 )
 from rest_framework.decorators import action
 from .utils.decorator import jwt_required
@@ -1562,7 +1566,58 @@ def dashboard_metrics(request):
     # Get user profile and related properties
     user_profile = request.user.profile
 
-    # Base queryset for properties (filtered by user role)
+    if user_profile.user_type == "TENANT":
+        # Get active leases for tenant
+        active_leases = Lease.objects.filter(
+            tenant__profile=user_profile,
+            status=LeaseStatus.ACTIVE,
+            start_date__lte=end_date,
+            end_date__gte=start_date,
+        )
+
+        # Calculate total and remaining rent
+        total_rent = sum(lease.monthly_rent for lease in active_leases)
+        rent_paid = (
+            RentPayment.objects.filter(
+                lease__in=active_leases, payment_date__range=(start_date, end_date)
+            ).aggregate(total=Sum("amount"))["total"]
+            or 0
+        )
+
+        # Get maintenance requests
+        maintenance_requests = MaintenanceRequest.objects.filter(
+            tenant__profile=user_profile
+        )
+
+        # Get rent periods and payments
+        rent_periods = RentPeriodStatus.objects.filter(lease__in=active_leases)
+
+        return Response(
+            {
+                "tenant_metrics": {
+                    "total_rent": total_rent,
+                    "rent_paid": rent_paid,
+                    "remaining_rent": total_rent - rent_paid,
+                    "active_leases": active_leases.count(),
+                    "maintenance_requests": {
+                        "total": maintenance_requests.count(),
+                        "pending": maintenance_requests.filter(
+                            status=MaintenanceStatus.PENDING
+                        ).count(),
+                        "in_progress": maintenance_requests.filter(
+                            status=MaintenanceStatus.IN_PROGRESS
+                        ).count(),
+                    },
+                    "payment_status": {
+                        "total_periods": rent_periods.count(),
+                        "paid_periods": rent_periods.filter(is_paid=True).count(),
+                        "unpaid_periods": rent_periods.filter(is_paid=False).count(),
+                    },
+                }
+            }
+        )
+
+    # Original admin/manager logic continues...
     if user_profile.user_type == "ADMIN":
         properties = Property.objects.filter(owner=user_profile)
     elif user_profile.user_type == "MANAGER":
@@ -2172,6 +2227,7 @@ class ReportFilter(filters.FilterSet):
 
 class ReportsViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
     filter_class = ReportFilter
 
     @action(detail=False, methods=["get"])
@@ -2287,3 +2343,120 @@ class ReportsViewSet(viewsets.ViewSet):
                 "current_month_revenue": current_month_revenue,
             }
         )
+
+
+class MpesaPaymentView(APIView):
+    def extract_mpesa_details(self, message):
+        transaction_pattern = r"MP([A-Z0-9]+)"
+        amount_pattern = r"Ksh\s*([\d,]+)"
+
+        transaction_match = re.search(transaction_pattern, message)
+        amount_match = re.search(amount_pattern, message)
+
+        if not (transaction_match and amount_match):
+            raise ValueError("Invalid M-PESA message format")
+
+        transaction_id = "MP" + transaction_match.group(1)
+        amount = Decimal(amount_match.group(1).replace(",", ""))
+
+        return transaction_id, amount
+
+    def allocate_payment(self, lease, amount, transaction_id):
+        # Get all unpaid rent periods ordered by date
+        unpaid_periods = lease.rent_periods.filter(is_paid=False).order_by(
+            "period_start_date"
+        )
+
+        remaining_amount = amount
+        payments_made = []
+
+        for period in unpaid_periods:
+            if remaining_amount <= 0:
+                break
+
+            amount_needed = period.amount_due - period.amount_paid
+            payment_amount = min(remaining_amount, amount_needed)
+
+            # Create payment record
+            payment = RentPayment.objects.create(
+                lease=lease,
+                amount=payment_amount,
+                payment_date=timezone.now().date(),
+                payment_method=PaymentMethod.MOBILE_MONEY,
+                notes=f"M-PESA Transaction ID: {transaction_id}",
+            )
+
+            # Update period payment status
+            period.amount_paid += payment_amount
+            period.update_payment_status()
+            period.save()
+
+            remaining_amount -= payment_amount
+            payments_made.append(payment)
+
+        return payments_made, remaining_amount
+
+    @transaction.atomic
+    def post(self, request):
+        try:
+            print(request.data)
+            message = request.data.get("mpesa_message")
+            phone_number = request.data.get("phone_number")
+
+            if not message or not phone_number:
+                return Response(
+                    {"error": "Missing required fields"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Extract transaction details
+            transaction_id, amount = self.extract_mpesa_details(message)
+
+            # Find tenant by phone number
+            tenant = Tenant.objects.filter(phone_number=phone_number).first()
+            if not tenant:
+                return Response(
+                    {"error": "No tenant found with this phone number"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Get active lease
+            active_lease = Lease.objects.filter(
+                tenant=tenant, status=LeaseStatus.ACTIVE
+            ).first()
+
+            if not active_lease:
+                return Response(
+                    {"error": "No active lease found for this tenant"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Allocate payment to rent periods
+            payments_made, excess = self.allocate_payment(
+                active_lease, amount, transaction_id
+            )
+
+            response_data = {
+                "status": "success",
+                "transaction_id": transaction_id,
+                "amount_paid": amount,
+                "payments_allocated": [
+                    {
+                        "payment_id": str(payment.id),
+                        "amount": str(payment.amount),
+                        "date": payment.payment_date,
+                    }
+                    for payment in payments_made
+                ],
+                "excess_amount": str(excess) if excess > 0 else "0.00",
+            }
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response(
+                {"error": "An unexpected error occurred"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

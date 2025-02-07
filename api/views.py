@@ -2337,8 +2337,10 @@ class ExtendedReportsViewSet(viewsets.ViewSet):
                         "start_date",
                         "end_date",
                         "status",
-                        "rent_amount",
-                        # Add any other fields you need from the lease
+                        "monthly_rent",
+                        "security_deposit",
+                        "payment_period",
+                        "notes",
                     )
                     .first()
                 ),

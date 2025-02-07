@@ -2269,12 +2269,12 @@ class ExtendedReportsViewSet(viewsets.ViewSet):
                     tenant_filter & Q(previous_lease__isnull=False) & date_filter
                 ).count(),
                 "total_rent_paid": RentPayment.objects.filter(
-                    lease__tenant_filter & date_filter
+                    (Q(lease__tenant=tenant_id) if tenant_id else Q()) & date_filter
                 ).aggregate(total=Sum("amount"))["total"]
                 or 0,
                 "payment_history": list(
                     RentPayment.objects.filter(
-                        lease__tenant_filter & date_filter
+                        (Q(lease__tenant=tenant_id) if tenant_id else Q()) & date_filter
                     ).values("payment_date", "amount", "lease__unit__property__name")
                 ),
                 "maintenance_requests": list(

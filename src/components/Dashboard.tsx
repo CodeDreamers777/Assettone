@@ -10,6 +10,7 @@ import { Messages } from "./dashboard/Messages";
 import ProfilePage from "./Profile";
 import { Units } from "./dashboard/Units";
 import Maintenance from "./dashboard/Maintenance";
+import Reports from "./dashboard/Reports";
 
 export function Dashboard() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -42,6 +43,7 @@ export function Dashboard() {
           <Route path="/units" element={<Units />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/maintenance" element={<Maintenance />} />
+          <Route path="/reports" element={<Reports />} />
         </Routes>
       </main>
     </div>

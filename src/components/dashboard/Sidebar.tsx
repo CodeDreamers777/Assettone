@@ -13,6 +13,7 @@ import {
   PenToolIcon as Tool,
   MessageSquare,
   Menu,
+  FileBarChart,
   X,
 } from "lucide-react";
 import { Button } from "../ui/button";
@@ -30,6 +31,7 @@ const adminItems = [
   { icon: MessageSquare, label: "Messages", href: "/dashboard/messages" },
   { icon: User, label: "Profile", href: "/dashboard/profile" },
   { icon: Settings, label: "Settings", href: "/dashboard/settings" },
+  { icon: FileBarChart, label: "Reports", href: "/dashboard/reports" },
 ];
 
 // Tenant menu items (same as before)

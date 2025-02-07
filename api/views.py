@@ -2347,7 +2347,9 @@ class ExtendedReportsViewSet(viewsets.ViewSet):
                     )
                 ),
                 "rent_payments": list(
-                    RentPayment.objects.filter(lease__unit_filter & date_filter).values(
+                    RentPayment.objects.filter(
+                        (Q(lease__unit=unit_id) if unit_id else Q()) & date_filter
+                    ).values(
                         "payment_date",
                         "amount",
                         "lease__tenant__first_name",
@@ -2403,18 +2405,22 @@ class ExtendedReportsViewSet(viewsets.ViewSet):
                     property_filter & Q(is_occupied=True)
                 ).count(),
                 "total_leases": Lease.objects.filter(
-                    unit__property_filter & date_filter
+                    (Q(unit__property=property_id) if property_id else Q())
+                    & date_filter
                 ).count(),
                 "active_leases": Lease.objects.filter(
-                    unit__property_filter & Q(status=LeaseStatus.ACTIVE)
+                    (Q(unit__property=property_id) if property_id else Q())
+                    & Q(status=LeaseStatus.ACTIVE)
                 ).count(),
                 "total_rent_collected": RentPayment.objects.filter(
-                    lease__unit__property_filter & date_filter
+                    (Q(lease__unit__property=property_id) if property_id else Q())
+                    & date_filter
                 ).aggregate(total=Sum("amount"))["total"]
                 or 0,
                 "monthly_rent_breakdown": list(
                     RentPayment.objects.filter(
-                        lease__unit__property_filter & date_filter
+                        (Q(lease__unit__property=property_id) if property_id else Q())
+                        & date_filter
                     )
                     .annotate(month=TruncMonth("payment_date"))
                     .values("month")
@@ -2480,14 +2486,15 @@ class ExtendedReportsViewSet(viewsets.ViewSet):
                 ),
                 "maintenance_requests_handled": list(
                     MaintenanceRequest.objects.filter(
-                        approved_rejected_by__profile_filter & date_filter
+                        (Q(approved_rejected_by=staff_id) if staff_id else Q())
+                        & date_filter
                     ).values(
                         "title", "status", "property__name", "approved_rejected_date"
                     )
                 ),
                 "communication_history": list(
                     CommunicationHistory.objects.filter(
-                        sent_by__profile_filter & date_filter
+                        (Q(sent_by=staff_id) if staff_id else Q()) & date_filter
                     ).values("type", "subject", "sent_at", "status")
                 ),
             }

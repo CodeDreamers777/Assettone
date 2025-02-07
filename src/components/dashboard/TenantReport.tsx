@@ -49,7 +49,8 @@ export const TenantReport: React.FC = () => {
       const response = await axios.get(`${BASE_URL}/tenants/`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      setTenants(Object.values(response.data).flat());
+      const fetchedTenants = Object.values(response.data).flat() as Tenant[];
+      setTenants(fetchedTenants);
     } catch (error) {
       toast({
         title: "Error",

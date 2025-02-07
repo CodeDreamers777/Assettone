@@ -9,6 +9,12 @@ import {
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import type { UserOptions } from "jspdf-autotable";
+
+// Extend the jsPDF type to include autoTable
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: UserOptions) => jsPDF;
+}
 
 interface ExportOptionsProps {
   data: any;
@@ -35,7 +41,7 @@ export const ExportOptions: React.FC<ExportOptionsProps> = ({
     try {
       const wb = XLSX.utils.book_new();
       const flattenedData = flattenData(data);
-      const ws = XLSX.utils.json_to_sheet([flattenedData]); // Wrap in array to ensure it's treated as a single row
+      const ws = XLSX.utils.json_to_sheet([flattenedData]);
       XLSX.utils.book_append_sheet(wb, ws, "Report");
       XLSX.writeFile(wb, `${filename}.xlsx`);
     } catch (error) {
@@ -45,7 +51,7 @@ export const ExportOptions: React.FC<ExportOptionsProps> = ({
   };
 
   const exportPDF = () => {
-    const doc = new jsPDF();
+    const doc = new jsPDF() as jsPDFWithAutoTable;
     doc.text(filename, 14, 15);
 
     const flattenedData = flattenData(data);
@@ -76,20 +82,17 @@ export const ExportOptions: React.FC<ExportOptionsProps> = ({
     WinPrint?.close();
   };
 
-  // Helper function to flatten nested objects and handle arrays
   const flattenData = (obj: any, prefix = ""): { [key: string]: string } => {
     return Object.keys(obj).reduce((acc: { [key: string]: string }, k) => {
       const pre = prefix.length ? prefix + "." : "";
       if (typeof obj[k] === "object" && obj[k] !== null) {
         if (Array.isArray(obj[k])) {
-          // Handle arrays by joining elements
           acc[pre + k] = obj[k]
             .map((item: any) =>
               typeof item === "object" ? JSON.stringify(item) : item,
             )
             .join(", ");
         } else {
-          // Recursively flatten nested objects
           Object.assign(acc, flattenData(obj[k], pre + k));
         }
       } else {

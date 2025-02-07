@@ -2328,15 +2328,20 @@ class ExtendedReportsViewSet(viewsets.ViewSet):
             # Aggregate unit data
             unit_report = {
                 "total_leases": Lease.objects.filter(unit_filter & date_filter).count(),
-                "current_lease": Lease.objects.filter(
-                    unit_filter & Q(status=LeaseStatus.ACTIVE)
-                )
-                .first()
-                .to_dict()
-                if Lease.objects.filter(
-                    unit_filter & Q(status=LeaseStatus.ACTIVE)
-                ).exists()
-                else None,
+                "current_lease": (
+                    Lease.objects.filter(unit_filter & Q(status=LeaseStatus.ACTIVE))
+                    .values(
+                        "id",
+                        "tenant__first_name",
+                        "tenant__last_name",
+                        "start_date",
+                        "end_date",
+                        "status",
+                        "rent_amount",
+                        # Add any other fields you need from the lease
+                    )
+                    .first()
+                ),
                 "lease_history": list(
                     Lease.objects.filter(unit_filter & date_filter).values(
                         "tenant__first_name",

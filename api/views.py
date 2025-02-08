@@ -367,12 +367,17 @@ class PropertyViewSet(viewsets.ModelViewSet):
         except Profile.DoesNotExist:
             return Property.objects.none()
 
-        if user.is_superuser or profile.user_type == UserType.ADMIN:
+        # Superuser can see all properties
+        if user.is_superuser:
             return Property.objects.all()
+
+        # Filter based on user type
+        if profile.user_type == UserType.ADMIN:
+            return Property.objects.filter(owner=profile)
         elif profile.user_type == UserType.MANAGER:
             return Property.objects.filter(manager=profile)
-        elif profile.user_type == UserType.ADMIN:
-            return Property.objects.filter(owner=profile)
+
+        # For all other user types (including CLERK and TENANT)
         return Property.objects.none()
 
     def get_serializer_class(self):

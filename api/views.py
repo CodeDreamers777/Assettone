@@ -369,10 +369,10 @@ class PropertyViewSet(viewsets.ModelViewSet):
 
         if user.is_superuser or profile.user_type == UserType.ADMIN:
             return Property.objects.all()
-        if profile.user_type == UserType.ADMIN:
-            return Property.objects.filter(owner=profile)
-        if profile.user_type == UserType.MANAGER:
+        elif profile.user_type == UserType.MANAGER:
             return Property.objects.filter(manager=profile)
+        elif profile.user_type == UserType.ADMIN:
+            return Property.objects.filter(owner=profile)
         return Property.objects.none()
 
     def get_serializer_class(self):

@@ -63,20 +63,6 @@ interface Tenant {
   last_name: string;
 }
 
-interface Lease {
-  id: string;
-  tenant: {
-    id: string;
-    name: string;
-    email: string;
-    phone_number: string;
-  };
-  start_date: string;
-  end_date: string;
-  monthly_rent: number;
-  payment_period: string;
-}
-
 interface UnitWithLease extends Unit {
   current_lease?: {
     id: string;

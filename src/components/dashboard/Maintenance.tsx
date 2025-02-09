@@ -106,7 +106,6 @@ const Maintenance: React.FC = () => {
   useEffect(() => {
     fetchMaintenanceRequests();
     fetchProperties();
-    fetchUnits();
     fetchTenants();
   }, []);
 

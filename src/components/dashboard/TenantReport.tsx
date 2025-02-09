@@ -88,10 +88,10 @@ export const TenantReport: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-green-50 p-6 rounded-lg">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Select value={selectedTenant} onValueChange={setSelectedTenant}>
-          <SelectTrigger>
+          <SelectTrigger className="border-green-200 bg-white">
             <SelectValue placeholder="Select Tenant" />
           </SelectTrigger>
           <SelectContent>
@@ -105,8 +105,11 @@ export const TenantReport: React.FC = () => {
 
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="w-full justify-start">
-              <CalendarIcon className="mr-2 h-4 w-4" />
+            <Button
+              variant="outline"
+              className="w-full justify-start border-green-200 bg-white hover:bg-green-50"
+            >
+              <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
               {startDate ? format(startDate, "PPP") : "Start Date"}
             </Button>
           </PopoverTrigger>
@@ -115,19 +118,28 @@ export const TenantReport: React.FC = () => {
               mode="single"
               selected={startDate}
               onSelect={setStartDate}
+              className="rounded-md border border-green-200"
             />
           </PopoverContent>
         </Popover>
 
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="w-full justify-start">
-              <CalendarIcon className="mr-2 h-4 w-4" />
+            <Button
+              variant="outline"
+              className="w-full justify-start border-green-200 bg-white hover:bg-green-50"
+            >
+              <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
               {endDate ? format(endDate, "PPP") : "End Date"}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0">
-            <Calendar mode="single" selected={endDate} onSelect={setEndDate} />
+            <Calendar
+              mode="single"
+              selected={endDate}
+              onSelect={setEndDate}
+              className="rounded-md border border-green-200"
+            />
           </PopoverContent>
         </Popover>
       </div>
@@ -135,7 +147,7 @@ export const TenantReport: React.FC = () => {
       <Button
         onClick={generateReport}
         disabled={loading}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+        className="w-full bg-green-600 hover:bg-green-700 text-white transition-colors"
       >
         {loading ? "Generating..." : "Generate Tenant Report"}
       </Button>
@@ -145,62 +157,61 @@ export const TenantReport: React.FC = () => {
           <ExportOptions data={reportData} filename="tenant_report" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Total Leases</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold">{reportData.total_leases}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Active Leases</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold">{reportData.active_leases}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Terminated Leases</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold">
-                  {reportData.terminated_leases}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Total Rent Paid</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold">
-                  ${reportData.total_rent_paid.toFixed(2)}
-                </p>
-              </CardContent>
-            </Card>
+            {[
+              { title: "Total Leases", value: reportData.total_leases },
+              { title: "Active Leases", value: reportData.active_leases },
+              {
+                title: "Terminated Leases",
+                value: reportData.terminated_leases,
+              },
+              {
+                title: "Total Rent Paid",
+                value: `$${reportData.total_rent_paid.toFixed(2)}`,
+              },
+            ].map((item, index) => (
+              <Card
+                key={index}
+                className="border-green-200 bg-white hover:bg-green-50 transition-colors"
+              >
+                <CardHeader>
+                  <CardTitle className="text-green-800">{item.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-green-700">
+                    {item.value}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
           </div>
 
-          <Card>
+          <Card className="border-green-200 bg-white">
             <CardHeader>
-              <CardTitle>Payment History</CardTitle>
+              <CardTitle className="text-green-800">Payment History</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b">
-                      <th className="px-4 py-2 text-left">Date</th>
-                      <th className="px-4 py-2 text-left">Amount</th>
-                      <th className="px-4 py-2 text-left">Property</th>
+                    <tr className="border-b border-green-200 bg-green-50">
+                      <th className="px-4 py-2 text-left text-green-800">
+                        Date
+                      </th>
+                      <th className="px-4 py-2 text-left text-green-800">
+                        Amount
+                      </th>
+                      <th className="px-4 py-2 text-left text-green-800">
+                        Property
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {reportData.payment_history.map(
                       (payment: any, index: number) => (
-                        <tr key={index} className="border-b">
+                        <tr
+                          key={index}
+                          className="border-b border-green-100 hover:bg-green-50"
+                        >
                           <td className="px-4 py-2">
                             {format(new Date(payment.payment_date), "PP")}
                           </td>
@@ -219,26 +230,41 @@ export const TenantReport: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-green-200 bg-white">
             <CardHeader>
-              <CardTitle>Maintenance Requests</CardTitle>
+              <CardTitle className="text-green-800">
+                Maintenance Requests
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b">
-                      <th className="px-4 py-2 text-left">Title</th>
-                      <th className="px-4 py-2 text-left">Status</th>
-                      <th className="px-4 py-2 text-left">Priority</th>
-                      <th className="px-4 py-2 text-left">Requested Date</th>
-                      <th className="px-4 py-2 text-left">Property</th>
+                    <tr className="border-b border-green-200 bg-green-50">
+                      <th className="px-4 py-2 text-left text-green-800">
+                        Title
+                      </th>
+                      <th className="px-4 py-2 text-left text-green-800">
+                        Status
+                      </th>
+                      <th className="px-4 py-2 text-left text-green-800">
+                        Priority
+                      </th>
+                      <th className="px-4 py-2 text-left text-green-800">
+                        Requested Date
+                      </th>
+                      <th className="px-4 py-2 text-left text-green-800">
+                        Property
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {reportData.maintenance_requests.map(
                       (request: any, index: number) => (
-                        <tr key={index} className="border-b">
+                        <tr
+                          key={index}
+                          className="border-b border-green-100 hover:bg-green-50"
+                        >
                           <td className="px-4 py-2">{request.title}</td>
                           <td className="px-4 py-2">{request.status}</td>
                           <td className="px-4 py-2">{request.priority}</td>

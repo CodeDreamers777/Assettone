@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import axios from "axios";
+import { toast } from "@/hooks/use-toast";
+
 import {
   Card,
   CardContent,
@@ -70,6 +73,7 @@ export function Properties() {
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -131,6 +135,32 @@ export function Properties() {
       console.error("Error fetching properties:", error);
     }
   };
+  const fetchUnits = async (propertyId: string) => {
+    setIsLoading(true);
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      const response = await axios.get(
+        `https://assettoneestates.pythonanywhere.com/api/v1/properties/${propertyId}/units/`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+      setUnits(response.data.units || []);
+    } catch (error) {
+      console.error("Error fetching units:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch units. Please try again.",
+        variant: "destructive",
+      });
+      setUnits([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCreateUnit = (newUnit: Unit) => {
     setUnits([...units, newUnit]);
   };
@@ -226,9 +256,10 @@ export function Properties() {
     setIsAddEditModalOpen(true);
   };
 
-  const openPropertyDetails = (property: Property) => {
+  const openPropertyDetails = async (property: Property) => {
     setSelectedProperty(property);
     setIsDetailModalOpen(true);
+    await fetchUnits(property.id);
   };
 
   return (
@@ -245,7 +276,6 @@ export function Properties() {
           Add Property
         </Button>
       </DashboardHeader>
-
       {/* Add/Edit Property Modal */}
       <Dialog open={isAddEditModalOpen} onOpenChange={setIsAddEditModalOpen}>
         <DialogContent className="max-w-4xl rounded-2xl">
@@ -372,7 +402,6 @@ export function Properties() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Property Details Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
         <DialogContent className="max-w-4xl rounded-2xl border-2 border-[#38b000] shadow-lg">
@@ -426,7 +455,18 @@ export function Properties() {
                     <h3 className="font-semibold mb-2 flex items-center text-[#38b000]">
                       <Building className="mr-2" /> Units
                     </h3>
-                    <p className="text-muted-foreground">No units added yet</p>
+                    {isLoading ? (
+                      <p className="text-muted-foreground">Loading units...</p>
+                    ) : units.length > 0 ? (
+                      <p className="text-muted-foreground">
+                        {units.length} unit{units.length !== 1 ? "s" : ""}{" "}
+                        available
+                      </p>
+                    ) : (
+                      <p className="text-muted-foreground">
+                        No units available
+                      </p>
+                    )}
                     <Button
                       className="mt-2"
                       variant="outline"
@@ -467,7 +507,6 @@ export function Properties() {
           )}
         </DialogContent>
       </Dialog>
-
       {/* Delete Confirmation Dialog */}
       <AlertDialog
         open={isDeleteDialogOpen}
@@ -494,7 +533,6 @@ export function Properties() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
       <div className="mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -507,7 +545,6 @@ export function Properties() {
           />
         </div>
       </div>
-
       {filteredProperties.length === 0 ? (
         <div className="text-center py-12 bg-muted/50 rounded-lg">
           <Building className="mx-auto h-12 w-12 text-muted-foreground mb-4" />

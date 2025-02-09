@@ -89,6 +89,7 @@ export function LandingPage() {
             size="lg"
             variant="secondary"
             className="bg-white text-[#38b000] hover:bg-gray-100 transition-colors duration-300"
+            onClick={() => navigate("/login")}
           >
             Get Started Today
           </Button>

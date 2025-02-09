@@ -63,6 +63,36 @@ interface Tenant {
   last_name: string;
 }
 
+interface Lease {
+  id: string;
+  tenant: {
+    id: string;
+    name: string;
+    email: string;
+    phone_number: string;
+  };
+  start_date: string;
+  end_date: string;
+  monthly_rent: number;
+  payment_period: string;
+}
+
+interface UnitWithLease extends Unit {
+  current_lease?: {
+    id: string;
+    tenant: {
+      id: string;
+      name: string;
+      email: string;
+      phone_number: string;
+    };
+    start_date: string;
+    end_date: string;
+    monthly_rent: number;
+    payment_period: string;
+  };
+}
+
 type Priority = "HIGH" | "MEDIUM" | "LOW";
 type Status = "PENDING" | "APPROVED" | "REJECTED" | "COMPLETED";
 
@@ -77,6 +107,7 @@ const Maintenance: React.FC = () => {
   const [selectedUnit, setSelectedUnit] = useState<string>("");
   const [selectedTenant, setSelectedTenant] = useState<string>("");
   const [isRepairCostModalOpen, setIsRepairCostModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
     null,
   );
@@ -149,11 +180,12 @@ const Maintenance: React.FC = () => {
     }
   };
 
-  const fetchUnits = async () => {
+  const fetchUnits = async (propertyId: string) => {
+    setIsLoading(true);
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/units/",
+        `https://assettoneestates.pythonanywhere.com/api/v1/properties/${propertyId}/units/`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -161,15 +193,17 @@ const Maintenance: React.FC = () => {
         },
       );
       const data = await response.json();
-      if (Array.isArray(data)) {
-        setUnits(data);
+      if (data.units && Array.isArray(data.units)) {
+        setUnits(data.units);
       } else {
-        console.error("Fetched units data is not an array:", data);
+        console.error("Fetched units data is not as expected:", data);
         setUnits([]);
       }
     } catch (error) {
       console.error("Error fetching units:", error);
       setUnits([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -196,6 +230,54 @@ const Maintenance: React.FC = () => {
     } catch (error) {
       console.error("Error fetching tenants:", error);
       setTenants([]);
+    }
+  };
+
+  // Update the property selection handler
+  // Update handlePropertyChange function
+  const handlePropertyChange = async (propertyId: string) => {
+    setSelectedProperty(propertyId);
+    setSelectedUnit(""); // Reset unit selection
+    setSelectedTenant(""); // Reset tenant selection
+    if (propertyId) {
+      await fetchUnits(propertyId);
+    } else {
+      setUnits([]);
+    }
+  };
+
+  // Add new function to handle unit selection
+  const handleUnitChange = (unitId: string) => {
+    setSelectedUnit(unitId);
+
+    // Find the selected unit and its tenant
+    const selectedUnitData = units.find(
+      (unit) => unit.id === unitId,
+    ) as UnitWithLease;
+
+    if (selectedUnitData?.current_lease?.tenant) {
+      // Automatically set the tenant from the lease
+      setSelectedTenant(selectedUnitData.current_lease.tenant.id);
+
+      // Update tenants array if the tenant isn't already in it
+      const leaseTenant = {
+        id: selectedUnitData.current_lease.tenant.id,
+        first_name: selectedUnitData.current_lease.tenant.name.split(" ")[0],
+        last_name: selectedUnitData.current_lease.tenant.name
+          .split(" ")
+          .slice(1)
+          .join(" "),
+      };
+
+      setTenants((prevTenants) => {
+        const tenantExists = prevTenants.some((t) => t.id === leaseTenant.id);
+        if (!tenantExists) {
+          return [...prevTenants, leaseTenant];
+        }
+        return prevTenants;
+      });
+    } else {
+      setSelectedTenant(""); // Reset tenant selection if no lease
     }
   };
 
@@ -367,11 +449,12 @@ const Maintenance: React.FC = () => {
           <div className="bg-white rounded-lg p-4 mb-6 shadow-sm">
             <h3 className="text-lg font-medium text-green-700 mb-4">Filters</h3>
             <div className="flex flex-wrap gap-4 items-end">
+              {/* Property Select */}
               <div className="space-y-2">
                 <label className="text-sm text-green-600 font-medium">
                   Property
                 </label>
-                <Select onValueChange={setSelectedProperty}>
+                <Select onValueChange={handlePropertyChange}>
                   <SelectTrigger className="w-[200px] border-green-200 focus:ring-green-500">
                     <SelectValue placeholder="Select Property" />
                   </SelectTrigger>
@@ -384,13 +467,27 @@ const Maintenance: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Unit Select */}
               <div className="space-y-2">
                 <label className="text-sm text-green-600 font-medium">
                   Unit
                 </label>
-                <Select onValueChange={setSelectedUnit}>
+                <Select
+                  onValueChange={handleUnitChange}
+                  disabled={!selectedProperty || isLoading}
+                  value={selectedUnit}
+                >
                   <SelectTrigger className="w-[200px] border-green-200 focus:ring-green-500">
-                    <SelectValue placeholder="Select Unit" />
+                    <SelectValue
+                      placeholder={
+                        isLoading
+                          ? "Loading units..."
+                          : !selectedProperty
+                            ? "Select a property first"
+                            : "Select Unit"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {units.map((unit) => (
@@ -405,9 +502,17 @@ const Maintenance: React.FC = () => {
                 <label className="text-sm text-green-600 font-medium">
                   Tenant
                 </label>
-                <Select onValueChange={setSelectedTenant}>
+                <Select
+                  onValueChange={setSelectedTenant}
+                  value={selectedTenant}
+                  disabled={!selectedUnit}
+                >
                   <SelectTrigger className="w-[200px] border-green-200 focus:ring-green-500">
-                    <SelectValue placeholder="Select Tenant" />
+                    <SelectValue
+                      placeholder={
+                        !selectedUnit ? "Select a unit first" : "Select Tenant"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {tenants.map((tenant) => (
@@ -418,9 +523,11 @@ const Maintenance: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
+
               <Button
                 onClick={handleFilter}
                 className="bg-green-600 hover:bg-green-700 text-white"
+                disabled={isLoading}
               >
                 <Filter className="h-4 w-4 mr-2" />
                 Apply Filters

@@ -396,7 +396,7 @@ export function Units() {
                           ? unit.custom_unit_type
                           : UNIT_TYPE_LABELS[unit.unit_type]}
                       </TableCell>
-                      <TableCell>${unit.rent}</TableCell>
+                      <TableCell>KES {unit.rent}</TableCell>
                       <TableCell>{unit.payment_period}</TableCell>
                       <TableCell>{unit.floor}</TableCell>
                       <TableCell>

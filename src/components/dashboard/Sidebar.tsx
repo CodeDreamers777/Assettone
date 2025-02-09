@@ -76,7 +76,7 @@ export function Sidebar({
       <div className="h-16 flex items-center border-b px-6">
         <Link to="/" className="flex items-center gap-2 font-semibold">
           <Home className="h-6 w-6" style={{ color: "#38b000" }} />
-          <span className="text-[#38b000]">Assettoneestates</span>
+          <span className="text-[#38b000]">Assettone estates</span>
         </Link>
       </div>
       <ScrollArea className="flex-1 py-4">

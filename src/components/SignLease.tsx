@@ -97,7 +97,6 @@ const LeaseSigning: React.FC = () => {
   const [leaseData, setLeaseData] = useState<LeaseData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSigningComplete, setIsSigningComplete] = useState(false);
   const [hasAcknowledged, setHasAcknowledged] = useState(false);
   const sigPadRef = useRef<SignatureCanvas>(null);
 
@@ -202,7 +201,6 @@ const LeaseSigning: React.FC = () => {
 
         // Check if the response contains a success message
         if (response.data && response.data.message) {
-          setIsSigningComplete(true);
           setError(null); // Clear any previous errors
           toast({
             title: "Success!",

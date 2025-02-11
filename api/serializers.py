@@ -490,22 +490,29 @@ class TenantSerializer(serializers.ModelSerializer):
                 "Identification number is required when identification type is specified"
             )
 
-        # Validate property and unit availability if property_id is provided
+        # Validate unit availability if unit_id is provided
+        unit_id = data.get("unit_id")
         property_id = data.get("property_id")
+
+        if unit_id:
+            try:
+                unit = Unit.objects.get(id=unit_id)
+                if unit.is_occupied:
+                    raise serializers.ValidationError(
+                        {"unit_id": "This unit is already occupied"}
+                    )
+                # If property_id is provided, ensure unit belongs to property
+                if property_id and str(unit.property.id) != str(property_id):
+                    raise serializers.ValidationError(
+                        {"unit_id": "Unit does not belong to the specified property"}
+                    )
+            except Unit.DoesNotExist:
+                raise serializers.ValidationError({"unit_id": "Invalid unit"})
+
+        # Validate property exists if property_id is provided
         if property_id:
             try:
-                property_obj = Property.objects.get(id=property_id)
-
-                # Check for available units
-                available_units = Unit.objects.filter(
-                    property=property_obj, is_occupied=False
-                )
-
-                if not available_units.exists():
-                    raise serializers.ValidationError(
-                        {"property_id": "No available units in this property"}
-                    )
-
+                Property.objects.get(id=property_id)
             except Property.DoesNotExist:
                 raise serializers.ValidationError({"property_id": "Invalid property"})
 
@@ -561,6 +568,9 @@ class TenantSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         property_id = validated_data.pop("property_id", None)
+        unit_id = validated_data.pop("unit_id", None)
+
+        # Create the tenant
         tenant = Tenant.objects.create(**validated_data)
 
         # Create user account and send credentials if email is provided
@@ -569,59 +579,58 @@ class TenantSerializer(serializers.ModelSerializer):
             username, _ = self.create_user_account(tenant, password)
             self.send_credentials_email(tenant, username, password)
 
-        # Handle lease creation if property_id provided
-        if property_id:
-            property_obj = Property.objects.get(id=property_id)
-            unoccupied_unit = Unit.objects.filter(
-                property=property_obj, is_occupied=False
-            ).first()
+        # Create lease only if unit_id is provided
+        if unit_id:
+            unit = Unit.objects.get(id=unit_id)
             Lease.objects.create(
                 tenant=tenant,
-                unit=unoccupied_unit,
+                unit=unit,
                 start_date=timezone.now().date(),
                 end_date=timezone.now().date() + timedelta(days=365),
-                monthly_rent=unoccupied_unit.rent,
+                monthly_rent=unit.rent,
                 security_deposit=0,
                 status=LeaseStatus.PENDING,
             )
-            unoccupied_unit.is_occupied = True
-            unoccupied_unit.save()
+            unit.is_occupied = True
+            unit.save()
 
         return tenant
 
     def update(self, instance, validated_data):
         property_id = validated_data.pop("property_id", None)
+        unit_id = validated_data.pop("unit_id", None)
 
         # Update tenant fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        # Handle lease creation if property_id provided
-        if property_id:
+        # Handle lease creation if unit_id provided
+        if unit_id:
             # Check if tenant already has an active lease
             if instance.leases.filter(status=LeaseStatus.ACTIVE).exists():
                 raise serializers.ValidationError(
-                    {"property_id": "Tenant already has an active lease"}
+                    {"unit_id": "Tenant already has an active lease"}
                 )
 
-            property_obj = Property.objects.get(id=property_id)
-            unoccupied_unit = Unit.objects.filter(
-                property=property_obj, is_occupied=False
-            ).first()
+            unit = Unit.objects.get(id=unit_id)
+            if unit.is_occupied:
+                raise serializers.ValidationError(
+                    {"unit_id": "This unit is already occupied"}
+                )
 
             Lease.objects.create(
                 tenant=instance,
-                unit=unoccupied_unit,
+                unit=unit,
                 start_date=timezone.now().date(),
                 end_date=timezone.now().date() + timedelta(days=365),
-                monthly_rent=unoccupied_unit.rent,
+                monthly_rent=unit.rent,
                 security_deposit=0,
                 status=LeaseStatus.PENDING,
             )
 
-            unoccupied_unit.is_occupied = True
-            unoccupied_unit.save()
+            unit.is_occupied = True
+            unit.save()
 
         return instance
 

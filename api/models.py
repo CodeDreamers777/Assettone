@@ -357,25 +357,11 @@ class Lease(models.Model):
         upload_to="signed_lease_documents/", blank=True, null=True
     )
 
-    def create_lease_document(self):
-        """
-        Generate lease document and return signing URL
-        """
-        # Generate document
-        document_generator = LeaseDocumentGenerator()
-        document_generator.save_lease_document(self)
-
-        # Generate signing token
-        self.signing_token = uuid.uuid4()
-        self.save()
-
-        # Return signing URL
-        return f"https://yourdomain.com/sign-lease/{self.signing_token}"
-
     def send_lease_signing_email(self):
         """
         Send lease signing email with encoded lease details in URL
         """
+        print("---was called to send email----")
         # Compile lease details
         lease_data = {
             "lease_id": str(self.id),

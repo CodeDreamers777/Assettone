@@ -74,6 +74,9 @@ import os
 from .utils.send_mail import EmailService
 from datetime import datetime, timedelta
 from django.shortcuts import get_object_or_404
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class HealthCheckApiview(APIView):
@@ -1209,19 +1212,42 @@ class LeaseViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["GET"])
     def download_pdf(self, request, pk=None):
-        """Generate and return PDF with signature if signed"""
+        """
+            Generate and return PDF with signature if signed.
+        Returns HTTP 400 if lease is not signed.
+        """
         lease = self.get_object()
 
-        # Get signature if exists
-        signature_image = lease.signature_document if lease.is_signed else None
+        # Check if lease is signed
+        if not lease.is_signed:
+            return Response(
+                {"error": "Lease must be signed before downloading PDF"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # Generate PDF
-        pdf_buffer = LeaseDocumentGenerator.generate_lease_pdf(lease, signature_image)
+        try:
+            # Get signature
+            signature_image = lease.signature_document
 
-        # Return PDF as response
-        response = HttpResponse(pdf_buffer, content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="lease_{lease.id}.pdf"'
-        return response
+            # Generate PDF
+            pdf_buffer = LeaseDocumentGenerator.generate_lease_pdf(
+                lease, signature_image
+            )
+
+            # Return PDF as response
+            response = HttpResponse(pdf_buffer, content_type="application/pdf")
+            response["Content-Disposition"] = (
+                f'attachment; filename="lease_{lease.id}.pdf"'
+            )
+            return response
+
+        except Exception as e:
+            # Log the error for debugging
+            logger.error(f"Error generating PDF for lease {lease.id}: {str(e)}")
+            return Response(
+                {"error": "Failed to generate lease PDF"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class BookDemoView(APIView):

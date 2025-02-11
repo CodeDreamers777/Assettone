@@ -410,7 +410,7 @@ class Lease(models.Model):
         ).decode()
 
         # Generate signing URL with encoded data
-        signing_url = f"http://localhost:5173/lease-signing?data={encoded_data}"
+        signing_url = f"https://assettone-rental-management.vercel.app/lease-signing?data={encoded_data}"
 
         # Prepare email context
         context = {

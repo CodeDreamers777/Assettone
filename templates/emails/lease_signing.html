@@ -1,15 +1,109 @@
-<p>Dear {{ tenant_name }},</p>
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lease Document Signing</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      background-color: #f5f5f5;
+    "
+  >
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px">
+      <div
+        style="
+          background-color: #ffffff;
+          padding: 40px;
+          border-radius: 8px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        "
+      >
+        <div style="text-align: center; margin-bottom: 30px">
+          <div
+            style="
+              background-color: #4caf50;
+              height: 4px;
+              width: 100px;
+              margin: 0 auto;
+            "
+          ></div>
+        </div>
 
-<p>
-  Your lease document is ready for signing. Please click the link below to
-  review and sign your lease:
-</p>
+        <p style="color: #333333; font-size: 16px; margin-bottom: 20px">
+          Dear {{ tenant_name }},
+        </p>
 
-<a href="{{ lease_url }}">Sign Lease Document</a>
+        <p style="color: #555555; font-size: 16px; margin-bottom: 25px">
+          Your lease document is ready for signing. Please review and sign your
+          lease using the button below:
+        </p>
 
-<p>
-  Lease Details: Start Date: {{ lease_start_date }} End Date: {{ lease_end_date
-  }}
-</p>
+        <div style="text-align: center; margin: 30px 0">
+          <a
+            href="{{ lease_url }}"
+            style="
+              background-color: #4caf50;
+              color: white;
+              padding: 12px 30px;
+              text-decoration: none;
+              border-radius: 4px;
+              font-weight: bold;
+              display: inline-block;
+            "
+            >Sign Lease Document</a
+          >
+        </div>
 
-<p>Best regards, Your Property Management Team</p>
+        <div
+          style="
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 25px 0;
+          "
+        >
+          <h3 style="color: #333333; margin: 0 0 15px 0; font-size: 18px">
+            Lease Details
+          </h3>
+          <p style="color: #555555; margin: 5px 0">
+            <strong>Start Date:</strong> {{ lease_start_date }}<br />
+            <strong>End Date:</strong> {{ lease_end_date }}
+          </p>
+        </div>
+
+        <p style="color: #555555; font-size: 16px; margin-top: 30px">
+          Best regards,<br />
+          <strong style="color: #333333">Your Property Management Team</strong>
+        </p>
+
+        <div style="text-align: center; margin-top: 40px">
+          <div
+            style="
+              background-color: #4caf50;
+              height: 4px;
+              width: 100px;
+              margin: 0 auto;
+            "
+          ></div>
+        </div>
+      </div>
+
+      <div
+        style="
+          text-align: center;
+          padding: 20px;
+          color: #999999;
+          font-size: 12px;
+        "
+      >
+        This is an automated email. Please do not reply directly to this
+        message.
+      </div>
+    </div>
+  </body>
+</html>

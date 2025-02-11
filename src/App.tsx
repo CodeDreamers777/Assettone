@@ -14,6 +14,7 @@ import BookADemo from "./components/BookADemo";
 import AboutUs from "./components/AbousUs";
 import ContactUs from "./components/ContactUs";
 import { Toaster } from "./components/ui/toaster";
+import LeaseSigning from "./components/SignLease";
 
 import companyLogo from "../src/assets/Assettone Estates Logo transparent (2).png";
 // AuthContext with proper typing
@@ -240,12 +241,14 @@ function App() {
                 isAuthenticated ? <Navigate to="/dashboard" /> : <BookADemo />
               }
             />
+
             <Route
               path="/about-us"
               element={
                 isAuthenticated ? <Navigate to="/dashboard" /> : <AboutUs />
               }
             />
+            <Route path="/lease-signing" element={<LeaseSigning />} />
             <Route
               path="/contact-us"
               element={

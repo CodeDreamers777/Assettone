@@ -234,6 +234,13 @@ class Tenant(models.Model):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    property = models.ForeignKey(
+        Property,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="tenants",
+        help_text="Property association for tenants without units",
+    )
 
     # Personal Information
     first_name = models.CharField(max_length=100)

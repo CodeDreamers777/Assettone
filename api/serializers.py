@@ -518,6 +518,86 @@ class TenantSerializer(serializers.ModelSerializer):
 
         return data
 
+    def create(self, validated_data):
+        property_id = validated_data.pop("property_id", None)
+        unit_id = validated_data.pop("unit_id", None)
+
+        # If property_id is provided, get the property instance
+        if property_id:
+            property_instance = Property.objects.get(id=property_id)
+            # Create tenant with property association
+            tenant = Tenant.objects.create(property=property_instance, **validated_data)
+        else:
+            # Create tenant without property association
+            tenant = Tenant.objects.create(**validated_data)
+
+        # Create user account and send credentials if email is provided
+        if tenant.email:
+            password = self.generate_password()
+            username, _ = self.create_user_account(tenant, password)
+            self.send_credentials_email(tenant, username, password)
+
+        # Create lease only if unit_id is provided
+        if unit_id:
+            unit = Unit.objects.get(id=unit_id)
+            Lease.objects.create(
+                tenant=tenant,
+                unit=unit,
+                start_date=timezone.now().date(),
+                end_date=timezone.now().date() + timedelta(days=365),
+                monthly_rent=unit.rent,
+                security_deposit=0,
+                status=LeaseStatus.PENDING,
+            )
+            unit.is_occupied = True
+            unit.save()
+
+        return tenant
+
+    def update(self, instance, validated_data):
+        property_id = validated_data.pop("property_id", None)
+        unit_id = validated_data.pop("unit_id", None)
+
+        # Update property association if property_id is provided
+        if property_id:
+            try:
+                property_instance = Property.objects.get(id=property_id)
+                instance.property = property_instance
+            except Property.DoesNotExist:
+                raise serializers.ValidationError({"property_id": "Invalid property"})
+
+        # Update tenant fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Handle lease creation if unit_id provided
+        if unit_id:
+            # Check if tenant already has an active lease
+            if instance.leases.filter(status=LeaseStatus.ACTIVE).exists():
+                raise serializers.ValidationError(
+                    {"unit_id": "Tenant already has an active lease"}
+                )
+
+            unit = Unit.objects.get(id=unit_id)
+            if unit.is_occupied:
+                raise serializers.ValidationError(
+                    {"unit_id": "This unit is already occupied"}
+                )
+
+            Lease.objects.create(
+                tenant=instance,
+                unit=unit,
+                start_date=timezone.now().date(),
+                end_date=timezone.now().date() + timedelta(days=365),
+                monthly_rent=unit.rent,
+                security_deposit=0,
+                status=LeaseStatus.PENDING,
+            )
+
+            unit.is_occupied = True
+            unit.save()
+
     def generate_password(self):
         """Generate a secure random password"""
         chars = string.ascii_letters + string.digits + string.punctuation
@@ -565,74 +645,6 @@ class TenantSerializer(serializers.ModelSerializer):
             template_name="emails/tenant_credentials.html",
             context=context,
         )
-
-    def create(self, validated_data):
-        property_id = validated_data.pop("property_id", None)
-        unit_id = validated_data.pop("unit_id", None)
-
-        # Create the tenant
-        tenant = Tenant.objects.create(**validated_data)
-
-        # Create user account and send credentials if email is provided
-        if tenant.email:
-            password = self.generate_password()
-            username, _ = self.create_user_account(tenant, password)
-            self.send_credentials_email(tenant, username, password)
-
-        # Create lease only if unit_id is provided
-        if unit_id:
-            unit = Unit.objects.get(id=unit_id)
-            Lease.objects.create(
-                tenant=tenant,
-                unit=unit,
-                start_date=timezone.now().date(),
-                end_date=timezone.now().date() + timedelta(days=365),
-                monthly_rent=unit.rent,
-                security_deposit=0,
-                status=LeaseStatus.PENDING,
-            )
-            unit.is_occupied = True
-            unit.save()
-
-        return tenant
-
-    def update(self, instance, validated_data):
-        property_id = validated_data.pop("property_id", None)
-        unit_id = validated_data.pop("unit_id", None)
-
-        # Update tenant fields
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        # Handle lease creation if unit_id provided
-        if unit_id:
-            # Check if tenant already has an active lease
-            if instance.leases.filter(status=LeaseStatus.ACTIVE).exists():
-                raise serializers.ValidationError(
-                    {"unit_id": "Tenant already has an active lease"}
-                )
-
-            unit = Unit.objects.get(id=unit_id)
-            if unit.is_occupied:
-                raise serializers.ValidationError(
-                    {"unit_id": "This unit is already occupied"}
-                )
-
-            Lease.objects.create(
-                tenant=instance,
-                unit=unit,
-                start_date=timezone.now().date(),
-                end_date=timezone.now().date() + timedelta(days=365),
-                monthly_rent=unit.rent,
-                security_deposit=0,
-                status=LeaseStatus.PENDING,
-            )
-
-            unit.is_occupied = True
-            unit.save()
-
-        return instance
 
 
 class LeaseSerializer(serializers.ModelSerializer):

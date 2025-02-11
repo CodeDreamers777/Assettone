@@ -706,7 +706,8 @@ class TenantViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Filter tenants to only those in properties owned or managed by the user
+        Filter tenants to those in properties owned or managed by the user,
+        including tenants without leases but associated with properties
         """
         # Get the current user's profile
         user_profile = Profile.objects.get(user=self.request.user)
@@ -715,19 +716,31 @@ class TenantViewSet(viewsets.ModelViewSet):
         if user_profile.user_type in [UserType.ADMIN, UserType.MANAGER]:
             if user_profile.user_type == UserType.ADMIN:
                 # For admins, get properties they own
-                owned_properties = Property.objects.filter(owner=user_profile)
+                accessible_properties = Property.objects.filter(owner=user_profile)
             else:
                 # For managers, get properties they manage
-                owned_properties = Property.objects.filter(manager=user_profile)
+                accessible_properties = Property.objects.filter(manager=user_profile)
 
-            # Get units in these properties
-            property_units = Unit.objects.filter(property__in=owned_properties)
+            # Get all tenants associated with these properties through leases
+            queryset_with_leases = Tenant.objects.filter(
+                leases__unit__property__in=accessible_properties
+            )
 
-            # Get leases for these units
-            property_leases = Lease.objects.filter(unit__in=property_units)
+            # Also get tenants associated with the property but without leases
+            # This requires adding a property field to the Tenant model or
+            # creating a separate TenantProperty model to track this association
 
-            # Filter tenants to those with leases in these units
-            queryset = Tenant.objects.filter(leases__in=property_leases).distinct()
+            # For now, we'll need to add a property field to the Tenant model:
+            # property = models.ForeignKey(Property, on_delete=models.SET_NULL,
+            #                             null=True, related_name='tenants')
+
+            # Then we can get tenants directly associated with properties:
+            queryset_without_leases = Tenant.objects.filter(
+                property__in=accessible_properties
+            )
+
+            # Combine both querysets
+            queryset = (queryset_with_leases | queryset_without_leases).distinct()
         else:
             # For other user types, return an empty queryset
             queryset = Tenant.objects.none()
@@ -738,7 +751,6 @@ class TenantViewSet(viewsets.ModelViewSet):
 
         if status:
             queryset = queryset.filter(status=status)
-
         if search:
             queryset = queryset.filter(
                 Q(first_name__icontains=search)
@@ -760,19 +772,25 @@ class TenantViewSet(viewsets.ModelViewSet):
         tenants_by_property = {}
 
         for tenant in queryset:
-            # Get the properties for this tenant through their leases and units
-            tenant_properties = Property.objects.filter(
+            # Get properties through leases
+            lease_properties = Property.objects.filter(
                 units__leases__tenant=tenant
             ).distinct()
 
-            # For each property, add the tenant to the group
-            for property_obj in tenant_properties:
+            # Get directly associated property (if exists)
+            if hasattr(tenant, "property") and tenant.property:
+                if tenant.property not in tenants_by_property:
+                    tenants_by_property[tenant.property] = []
+                serializer = self.get_serializer(tenant)
+                tenants_by_property[tenant.property].append(serializer.data)
+
+            # Add properties from leases
+            for property_obj in lease_properties:
                 if property_obj not in tenants_by_property:
                     tenants_by_property[property_obj] = []
-
-                # Serialize the tenant
                 serializer = self.get_serializer(tenant)
-                tenants_by_property[property_obj].append(serializer.data)
+                if serializer.data not in tenants_by_property[property_obj]:
+                    tenants_by_property[property_obj].append(serializer.data)
 
         # Convert property objects to dictionary keys
         result = {

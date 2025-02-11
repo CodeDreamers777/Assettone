@@ -415,7 +415,7 @@ class Lease(models.Model):
         # Prepare email context
         context = {
             "tenant_name": f"{self.tenant.first_name} {self.tenant.last_name}",
-            "signing_url": signing_url,
+            "lease_url": signing_url,
             "property_name": self.unit.property.name,
             "unit_number": self.unit.unit_number,
         }

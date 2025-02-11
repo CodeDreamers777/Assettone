@@ -55,7 +55,6 @@ class EmailService:
                 "subject": subject,
                 "htmlContent": html_content,
             }
-            print(payload)
 
             # Set up headers
             headers = {

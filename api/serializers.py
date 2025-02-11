@@ -21,6 +21,7 @@ from .models import (
     MaintenanceStatus,
 )
 from decimal import Decimal
+import uuid
 from django.utils import timezone
 from datetime import timedelta
 import string
@@ -684,7 +685,7 @@ class LeaseSerializer(serializers.ModelSerializer):
 class LeaseCreateSerializer(serializers.ModelSerializer):
     """
     Serializer for creating or updating a Lease
-    Includes additional validation and automatic rent calculation
+    Includes additional validation, automatic rent calculation, and lease signing email
     """
 
     class Meta:
@@ -697,6 +698,9 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
             "previous_lease",
             "monthly_rent",
             "security_deposit",
+            "signing_token",
+            "is_signed",
+            "signed_at",
         ]
 
     def validate(self, data):
@@ -724,7 +728,6 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Lease end date must be after start date"
                 )
-
         return data
 
     def create(self, validated_data):
@@ -733,6 +736,7 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
         1. Set monthly rent from unit's rent
         2. Set security deposit (e.g., as 1.5x monthly rent)
         3. Update unit occupancy
+        4. Generate signing token and send signing email
         """
         # Get the unit and its rent
         unit = validated_data.get("unit")
@@ -741,8 +745,10 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
         validated_data["monthly_rent"] = unit.rent
 
         # Set security deposit (e.g., 1.5 times monthly rent)
-        # You can adjust this multiplier as needed
         validated_data["security_deposit"] = unit.rent * Decimal("1.5")
+
+        # Generate signing token
+        validated_data["signing_token"] = uuid.uuid4()
 
         # Create lease
         lease = super().create(validated_data)
@@ -750,6 +756,14 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
         # Update unit occupancy
         unit.is_occupied = True
         unit.save()
+
+        # Send lease signing email
+        try:
+            lease.send_lease_signing_email()
+        except Exception as e:
+            # Log the error but don't prevent lease creation
+            print(f"Failed to send lease signing email: {str(e)}")
+            # You might want to add proper logging here
 
         return lease
 
@@ -774,7 +788,6 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
             # Update previous unit's occupancy
             instance.unit.is_occupied = False
             instance.unit.save()
-
             # Update new unit's occupancy
             unit.is_occupied = True
             unit.save()

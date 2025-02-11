@@ -369,7 +369,7 @@ class Lease(models.Model):
         Send lease signing email with encoded lease details in URL
         """
         print("---was called to send email----")
-        # Compile lease details
+        # Compile lease details using only existing fields
         lease_data = {
             "lease_id": str(self.id),
             "signing_token": str(self.signing_token),
@@ -377,19 +377,23 @@ class Lease(models.Model):
                 "first_name": self.tenant.first_name,
                 "last_name": self.tenant.last_name,
                 "email": self.tenant.email,
-                "phone": self.tenant.phone,
+                "phone_number": self.tenant.phone_number,
             },
             "unit": {
-                "number": self.unit.unit_number,
-                "type": self.unit.unit_type,
+                "unit_number": self.unit.unit_number,
+                "unit_type": self.unit.unit_type,
                 "floor": self.unit.floor,
-                "size": str(self.unit.size),
+                "square_footage": str(self.unit.square_footage)
+                if self.unit.square_footage
+                else None,
             },
             "property": {
                 "name": self.unit.property.name,
-                "address": self.unit.property.address,
+                "address_line1": self.unit.property.address_line1,
+                "address_line2": self.unit.property.address_line2,
                 "city": self.unit.property.city,
                 "state": self.unit.property.state,
+                "postal_code": self.unit.property.postal_code,
             },
             "lease_terms": {
                 "start_date": self.start_date.isoformat(),

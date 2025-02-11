@@ -98,7 +98,7 @@ const LeaseSigning: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasAcknowledged, setHasAcknowledged] = useState(false);
-  const sigPadRef = useRef<SignatureCanvas>(null);
+  const sigPadRef = useRef<SignatureCanvas | null>(null);
 
   // Get access token from localStorage
   const getAccessToken = () => {
@@ -149,7 +149,7 @@ const LeaseSigning: React.FC = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      if (err.message === "No access token found") {
+      if (err instanceof Error && err.message === "No access token found") {
         toast({
           variant: "destructive",
           title: "Authentication Error",
@@ -172,10 +172,13 @@ const LeaseSigning: React.FC = () => {
       return;
     }
 
-    if (!sigPadRef.current?.isEmpty()) {
+    const signaturePad = sigPadRef.current;
+    if (!signaturePad) return;
+
+    if (!signaturePad.isEmpty()) {
       setIsSubmitting(true);
       try {
-        const signatureDataUrl = sigPadRef.current
+        const signatureDataUrl = signaturePad
           .getTrimmedCanvas()
           .toDataURL("image/png");
         const signatureBlob = await (await fetch(signatureDataUrl)).blob();
@@ -191,17 +194,10 @@ const LeaseSigning: React.FC = () => {
         const response = await authorizedAxios.post(
           `https://assettoneestates.pythonanywhere.com/api/v1/leases/${leaseData?.lease_id}/complete_signing/`,
           formData,
-          {
-            headers: {
-              ...authorizedAxios.defaults.headers,
-              "Content-Type": "multipart/form-data",
-            },
-          },
         );
 
-        // Check if the response contains a success message
         if (response.data && response.data.message) {
-          setError(null); // Clear any previous errors
+          setError(null);
           toast({
             title: "Success!",
             description:
@@ -213,7 +209,6 @@ const LeaseSigning: React.FC = () => {
             ),
           });
 
-          // Delay redirect to allow toast to be visible
           setTimeout(() => {
             window.location.href = "/login";
           }, 3000);
@@ -222,7 +217,7 @@ const LeaseSigning: React.FC = () => {
         }
       } catch (err) {
         const errorMessage =
-          err.message === "No access token found"
+          err instanceof Error && err.message === "No access token found"
             ? "Please log in to sign the lease"
             : "Failed to submit signature";
 

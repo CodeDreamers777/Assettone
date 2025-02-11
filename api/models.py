@@ -419,6 +419,7 @@ class Lease(models.Model):
             "property_name": self.unit.property.name,
             "unit_number": self.unit.unit_number,
         }
+        print(context)
 
         # Send email
         email_service = EmailService()

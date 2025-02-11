@@ -40,24 +40,23 @@
 
         <p style="color: #555555; font-size: 16px; margin-bottom: 25px">
           Your lease document is ready for signing. Please review and sign your
-          lease using the button below:
+          lease using the link below:
         </p>
 
-        <div style="text-align: center; margin: 30px 0">
+        <p
+          style="
+            color: #555555;
+            font-size: 16px;
+            margin-bottom: 25px;
+            word-break: break-all;
+          "
+        >
           <a
             href="{{ lease_url }}"
-            style="
-              background-color: #4caf50;
-              color: white;
-              padding: 12px 30px;
-              text-decoration: none;
-              border-radius: 4px;
-              font-weight: bold;
-              display: inline-block;
-            "
-            >Sign Lease Document</a
+            style="color: #4caf50; text-decoration: underline"
+            >{{ lease_url }}</a
           >
-        </div>
+        </p>
 
         <div
           style="

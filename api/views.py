@@ -2,6 +2,7 @@ from requests import request
 from rest_framework import status, viewsets
 from django_filters import rest_framework as filters
 from decimal import Decimal
+from django.http import HttpResponse
 
 from rest_framework import serializers
 import re
@@ -67,6 +68,7 @@ from .serializers import (
 )
 from rest_framework.decorators import action
 from .utils.decorator import jwt_required
+from .utils.create_lease_document import LeaseDocumentGenerator
 from django.utils.decorators import method_decorator
 import os
 from .utils.send_mail import EmailService
@@ -1167,6 +1169,41 @@ class LeaseViewSet(viewsets.ModelViewSet):
                 {"error": f"An error occurred: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+    @action(detail=True, methods=["POST"])
+    def complete_signing(self, request, pk=None):
+        """Handle signature submission"""
+        lease = self.get_object()
+        signature_file = request.FILES.get("signature")
+
+        if not signature_file:
+            return Response(
+                {"error": "Signature is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Save only the signature
+        lease.signature_document = signature_file
+        lease.is_signed = True
+        lease.signed_at = timezone.now()
+        lease.save()
+
+        return Response({"message": "Signature saved successfully"})
+
+    @action(detail=True, methods=["GET"])
+    def download_pdf(self, request, pk=None):
+        """Generate and return PDF with signature if signed"""
+        lease = self.get_object()
+
+        # Get signature if exists
+        signature_image = lease.signature_document if lease.is_signed else None
+
+        # Generate PDF
+        pdf_buffer = LeaseDocumentGenerator.generate_lease_pdf(lease, signature_image)
+
+        # Return PDF as response
+        response = HttpResponse(pdf_buffer, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="lease_{lease.id}.pdf"'
+        return response
 
 
 class BookDemoView(APIView):

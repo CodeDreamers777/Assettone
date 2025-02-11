@@ -1,8 +1,13 @@
 import uuid
+from urllib.parse import urlencode
+import base64
+import json
 from django.contrib.auth.models import User
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
+from .utils.send_mail import EmailService
+from .utils.create_lease_document import LeaseDocumentGenerator
 
 
 class UserType(models.TextChoices):
@@ -344,6 +349,89 @@ class Lease(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # E-signing fields
+    is_signed = models.BooleanField(default=False)
+    signing_token = models.UUIDField(unique=True, null=True, blank=True)
+    signed_at = models.DateTimeField(null=True, blank=True)
+    signature_document = models.FileField(
+        upload_to="signed_lease_documents/", blank=True, null=True
+    )
+
+    def create_lease_document(self):
+        """
+        Generate lease document and return signing URL
+        """
+        # Generate document
+        document_generator = LeaseDocumentGenerator()
+        document_generator.save_lease_document(self)
+
+        # Generate signing token
+        self.signing_token = uuid.uuid4()
+        self.save()
+
+        # Return signing URL
+        return f"https://yourdomain.com/sign-lease/{self.signing_token}"
+
+    def send_lease_signing_email(self):
+        """
+        Send lease signing email with encoded lease details in URL
+        """
+        # Compile lease details
+        lease_data = {
+            "lease_id": str(self.id),
+            "signing_token": str(self.signing_token),
+            "tenant": {
+                "first_name": self.tenant.first_name,
+                "last_name": self.tenant.last_name,
+                "email": self.tenant.email,
+                "phone": self.tenant.phone,
+            },
+            "unit": {
+                "number": self.unit.unit_number,
+                "type": self.unit.unit_type,
+                "floor": self.unit.floor,
+                "size": str(self.unit.size),
+            },
+            "property": {
+                "name": self.unit.property.name,
+                "address": self.unit.property.address,
+                "city": self.unit.property.city,
+                "state": self.unit.property.state,
+            },
+            "lease_terms": {
+                "start_date": self.start_date.isoformat(),
+                "end_date": self.end_date.isoformat(),
+                "monthly_rent": str(self.monthly_rent),
+                "security_deposit": str(self.security_deposit),
+                "payment_period": self.payment_period,
+            },
+        }
+
+        # Encode lease data
+        encoded_data = base64.urlsafe_b64encode(
+            json.dumps(lease_data).encode()
+        ).decode()
+
+        # Generate signing URL with encoded data
+        signing_url = f"http://localhost:5173/lease-signing?data={encoded_data}"
+
+        # Prepare email context
+        context = {
+            "tenant_name": f"{self.tenant.first_name} {self.tenant.last_name}",
+            "signing_url": signing_url,
+            "property_name": self.unit.property.name,
+            "unit_number": self.unit.unit_number,
+        }
+
+        # Send email
+        email_service = EmailService()
+        email_service.send_email(
+            recipient_email=self.tenant.email,
+            recipient_name=f"{self.tenant.first_name} {self.tenant.last_name}",
+            subject=f"Lease Agreement for {self.unit.property.name} - Unit {self.unit.unit_number}",
+            template_name="emails/lease_signing.html",
+            context=context,
+        )
 
     def __str__(self):
         return f"Lease for {self.tenant} - {self.unit}"

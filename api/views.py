@@ -18,6 +18,7 @@ from django.contrib.auth.models import User
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 from django.db.models import Sum, Count, F, Q
 from django.db.models.functions import TruncMonth
 from rest_framework.decorators import (
@@ -1233,10 +1234,27 @@ class LeaseViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["GET"])
     def download_pdf(self, request, pk=None):
         """
-            Generate and return PDF with signature if signed.
-        Returns HTTP 400 if lease is not signed.
+        Generate and return PDF with signature if signed.
+        Only allows access to the tenant who owns the lease or admin users.
+        Returns:
+            - HTTP 400 if lease is not signed
+            - HTTP 403 if user is not authorized
+            - HTTP 500 if PDF generation fails
         """
         lease = self.get_object()
+
+        # Check user authorization
+        user = request.user
+        if not user.is_authenticated:
+            raise PermissionDenied(
+                "Authentication required to download lease document."
+            )
+
+        # Allow access if user is admin or is the tenant
+        if not (user.is_staff or user.is_superuser or user == lease.tenant.user):
+            raise PermissionDenied(
+                "You do not have permission to download this lease document."
+            )
 
         # Check if lease is signed
         if not lease.is_signed:
@@ -1259,11 +1277,22 @@ class LeaseViewSet(viewsets.ModelViewSet):
             response["Content-Disposition"] = (
                 f'attachment; filename="lease_{lease.id}.pdf"'
             )
+
+            # Add security headers
+            response["X-Content-Type-Options"] = "nosniff"
+            response["Content-Security-Policy"] = "default-src 'self'"
+
+            # Log successful download
+            logger.info(f"Lease {lease.id} downloaded by user {user.email}")
+
             return response
 
         except Exception as e:
             # Log the error for debugging
-            logger.error(f"Error generating PDF for lease {lease.id}: {str(e)}")
+            logger.error(
+                f"Error generating PDF for lease {lease.id}: {str(e)}, "
+                f"requested by user {user.email}"
+            )
             return Response(
                 {"error": "Failed to generate lease PDF"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

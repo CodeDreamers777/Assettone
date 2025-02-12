@@ -15,6 +15,7 @@ import AboutUs from "./components/AbousUs";
 import ContactUs from "./components/ContactUs";
 import { Toaster } from "./components/ui/toaster";
 import LeaseSigning from "./components/SignLease";
+import LeaseDownloadPage from "./components/LeaseDownload";
 
 import companyLogo from "../src/assets/Assettone Estates Logo transparent (2).png";
 // AuthContext with proper typing
@@ -249,6 +250,10 @@ function App() {
               }
             />
             <Route path="/lease-signing" element={<LeaseSigning />} />
+            <Route
+              path="/lease-download/:leaseId"
+              element={<LeaseDownloadPage />}
+            />
             <Route
               path="/contact-us"
               element={

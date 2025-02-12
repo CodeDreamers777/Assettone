@@ -1207,12 +1207,13 @@ class LeaseViewSet(viewsets.ModelViewSet):
         lease.save()
 
         # Prepare email context
+        # In your complete_signing view
         context = {
             "tenant_name": f"{lease.tenant.first_name} {lease.tenant.last_name}",
             "property_name": lease.unit.property.name,
             "unit_number": lease.unit.unit_number,
             "lease_id": lease.id,
-            "base_url": "https://assettoneestates.pythonanywhere.com",
+            "download_url": f"https://assettone-rental-management.vercel.app/lease-download/{lease.id}",
         }
 
         # Send email

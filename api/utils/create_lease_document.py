@@ -177,7 +177,7 @@ class LeaseDocumentGenerator:
         content = []
 
         # Add company name/logo
-        content.append(Paragraph("ASSET TONE ESTATES", styles["MainTitle"]))
+        content.append(Paragraph("ASSETTONE ESTATES", styles["MainTitle"]))
 
         # Add document title
         content.append(
@@ -316,7 +316,7 @@ class LeaseDocumentGenerator:
         content.append(Spacer(1, 30))
 
         footer_text = (
-            "Asset Tone Estates | Professional Property Management<br/>"
+            "Assettone Estates | Professional Property Management<br/>"
             "Generated on: " + datetime.now().strftime("%B %d, %Y at %I:%M %p")
         )
 

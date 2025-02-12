@@ -1196,19 +1196,38 @@ class LeaseViewSet(viewsets.ModelViewSet):
         """Handle signature submission"""
         lease = self.get_object()
         signature_file = request.FILES.get("signature")
-
         if not signature_file:
             return Response(
                 {"error": "Signature is required"}, status=status.HTTP_400_BAD_REQUEST
             )
-
-        # Save only the signature
+        # Save the signature
         lease.signature_document = signature_file
         lease.is_signed = True
         lease.signed_at = timezone.now()
         lease.save()
 
-        return Response({"message": "Signature saved successfully"})
+        # Prepare email context
+        context = {
+            "tenant_name": f"{lease.tenant.first_name} {lease.tenant.last_name}",
+            "property_name": lease.unit.property.name,
+            "unit_number": lease.unit.unit_number,
+            "lease_id": lease.id,
+            "base_url": "https://assettoneestates.pythonanywhere.com",
+        }
+
+        # Send email
+        email_service = EmailService()
+        email_service.send_email(
+            recipient_email=lease.tenant.email,
+            recipient_name=f"{lease.tenant.first_name} {lease.tenant.last_name}",
+            subject=f"Signed Lease Agreement for {lease.unit.property.name} - Unit {lease.unit.unit_number}",
+            template_name="emails/lease_signed_confirmation.html",
+            context=context,
+        )
+
+        return Response(
+            {"message": "Signature saved and confirmation email sent successfully"}
+        )
 
     @action(detail=True, methods=["GET"])
     def download_pdf(self, request, pk=None):

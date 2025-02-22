@@ -19,6 +19,9 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
 
+// Define lease status type
+type LeaseStatus = "active" | "terminated" | "expired" | "pending" | "inactive";
+
 interface LeaseDetails {
   id: string;
   tenant_name: string;
@@ -32,7 +35,7 @@ interface LeaseDetails {
   monthly_rent: string;
   security_deposit: string;
   payment_period: string;
-  status: string;
+  status: LeaseStatus;
   notes: string;
   is_signed: boolean;
   signed_at: string;
@@ -66,15 +69,43 @@ interface LeaseDetailsModalProps {
   type: "tenant" | "unit";
 }
 
-const getStatusColor = (status: string) => {
-  const statusColors = {
-    active: "bg-green-100 text-green-800",
-    terminated: "bg-red-100 text-red-800",
-    expired: "bg-orange-100 text-orange-800",
-    pending: "bg-blue-100 text-blue-800",
-    inactive: "bg-gray-100 text-gray-800",
+// Define status colors with proper typing
+const statusColors: Record<LeaseStatus, string> = {
+  active: "bg-green-100 text-green-800",
+  terminated: "bg-red-100 text-red-800",
+  expired: "bg-orange-100 text-orange-800",
+  pending: "bg-blue-100 text-blue-800",
+  inactive: "bg-gray-100 text-gray-800",
+};
+
+const getStatusColor = (status: string): string => {
+  return (
+    statusColors[status.toLowerCase() as LeaseStatus] ||
+    "bg-gray-100 text-gray-800"
+  );
+};
+
+const formatDateTime = (dateTimeString: string) => {
+  const date = new Date(dateTimeString);
+
+  // Format date as "Feb 12, 2025"
+  const dateOptions: Intl.DateTimeFormatOptions = {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   };
-  return statusColors[status.toLowerCase()] || "bg-gray-100 text-gray-800";
+
+  // Format time as "6:18 PM"
+  const timeOptions: Intl.DateTimeFormatOptions = {
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true,
+  };
+
+  const formattedDate = date.toLocaleDateString("en-US", dateOptions);
+  const formattedTime = date.toLocaleTimeString("en-US", timeOptions);
+
+  return `${formattedDate} at ${formattedTime}`;
 };
 
 export function LeaseDetailsModal({
@@ -183,7 +214,9 @@ export function LeaseDetailsModal({
             <span className="text-gray-600">Signed:</span>
             <span className="font-medium">
               {lease.is_signed ? (
-                <span className="text-green-600">Yes ({lease.signed_at})</span>
+                <span className="text-green-600">
+                  Yes ({formatDateTime(lease.signed_at)})
+                </span>
               ) : (
                 <span className="text-red-600">No</span>
               )}

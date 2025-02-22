@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import {
   Table,
@@ -166,7 +165,6 @@ export function Units() {
   const [selectedLeaseId, setSelectedLeaseId] = useState<string | null>(null);
   const [isLeaseModalOpen, setIsLeaseModalOpen] = useState(false);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
-  const navigate = useNavigate();
 
   useEffect(() => {
     fetchProperties();

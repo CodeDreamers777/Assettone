@@ -6,11 +6,29 @@ interface jsPDFWithAutoTable extends jsPDF {
   autoTable: (options: UserOptions) => jsPDF;
 }
 
+// Define types for the report data
+interface ReportData {
+  total_leases?: number;
+  expected_rent?: number;
+  total_rent_paid?: number;
+  total_units?: number;
+  occupied_units?: number;
+  active_leases?: number;
+  [key: string]: any;
+}
+
+// Define type for table row data
+type TableRow = [string, string | number];
+
 const LIGHT_GREEN = "#e8f5e9";
 const DARKER_GREEN = "#81c784";
 const TEXT_GREEN = "#2e7d32";
 
-const exportEnhancedPDF = (data: any, filename: string, reportType: string) => {
+const exportEnhancedPDF = (
+  data: ReportData,
+  filename: string,
+  reportType: string,
+) => {
   // Create new document
   const doc = new jsPDF() as jsPDFWithAutoTable;
 
@@ -37,11 +55,11 @@ const exportEnhancedPDF = (data: any, filename: string, reportType: string) => {
   doc.setFont("helvetica", "bold");
   doc.text("Summary", 14, 50);
 
-  // Add summary table
+  // Add summary table with explicit typing
   doc.autoTable({
     startY: 55,
     head: [["Metric", "Value"]],
-    body: getSummaryData(data, reportType),
+    body: getSummaryData(data, reportType) as TableRow[],
     theme: "grid",
     headStyles: {
       fillColor: DARKER_GREEN,
@@ -70,11 +88,11 @@ const exportEnhancedPDF = (data: any, filename: string, reportType: string) => {
   doc.setTextColor(TEXT_GREEN);
   doc.text("Detailed Information", 14, detailsStartY);
 
-  // Add details table
+  // Add details table with explicit typing
   doc.autoTable({
     startY: detailsStartY + 5,
     head: [["Category", "Details"]],
-    body: getDetailsData(flattenedData),
+    body: getDetailsData(flattenedData) as TableRow[],
     theme: "grid",
     headStyles: {
       fillColor: DARKER_GREEN,
@@ -114,34 +132,34 @@ const exportEnhancedPDF = (data: any, filename: string, reportType: string) => {
   doc.save(`${filename}.pdf`);
 };
 
-const getSummaryData = (data: any, reportType: string) => {
+const getSummaryData = (data: ReportData, reportType: string): TableRow[] => {
   switch (reportType) {
     case "unit":
       return [
-        ["Total Leases", data.total_leases],
-        ["Expected Rent", `$${data.expected_rent.toLocaleString()}`],
-        ["Total Rent Paid", `$${data.total_rent_paid.toLocaleString()}`],
+        ["Total Leases", data.total_leases ?? 0],
+        ["Expected Rent", `$${(data.expected_rent ?? 0).toLocaleString()}`],
+        ["Total Rent Paid", `$${(data.total_rent_paid ?? 0).toLocaleString()}`],
       ];
     case "property":
       return [
-        ["Total Units", data.total_units],
-        ["Occupied Units", data.occupied_units],
-        ["Active Leases", data.active_leases],
-        ["Expected Rent", `$${data.expected_rent.toLocaleString()}`],
+        ["Total Units", data.total_units ?? 0],
+        ["Occupied Units", data.occupied_units ?? 0],
+        ["Active Leases", data.active_leases ?? 0],
+        ["Expected Rent", `$${(data.expected_rent ?? 0).toLocaleString()}`],
       ];
     case "tenant":
       return [
-        ["Total Leases", data.total_leases],
-        ["Active Leases", data.active_leases],
-        ["Expected Rent", `$${data.expected_rent.toLocaleString()}`],
-        ["Total Rent Paid", `$${data.total_rent_paid.toLocaleString()}`],
+        ["Total Leases", data.total_leases ?? 0],
+        ["Active Leases", data.active_leases ?? 0],
+        ["Expected Rent", `$${(data.expected_rent ?? 0).toLocaleString()}`],
+        ["Total Rent Paid", `$${(data.total_rent_paid ?? 0).toLocaleString()}`],
       ];
     default:
       return [];
   }
 };
 
-const getDetailsData = (flattenedData: any) => {
+const getDetailsData = (flattenedData: Record<string, any>): TableRow[] => {
   return Object.entries(flattenedData).map(([key, value]) => [
     key
       .split("_")
@@ -151,8 +169,10 @@ const getDetailsData = (flattenedData: any) => {
   ]);
 };
 
-const flattenDataForReport = (obj: any, reportType: string) => {
-  // Exclude summary data that's already shown in the summary table
+const flattenDataForReport = (
+  obj: ReportData,
+  reportType: string,
+): Record<string, any> => {
   const excludeKeys = [
     "total_leases",
     "expected_rent",
@@ -162,7 +182,7 @@ const flattenDataForReport = (obj: any, reportType: string) => {
     "active_leases",
   ];
 
-  return Object.keys(obj).reduce((acc: { [key: string]: string }, key) => {
+  return Object.keys(obj).reduce((acc: Record<string, any>, key) => {
     if (!excludeKeys.includes(key)) {
       if (typeof obj[key] === "object" && obj[key] !== null) {
         if (Array.isArray(obj[key])) {

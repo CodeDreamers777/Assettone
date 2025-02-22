@@ -2,7 +2,6 @@ import { useState, useEffect, useContext } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  Home,
   User,
   Building,
   Users,
@@ -19,6 +18,8 @@ import {
 import { Button } from "../ui/button";
 import { ScrollArea } from "../ui/scroll-area";
 import { AuthContext } from "../../App";
+
+import logo from "../../assets/Assettone Estates Logo transparent (2).png";
 
 // Admin menu items (same as before)
 const adminItems = [
@@ -73,10 +74,15 @@ export function Sidebar({
 
   const renderSidebarContent = () => (
     <>
-      <div className="h-16 flex items-center border-b px-6">
-        <Link to="/" className="flex items-center gap-2 font-semibold">
-          <Home className="h-6 w-6" style={{ color: "#38b000" }} />
-          <span className="text-[#38b000]">Assettone estates</span>
+      <div className="h-24 flex items-center justify-center border-b px-6">
+        {" "}
+        {/* Increased height */}
+        <Link to="/" className="flex items-center justify-center">
+          <img
+            src={logo || "/placeholder.svg"}
+            alt="Assettone Estates Logo"
+            className="h-20 w-auto max-w-full" // Significantly increased height
+          />
         </Link>
       </div>
       <ScrollArea className="flex-1 py-4">

@@ -2389,6 +2389,19 @@ class ExtendedReportsViewSet(viewsets.ViewSet):
             # Tenant filter
             tenant_filter = Q(tenant_id=tenant_id) if tenant_id else Q()
 
+            # Calculate expected and paid rent
+            active_leases = Lease.objects.filter(
+                tenant_filter & Q(status=LeaseStatus.ACTIVE)
+            )
+            expected_rent = sum(lease.monthly_rent for lease in active_leases)
+
+            rent_paid = (
+                RentPayment.objects.filter(
+                    (Q(lease__tenant=tenant_id) if tenant_id else Q()) & date_filter
+                ).aggregate(total=Sum("amount"))["total"]
+                or 0
+            )
+
             # Aggregate tenant data
             tenant_report = {
                 "total_leases": Lease.objects.filter(
@@ -2403,10 +2416,8 @@ class ExtendedReportsViewSet(viewsets.ViewSet):
                 "lease_transfers": Lease.objects.filter(
                     tenant_filter & Q(previous_lease__isnull=False) & date_filter
                 ).count(),
-                "total_rent_paid": RentPayment.objects.filter(
-                    (Q(lease__tenant=tenant_id) if tenant_id else Q()) & date_filter
-                ).aggregate(total=Sum("amount"))["total"]
-                or 0,
+                "expected_rent": expected_rent,
+                "total_rent_paid": rent_paid,
                 "payment_history": list(
                     RentPayment.objects.filter(
                         (Q(lease__tenant=tenant_id) if tenant_id else Q()) & date_filter
@@ -2460,9 +2471,24 @@ class ExtendedReportsViewSet(viewsets.ViewSet):
             # Unit filter
             unit_filter = Q(unit_id=unit_id) if unit_id else Q()
 
+            # Calculate expected and paid rent
+            active_lease = Lease.objects.filter(
+                unit_filter & Q(status=LeaseStatus.ACTIVE)
+            ).first()
+            expected_rent = active_lease.monthly_rent if active_lease else 0
+
+            rent_paid = (
+                RentPayment.objects.filter(
+                    (Q(lease__unit=unit_id) if unit_id else Q()) & date_filter
+                ).aggregate(total=Sum("amount"))["total"]
+                or 0
+            )
+
             # Aggregate unit data
             unit_report = {
                 "total_leases": Lease.objects.filter(unit_filter & date_filter).count(),
+                "expected_rent": expected_rent,
+                "total_rent_paid": rent_paid,
                 "current_lease": (
                     Lease.objects.filter(unit_filter & Q(status=LeaseStatus.ACTIVE))
                     .values(
@@ -2540,6 +2566,22 @@ class ExtendedReportsViewSet(viewsets.ViewSet):
             # Property filter
             property_filter = Q(property_id=property_id) if property_id else Q()
 
+            # Calculate expected rent (sum of all active leases' monthly rent)
+            active_leases = Lease.objects.filter(
+                (Q(unit__property=property_id) if property_id else Q())
+                & Q(status=LeaseStatus.ACTIVE)
+            )
+            expected_rent = sum(lease.monthly_rent for lease in active_leases)
+
+            # Calculate total rent collected
+            rent_paid = (
+                RentPayment.objects.filter(
+                    (Q(lease__unit__property=property_id) if property_id else Q())
+                    & date_filter
+                ).aggregate(total=Sum("amount"))["total"]
+                or 0
+            )
+
             # Aggregate property data
             property_report = {
                 "total_units": Unit.objects.filter(property_filter).count(),
@@ -2554,11 +2596,8 @@ class ExtendedReportsViewSet(viewsets.ViewSet):
                     (Q(unit__property=property_id) if property_id else Q())
                     & Q(status=LeaseStatus.ACTIVE)
                 ).count(),
-                "total_rent_collected": RentPayment.objects.filter(
-                    (Q(lease__unit__property=property_id) if property_id else Q())
-                    & date_filter
-                ).aggregate(total=Sum("amount"))["total"]
-                or 0,
+                "expected_rent": expected_rent,
+                "total_rent_collected": rent_paid,
                 "monthly_rent_breakdown": list(
                     RentPayment.objects.filter(
                         (Q(lease__unit__property=property_id) if property_id else Q())

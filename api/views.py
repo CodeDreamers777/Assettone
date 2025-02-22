@@ -1192,6 +1192,93 @@ class LeaseViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    @action(detail=False, methods=["GET"])
+    def get_lease_details(self, request):
+        """
+            Get lease details based on tenant_id, unit_id, or property_id
+
+        Query Parameters:
+        - type: One of 'tenant', 'unit', or 'property'
+        - id: UUID of the tenant, unit, or property
+
+        Returns:
+        - List of lease details for the specified entity
+        """
+        lookup_type = request.query_params.get("type")
+        lookup_id = request.query_params.get("id")
+
+        if not lookup_type or not lookup_id:
+            return Response(
+                {"error": "Both type and id parameters are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if lookup_type not in ["tenant", "unit", "property"]:
+            return Response(
+                {"error": "Type must be one of: tenant, unit, property"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # Start with base queryset that user has permission to access
+            queryset = self.get_queryset()
+
+            if lookup_type == "tenant":
+                leases = queryset.filter(tenant_id=lookup_id)
+            elif lookup_type == "unit":
+                leases = queryset.filter(unit_id=lookup_id)
+            else:  # property
+                # For property, we need to get all units first
+                property_units = Unit.objects.filter(property_id=lookup_id)
+                leases = queryset.filter(unit__in=property_units)
+
+            # Include related data to avoid N+1 queries
+            leases = leases.select_related(
+                "tenant", "unit", "unit__property"
+            ).prefetch_related(
+                "payments"  # Include rent payments if needed
+            )
+
+            serializer = LeaseSerializer(leases, many=True)
+
+            # Group by status for better organization
+            grouped_leases = {
+                "active": [],
+                "terminated": [],
+                "expired": [],
+                "pending": [],
+                "inactive": [],
+            }
+
+            for lease in serializer.data:
+                status_key = lease["status"].lower()
+                grouped_leases[status_key].append(lease)
+
+            # Add summary statistics
+            summary = {
+                "total_leases": len(serializer.data),
+                "active_leases": len(grouped_leases["active"]),
+                "terminated_leases": len(grouped_leases["terminated"]),
+                "expired_leases": len(grouped_leases["expired"]),
+                "pending_leases": len(grouped_leases["pending"]),
+                "inactive_leases": len(grouped_leases["inactive"]),
+            }
+
+            response_data = {"summary": summary, "leases": grouped_leases}
+
+            return Response(response_data)
+
+        except (Unit.DoesNotExist, Property.DoesNotExist, Tenant.DoesNotExist):
+            return Response(
+                {"error": f"No {lookup_type} found with the provided ID"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
     @action(detail=True, methods=["POST"])
     def complete_signing(self, request, pk=None):
         """Handle signature submission"""

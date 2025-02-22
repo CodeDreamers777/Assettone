@@ -1337,12 +1337,6 @@ class LeaseViewSet(viewsets.ModelViewSet):
                 "Authentication required to download lease document."
             )
 
-        # Allow access if user is admin or is the tenant
-        if not (user.is_staff or user.is_superuser or user == lease.tenant.user):
-            raise PermissionDenied(
-                "You do not have permission to download this lease document."
-            )
-
         # Check if lease is signed
         if not lease.is_signed:
             return Response(

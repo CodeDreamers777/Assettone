@@ -197,14 +197,14 @@ export function LeaseDetailsModal({
           <p className="flex justify-between">
             <span className="text-gray-600">Monthly Rent:</span>
             <span className="font-medium text-green-700">
-              ${lease.monthly_rent}
+              KES {lease.monthly_rent}
             </span>
           </p>
         </div>
         <div className="space-y-2">
           <p className="flex justify-between">
             <span className="text-gray-600">Security Deposit:</span>
-            <span className="font-medium">${lease.security_deposit}</span>
+            <span className="font-medium">KES {lease.security_deposit}</span>
           </p>
           <p className="flex justify-between">
             <span className="text-gray-600">Payment Period:</span>

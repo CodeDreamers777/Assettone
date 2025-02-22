@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import axios from "axios";
 import { toast } from "@/hooks/use-toast";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, TrendingDown, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -124,6 +124,11 @@ export const UnitReport: React.FC = () => {
     }
   };
 
+  const calculateRentCollection = () => {
+    if (!reportData) return 0;
+    return (reportData.total_rent_paid / reportData.expected_rent) * 100 || 0;
+  };
+
   return (
     <div className="space-y-6 bg-green-50 p-6 rounded-lg">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -208,6 +213,50 @@ export const UnitReport: React.FC = () => {
         <div className="mt-6 space-y-6">
           <ExportOptions data={reportData} filename="unit_report" />
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="border-green-200 bg-white">
+              <CardHeader>
+                <CardTitle className="text-green-800">Expected Rent</CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-center space-x-4">
+                <TrendingUp className="h-8 w-8 text-green-600" />
+                <div>
+                  <p className="text-3xl font-bold text-green-700">
+                    KES {reportData.expected_rent.toFixed(2)}
+                  </p>
+                  <p className="text-sm text-green-600">
+                    Total expected revenue
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-green-200 bg-white">
+              <CardHeader>
+                <CardTitle className="text-green-800">Rent Paid</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center space-x-4">
+                  <TrendingDown className="h-8 w-8 text-green-600" />
+                  <div className="flex-1">
+                    <p className="text-3xl font-bold text-green-700">
+                      KES {reportData.total_rent_paid.toFixed(2)}
+                    </p>
+                    <div className="mt-2 w-full bg-green-100 rounded-full h-2.5">
+                      <div
+                        className="bg-green-600 h-2.5 rounded-full"
+                        style={{ width: `${calculateRentCollection()}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-sm text-green-600 mt-1">
+                      {calculateRentCollection().toFixed(1)}% of expected rent
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           <Card className="border-green-200 bg-white hover:bg-green-50 transition-colors">
             <CardHeader>
               <CardTitle className="text-green-800">Unit Overview</CardTitle>
@@ -241,11 +290,11 @@ export const UnitReport: React.FC = () => {
                 <div className="space-y-2 text-green-700">
                   <p>Status: {reportData.current_lease.status}</p>
                   <p>
-                    Monthly Rent: KES
+                    Monthly Rent: KES{" "}
                     {reportData.current_lease.monthly_rent.toFixed(2)}
                   </p>
                   <p>
-                    Security Deposit: KES
+                    Security Deposit: KES{" "}
                     {reportData.current_lease.security_deposit.toFixed(2)}
                   </p>
                 </div>
@@ -253,6 +302,7 @@ export const UnitReport: React.FC = () => {
             </CardContent>
           </Card>
 
+          {/* Rest of the existing cards remain unchanged */}
           <Card className="border-green-200 bg-white">
             <CardHeader>
               <CardTitle className="text-green-800">Lease History</CardTitle>
@@ -331,7 +381,7 @@ export const UnitReport: React.FC = () => {
                             {format(new Date(payment.payment_date), "PP")}
                           </td>
                           <td className="px-4 py-2">
-                            ${payment.amount.toFixed(2)}
+                            KES {payment.amount.toFixed(2)}
                           </td>
                           <td className="px-4 py-2">{`${payment.lease__tenant__first_name} ${payment.lease__tenant__last_name}`}</td>
                         </tr>

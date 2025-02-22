@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import axios from "axios";
 import { toast } from "@/hooks/use-toast";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, TrendingDown, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -89,6 +89,13 @@ export const PropertyReport: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateRentCollection = () => {
+    if (!reportData) return 0;
+    return (
+      (reportData.total_rent_collected / reportData.expected_rent) * 100 || 0
+    );
   };
 
   return (
@@ -183,19 +190,53 @@ export const PropertyReport: React.FC = () => {
             ))}
           </div>
 
-          <Card className="border-green-200 bg-white hover:bg-green-50 transition-colors">
-            <CardHeader>
-              <CardTitle className="text-green-800">
-                Total Rent Collected
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-green-700">
-                ${reportData.total_rent_collected.toFixed(2)}
-              </p>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="border-green-200 bg-white">
+              <CardHeader>
+                <CardTitle className="text-green-800">Expected Rent</CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-center space-x-4">
+                <TrendingUp className="h-8 w-8 text-green-600" />
+                <div>
+                  <p className="text-3xl font-bold text-green-700">
+                    ${reportData.expected_rent.toFixed(2)}
+                  </p>
+                  <p className="text-sm text-green-600">
+                    Total expected revenue
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
 
+            <Card className="border-green-200 bg-white">
+              <CardHeader>
+                <CardTitle className="text-green-800">Rent Collected</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center space-x-4">
+                  <TrendingDown className="h-8 w-8 text-green-600" />
+                  <div className="flex-1">
+                    <p className="text-3xl font-bold text-green-700">
+                      ${reportData.total_rent_collected.toFixed(2)}
+                    </p>
+                    <div className="mt-2 w-full bg-green-100 rounded-full h-2.5">
+                      <div
+                        className="bg-green-600 h-2.5 rounded-full"
+                        style={{ width: `${calculateRentCollection()}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-sm text-green-600 mt-1">
+                      {calculateRentCollection().toFixed(1)}% of expected rent
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Rest of the existing cards remain the same */}
+
+          {/* Monthly Rent Breakdown Card */}
           <Card className="border-green-200 bg-white">
             <CardHeader>
               <CardTitle className="text-green-800">
@@ -237,6 +278,7 @@ export const PropertyReport: React.FC = () => {
             </CardContent>
           </Card>
 
+          {/* Maintenance Requests Card */}
           <Card className="border-green-200 bg-white">
             <CardHeader>
               <CardTitle className="text-green-800">

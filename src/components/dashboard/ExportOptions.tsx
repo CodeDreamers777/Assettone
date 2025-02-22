@@ -7,14 +7,8 @@ import {
   FileIcon,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
 import "jspdf-autotable";
-import type { UserOptions } from "jspdf-autotable";
-
-// Extend the jsPDF type to include autoTable
-interface jsPDFWithAutoTable extends jsPDF {
-  autoTable: (options: UserOptions) => jsPDF;
-}
+import { exportEnhancedPDF } from "./ExportEnhancedPdf";
 
 interface ExportOptionsProps {
   data: any;
@@ -51,25 +45,14 @@ export const ExportOptions: React.FC<ExportOptionsProps> = ({
   };
 
   const exportPDF = () => {
-    const doc = new jsPDF() as jsPDFWithAutoTable;
-    doc.text(filename, 14, 15);
+    exportEnhancedPDF(data, filename, getReportType());
+  };
 
-    const flattenedData = flattenData(data);
-    const tableData = Object.entries(flattenedData).map(([key, value]) => [
-      key,
-      JSON.stringify(value),
-    ]);
-
-    doc.autoTable({
-      head: [["Key", "Value"]],
-      body: tableData,
-      startY: 25,
-      theme: "grid",
-      styles: { fontSize: 8, cellPadding: 1 },
-      columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: "auto" } },
-    });
-
-    doc.save(`${filename}.pdf`);
+  // Add this helper function to determine report type
+  const getReportType = () => {
+    if (data.hasOwnProperty("total_units")) return "property";
+    if (data.hasOwnProperty("lease_transfers")) return "tenant";
+    return "unit";
   };
 
   const printReport = () => {

@@ -39,6 +39,7 @@ import {
 import { AddUnitModal } from "./add-unit-modal";
 import { EditUnitModal } from "./edit-unit-modal";
 import { PayRentModal } from "./pay-rent-modal";
+import { LeaseDetailsModal } from "./lease-details-modal";
 
 // Payment Status Enum and Labels
 enum PaymentStatus {
@@ -163,6 +164,8 @@ export function Units() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isPayRentModalOpen, setIsPayRentModalOpen] = useState(false);
   const [selectedLeaseId, setSelectedLeaseId] = useState<string | null>(null);
+  const [isLeaseModalOpen, setIsLeaseModalOpen] = useState(false);
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -307,7 +310,8 @@ export function Units() {
   };
 
   const handleLease = (id: string) => {
-    navigate(`/dashboard/leases/create?unitId=${id}`);
+    setSelectedUnitId(id);
+    setIsLeaseModalOpen(true);
   };
 
   const handlePayRent = (leaseId: string) => {
@@ -536,6 +540,12 @@ export function Units() {
             fetchUnits(selectedProperty.id);
           }
         }}
+      />
+      <LeaseDetailsModal
+        isOpen={isLeaseModalOpen}
+        onClose={() => setIsLeaseModalOpen(false)}
+        unitId={selectedUnitId}
+        type="unit"
       />
     </div>
   );

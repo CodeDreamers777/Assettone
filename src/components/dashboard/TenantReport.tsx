@@ -156,7 +156,7 @@ export const TenantReport: React.FC = () => {
         <div className="mt-6 space-y-6">
           <ExportOptions data={reportData} filename="tenant_report" />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             {[
               { title: "Total Leases", value: reportData.total_leases },
               { title: "Active Leases", value: reportData.active_leases },
@@ -165,21 +165,42 @@ export const TenantReport: React.FC = () => {
                 value: reportData.terminated_leases,
               },
               {
+                title: "Expected Rent",
+                value: `$${reportData.expected_rent.toFixed(2)}`,
+                description: "Monthly",
+              },
+              {
                 title: "Total Rent Paid",
                 value: `$${reportData.total_rent_paid.toFixed(2)}`,
+                description: "For selected period",
+              },
+              {
+                title: "Collection Rate",
+                value:
+                  reportData.expected_rent > 0
+                    ? `${((reportData.total_rent_paid / reportData.expected_rent) * 100).toFixed(1)}%`
+                    : "N/A",
+                description: "Paid vs Expected",
               },
             ].map((item, index) => (
               <Card
                 key={index}
                 className="border-green-200 bg-white hover:bg-green-50 transition-colors"
               >
-                <CardHeader>
-                  <CardTitle className="text-green-800">{item.title}</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-green-800 text-sm">
+                    {item.title}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-green-700">
+                  <p className="text-2xl font-bold text-green-700">
                     {item.value}
                   </p>
+                  {item.description && (
+                    <p className="text-xs text-green-600 mt-1">
+                      {item.description}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             ))}

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import {
   Table,
@@ -35,6 +37,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { DashboardHeader } from "./header";
 import { DashboardShell } from "./shell";
+import { LeaseDetailsModal } from "./lease-details-modal";
 
 interface Tenant {
   id: string;
@@ -56,6 +59,8 @@ export function Tenants() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [isLeaseModalOpen, setIsLeaseModalOpen] = useState(false);
+  const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTenants();
@@ -146,13 +151,8 @@ export function Tenants() {
   };
 
   const handleLease = (id: string) => {
-    // Implement lease functionality
-    console.log(id);
-    toast({
-      title: "Not Implemented",
-      description: "Lease functionality is not yet implemented.",
-      variant: "default",
-    });
+    setSelectedTenantId(id);
+    setIsLeaseModalOpen(true);
   };
 
   const handleTerminateLease = (id: string) => {
@@ -358,6 +358,12 @@ export function Tenants() {
         }}
         onEdit={handleEditTenant}
         tenant={selectedTenant}
+      />
+      <LeaseDetailsModal
+        isOpen={isLeaseModalOpen}
+        onClose={() => setIsLeaseModalOpen(false)}
+        tenantId={selectedTenantId}
+        type="tenant"
       />
     </DashboardShell>
   );

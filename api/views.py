@@ -3004,6 +3004,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     queryset = Expense.objects.all().order_by("-expense_date")
     serializer_class = ExpenseSerializer
     permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
     filter_backends = [
         ExpenseFilterBackend,
         SearchFilter,

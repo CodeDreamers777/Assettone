@@ -54,7 +54,7 @@ export const PropertyDetailsModal = ({
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && property) {
-      handleFileSelect(property.id, property, file);
+      handleFileSelect(property, file);
     }
   };
 

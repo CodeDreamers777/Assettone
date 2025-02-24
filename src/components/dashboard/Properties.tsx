@@ -386,6 +386,7 @@ export function Properties() {
         selectedImage={selectedLogo}
         previewUrl={logoPreviewUrl}
         propertyName={selectedPropertyForLogo?.name || ""}
+        isUploading={uploadingLogo} // Pass the loading state
       />
 
       <AddEditPropertyModal

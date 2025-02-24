@@ -15,6 +15,7 @@ interface LogoUploadModalProps {
   selectedImage: File | null;
   previewUrl: string | null;
   propertyName: string;
+  isUploading?: boolean; // Add this prop
 }
 
 export const LogoUploadModal = ({
@@ -24,6 +25,7 @@ export const LogoUploadModal = ({
   selectedImage,
   previewUrl,
   propertyName,
+  isUploading = false, // Add default value
 }: LogoUploadModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -46,14 +48,15 @@ export const LogoUploadModal = ({
           )}
         </div>
         <DialogFooter className="flex space-x-2 justify-end">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isUploading}>
             Cancel
           </Button>
           <Button
             onClick={() => selectedImage && onConfirm(selectedImage)}
             className="bg-[#38b000] hover:bg-[#38b000]/90 text-white"
+            disabled={isUploading}
           >
-            Upload Logo
+            {isUploading ? "Uploading..." : "Upload Logo"}
           </Button>
         </DialogFooter>
       </DialogContent>

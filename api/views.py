@@ -70,6 +70,7 @@ from .serializers import (
     ReportLeaseSerializer,
     ReportMaintenanceSerializer,
     ReportPaymentSerializer,
+    ExpenseSerializer,
 )
 from rest_framework.decorators import action
 from .utils.decorator import jwt_required

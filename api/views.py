@@ -3,6 +3,7 @@ from rest_framework import status, viewsets
 from django_filters import rest_framework as filters
 from decimal import Decimal
 from django.http import HttpResponse
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from rest_framework import serializers
 import re
@@ -364,6 +365,7 @@ class PropertyViewSet(viewsets.ModelViewSet):
     queryset = Property.objects.all()
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
+    parser_classes = (MultiPartParser, FormParser)
 
     def get_queryset(self):
         """Custom queryset method to return properties based on user role"""
@@ -373,17 +375,14 @@ class PropertyViewSet(viewsets.ModelViewSet):
         except Profile.DoesNotExist:
             return Property.objects.none()
 
-        # Superuser can see all properties
         if user.is_superuser:
             return Property.objects.all()
 
-        # Filter based on user type
         if profile.user_type == UserType.ADMIN:
             return Property.objects.filter(owner=profile)
         elif profile.user_type == UserType.MANAGER:
             return Property.objects.filter(manager=profile)
 
-        # For all other user types (including CLERK and TENANT)
         return Property.objects.none()
 
     def get_serializer_class(self):
@@ -391,6 +390,48 @@ class PropertyViewSet(viewsets.ModelViewSet):
         if self.action == "retrieve":
             return PropertyDetailSerializer
         return PropertySerializer
+
+    @action(detail=True, methods=["POST"], url_path="upload-logo")
+    def upload_logo(self, request, pk=None):
+        """
+        Upload a logo for a specific property
+        """
+        try:
+            property_instance = self.get_object()
+
+            # Check if logo file is in request
+            if "logo" not in request.FILES:
+                return Response(
+                    {"success": False, "message": "No logo file provided"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Delete old logo if it exists
+            if property_instance.logo:
+                property_instance.logo.delete()
+
+            # Save new logo
+            property_instance.logo = request.FILES["logo"]
+            property_instance.save()
+
+            # Get the serialized data including the new logo URL
+            serializer = self.get_serializer(
+                property_instance, context={"request": request}
+            )
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Logo uploaded successfully",
+                    "property": serializer.data,
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            return Response(
+                {"success": False, "message": "Failed to upload logo", "error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     def list(self, request, *args, **kwargs):
         """Custom list method to return all properties with success message"""

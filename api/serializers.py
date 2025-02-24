@@ -211,12 +211,15 @@ class PropertySerializer(serializers.ModelSerializer):
     """
 
     total_units = serializers.SerializerMethodField(read_only=True)
+    logo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Property
         fields = [
             "id",
             "name",
+            "logo",
+            "logo_url",
             "address_line1",
             "address_line2",
             "city",
@@ -237,6 +240,7 @@ class PropertySerializer(serializers.ModelSerializer):
             "owner",
             "manager",
             "total_units",
+            "logo_url",
         ]
 
     def get_total_units(self, obj):
@@ -244,6 +248,16 @@ class PropertySerializer(serializers.ModelSerializer):
         Calculate the total number of units associated with the property
         """
         return obj.units.count() if obj.id else 0
+
+    def get_logo_url(self, obj):
+        """
+        Get the full URL for the logo
+        """
+        if obj.logo:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+        return None
 
     def validate_postal_code(self, value):
         """
@@ -257,26 +271,18 @@ class PropertySerializer(serializers.ModelSerializer):
         """
         Custom create method to set default values
         """
-        # Remove total_units from validated_data if present
         validated_data.pop("total_units", None)
-
-        # Owner is set from the request user
         request = self.context.get("request")
         if request and request.user.is_authenticated:
             validated_data["owner"] = request.user.profile
-
-        # Manager remains null initially
         validated_data["manager"] = None
-
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
         """
         Custom update method to remove total_units from validated data
         """
-        # Remove total_units from validated_data if present
         validated_data.pop("total_units", None)
-
         return super().update(instance, validated_data)
 
 

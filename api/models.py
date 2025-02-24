@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from .utils.send_mail import EmailService
 from .utils.create_lease_document import LeaseDocumentGenerator
+from django.core.files.storage import default_storage
 
 
 class UserType(models.TextChoices):
@@ -92,6 +93,12 @@ class Property(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=200)
+    logo = models.ImageField(
+        upload_to="property_logos/",
+        null=True,
+        blank=True,
+        help_text="Upload a logo image for this property",
+    )
 
     # Location details
     address_line1 = models.CharField(max_length=255)
@@ -122,7 +129,6 @@ class Property(models.Model):
     # Additional property details
     total_units = models.PositiveIntegerField(default=0)
     description = models.TextField(blank=True, null=True)
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -136,6 +142,15 @@ class Property(models.Model):
         # Ensure postal code is not empty
         if not self.postal_code:
             raise ValidationError("Postal code is required")
+
+    def delete(self, *args, **kwargs):
+        """
+        Override delete method to remove logo file when property is deleted
+        """
+        # Delete the logo file if it exists
+        if self.logo:
+            default_storage.delete(self.logo.path)
+        super().delete(*args, **kwargs)
 
 
 class Unit(models.Model):

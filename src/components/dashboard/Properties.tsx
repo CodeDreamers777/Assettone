@@ -154,11 +154,7 @@ export function Properties() {
     }
   };
 
-  const handleFileSelect = (
-    propertyId: string,
-    property: Property,
-    file: File,
-  ) => {
+  const handleFileSelect = (property: Property, file: File) => {
     const previewUrl = URL.createObjectURL(file);
     setLogoPreviewUrl(previewUrl);
     setSelectedLogo(file);

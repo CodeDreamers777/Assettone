@@ -177,27 +177,15 @@ class LeaseDocumentGenerator:
         """Generate document header with property name and logo"""
         content = []
 
-        # Add property logo if available
+        # Add property logo if available - handle it the same way as signature image
         if property.logo:
-            try:
-                # Get the logo file content
-                logo_content = property.logo.read()
-                logo_buffer = BytesIO(logo_content)
-
-                # Create Image object from buffer
-                logo = Image(logo_buffer)
-
-                # Set logo size while maintaining aspect ratio
-                logo.drawHeight = 1 * inch
-                aspect = logo.imageWidth / float(logo.imageHeight)
-                logo.drawWidth = logo.drawHeight * aspect
-
-                content.append(logo)
-                content.append(Spacer(1, 20))
-            except Exception as e:
-                # If there's any error loading the logo, skip it and continue
-                print(f"Error loading property logo: {e}")
-                pass
+            logo = Image(property.logo)
+            # Set logo size while maintaining aspect ratio
+            logo.drawHeight = 1.5 * inch  # Made slightly larger than before
+            aspect = logo.imageWidth / float(logo.imageHeight)
+            logo.drawWidth = logo.drawHeight * aspect
+            content.append(logo)
+            content.append(Spacer(1, 20))
 
         # Add property name
         content.append(Paragraph(property.name.upper(), styles["MainTitle"]))

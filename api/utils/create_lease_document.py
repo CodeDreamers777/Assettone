@@ -94,8 +94,8 @@ class LeaseDocumentGenerator:
         # Generate content
         story = []
 
-        # Add header with logo placeholder
-        story.extend(cls._generate_header(styles))
+        # Add header with property name and logo
+        story.extend(cls._generate_header(lease.unit.property, styles))
 
         # Add lease content
         story.extend(cls._generate_lease_content(lease, styles))
@@ -108,7 +108,7 @@ class LeaseDocumentGenerator:
             story.extend(cls._add_signature_section(signature_image, styles))
 
         # Add footer
-        story.extend(cls._generate_footer(styles))
+        story.extend(cls._generate_footer(lease.unit.property, styles))
 
         # Build PDF
         doc.build(story)
@@ -172,12 +172,22 @@ class LeaseDocumentGenerator:
         return styles
 
     @classmethod
-    def _generate_header(cls, styles):
-        """Generate document header"""
+    def _generate_header(cls, property, styles):
+        """Generate document header with property name and logo"""
         content = []
 
-        # Add company name/logo
-        content.append(Paragraph("ASSETTONE ESTATES", styles["MainTitle"]))
+        # Add property logo if available
+        if property.logo:
+            logo = Image(property.logo.path)
+            # Set logo size while maintaining aspect ratio
+            logo.drawHeight = 1 * inch
+            aspect = logo.imageWidth / float(logo.imageHeight)
+            logo.drawWidth = logo.drawHeight * aspect
+            content.append(logo)
+            content.append(Spacer(1, 20))
+
+        # Add property name
+        content.append(Paragraph(property.name.upper(), styles["MainTitle"]))
 
         # Add document title
         content.append(
@@ -310,13 +320,22 @@ class LeaseDocumentGenerator:
         return content
 
     @classmethod
-    def _generate_footer(cls, styles):
-        """Generate document footer"""
+    def _generate_footer(cls, property, styles):
+        """Generate document footer with property information"""
         content = []
         content.append(Spacer(1, 30))
 
+        # Create footer with property address
+        address_parts = [property.address_line1]
+        if property.address_line2:
+            address_parts.append(property.address_line2)
+        address_parts.append(
+            f"{property.city}, {property.state} {property.postal_code}"
+        )
+
         footer_text = (
-            "Assettone Estates | Professional Property Management<br/>"
+            f"{property.name}<br/>"
+            f"{' | '.join(address_parts)}<br/>"
             "Generated on: " + datetime.now().strftime("%B %d, %Y at %I:%M %p")
         )
 

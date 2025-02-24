@@ -62,7 +62,7 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ data }: AdminDashboardProps) {
   const [showFinancials, setShowFinancials] = useState(true);
-  const formatCurrency = (value: number) => `$${value.toLocaleString()}`;
+  const formatCurrency = (value: number) => `KES ${value.toLocaleString()}`;
 
   const toggleFinancialsVisibility = () => {
     setShowFinancials(!showFinancials);

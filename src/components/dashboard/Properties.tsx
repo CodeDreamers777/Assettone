@@ -1,13 +1,10 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { DashboardHeader } from "./header";
 import { DashboardShell } from "./shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import axios from "axios";
-import { toast } from "@/hooks/use-toast";
-
 import {
   Card,
   CardContent,
@@ -16,42 +13,32 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   AlertDialog,
+  AlertDialogContent,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { AddUnitModal } from "./add-unit-modal";
-import { Unit } from "./Units";
-
-import {
-  Plus,
-  Search,
-  MapPin,
-  Calendar,
-  Building,
-  Edit,
-  Home,
-  Trash2,
-} from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { Plus, Search, MapPin, Calendar, Building, Edit } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import axios from "axios";
+
+import { LogoUploadModal } from "./LogoUploadModal";
+import { AddEditPropertyModal } from "./AddEditPropertyModal";
+import { PropertyDetailsModal } from "./PropertyDetailsModal";
+import { AddUnitModal } from "./add-unit-modal";
+import type { Unit } from "./Units";
 
 interface Property {
   id: string;
   name: string;
+  logo: string | null;
+  logo_url: string | null;
   address_line1: string;
   address_line2?: string;
   city: string;
@@ -66,6 +53,12 @@ interface Property {
 export function Properties() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
+  const [selectedLogo, setSelectedLogo] = useState<File | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+  const [selectedPropertyForLogo, setSelectedPropertyForLogo] =
+    useState<Property | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(
     null,
@@ -74,7 +67,6 @@ export function Properties() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [units, setUnits] = useState<Unit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [newProperty, setNewProperty] = useState<Partial<Property>>({
@@ -135,6 +127,7 @@ export function Properties() {
       console.error("Error fetching properties:", error);
     }
   };
+
   const fetchUnits = async (propertyId: string) => {
     setIsLoading(true);
     try {
@@ -158,6 +151,68 @@ export function Properties() {
       setUnits([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleFileSelect = (
+    propertyId: string,
+    property: Property,
+    file: File,
+  ) => {
+    const previewUrl = URL.createObjectURL(file);
+    setLogoPreviewUrl(previewUrl);
+    setSelectedLogo(file);
+    setSelectedPropertyForLogo(property);
+    setIsLogoModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    if (logoPreviewUrl) {
+      URL.revokeObjectURL(logoPreviewUrl);
+    }
+    setIsLogoModalOpen(false);
+    setLogoPreviewUrl(null);
+    setSelectedLogo(null);
+    setSelectedPropertyForLogo(null);
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    if (!selectedPropertyForLogo) return;
+
+    setUploadingLogo(true);
+    const formData = new FormData();
+    formData.append("logo", file);
+
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      const response = await axios.post(
+        `https://assettoneestates.pythonanywhere.com/api/v1/properties/${selectedPropertyForLogo.id}/upload-logo/`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "multipart/form-data",
+          },
+        },
+      );
+
+      if (response.data.success) {
+        toast({
+          title: "Success",
+          description: "Logo uploaded successfully",
+        });
+        await fetchProperties();
+        handleModalClose();
+      }
+    } catch (error) {
+      console.error("Error uploading logo:", error);
+      toast({
+        title: "Error",
+        description: "Failed to upload logo",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
@@ -262,6 +317,53 @@ export function Properties() {
     await fetchUnits(property.id);
   };
 
+  const renderPropertyLogoSection = (property: Property) => {
+    const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        handleFileSelect(property.id, property, file);
+      }
+    };
+
+    return (
+      <div className="w-full h-32 bg-white/10 rounded-lg overflow-hidden">
+        {property.logo_url ? (
+          <img
+            src={property.logo_url}
+            alt={`${property.name} logo`}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileInputChange}
+                className="hidden"
+                id={`logo-upload-${property.id}`}
+              />
+              <Button
+                variant="outline"
+                className="bg-white/20 hover:bg-white/30"
+                onClick={() => {
+                  const fileInput = document.getElementById(
+                    `logo-upload-${property.id}`,
+                  );
+                  if (fileInput) {
+                    fileInput.click();
+                  }
+                }}
+              >
+                Choose Logo
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <DashboardShell>
       <DashboardHeader
@@ -276,238 +378,44 @@ export function Properties() {
           Add Property
         </Button>
       </DashboardHeader>
-      {/* Add/Edit Property Modal */}
-      <Dialog open={isAddEditModalOpen} onOpenChange={setIsAddEditModalOpen}>
-        <DialogContent className="max-w-4xl rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedProperty ? "Edit Property" : "Add New Property"}
-            </DialogTitle>
-          </DialogHeader>
 
-          <div className="grid grid-cols-2 gap-8">
-            {/* Left Column */}
-            <div className="space-y-4">
-              <div>
-                <Label>Property Name</Label>
-                <Input
-                  value={newProperty.name || ""}
-                  onChange={(e) =>
-                    setNewProperty({ ...newProperty, name: e.target.value })
-                  }
-                  placeholder="Enter property name"
-                />
-              </div>
+      <LogoUploadModal
+        isOpen={isLogoModalOpen}
+        onClose={handleModalClose}
+        onConfirm={handleLogoUpload}
+        selectedImage={selectedLogo}
+        previewUrl={logoPreviewUrl}
+        propertyName={selectedPropertyForLogo?.name || ""}
+      />
 
-              <div>
-                <Label>Address Line 1</Label>
-                <Input
-                  value={newProperty.address_line1 || ""}
-                  onChange={(e) =>
-                    setNewProperty({
-                      ...newProperty,
-                      address_line1: e.target.value,
-                    })
-                  }
-                  placeholder="Street address"
-                />
-              </div>
+      <AddEditPropertyModal
+        isOpen={isAddEditModalOpen}
+        onClose={() => setIsAddEditModalOpen(false)}
+        onConfirm={handleAddEditProperty}
+        property={selectedProperty}
+        newProperty={newProperty}
+        setNewProperty={setNewProperty}
+      />
 
-              <div>
-                <Label>Address Line 2</Label>
-                <Input
-                  value={newProperty.address_line2 || ""}
-                  onChange={(e) =>
-                    setNewProperty({
-                      ...newProperty,
-                      address_line2: e.target.value,
-                    })
-                  }
-                  placeholder="Apartment, suite, etc."
-                />
-              </div>
+      <PropertyDetailsModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        property={selectedProperty}
+        units={units}
+        isLoading={isLoading}
+        onEditProperty={openPropertyModal}
+        onDeleteProperty={() => setIsDeleteDialogOpen(true)}
+        onAddUnit={() => setIsCreateModalOpen(true)}
+        handleFileSelect={handleFileSelect}
+      />
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>City</Label>
-                  <Input
-                    value={newProperty.city || ""}
-                    onChange={(e) =>
-                      setNewProperty({ ...newProperty, city: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>State</Label>
-                  <Input
-                    value={newProperty.state || ""}
-                    onChange={(e) =>
-                      setNewProperty({ ...newProperty, state: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
+      <AddUnitModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onCreateUnit={handleCreateUnit}
+        selectedProperty={selectedProperty}
+      />
 
-            {/* Right Column */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Postal Code</Label>
-                  <Input
-                    value={newProperty.postal_code || ""}
-                    onChange={(e) =>
-                      setNewProperty({
-                        ...newProperty,
-                        postal_code: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>Country</Label>
-                  <Input
-                    value={newProperty.country || ""}
-                    onChange={(e) =>
-                      setNewProperty({
-                        ...newProperty,
-                        country: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label>Description</Label>
-                <Textarea
-                  value={newProperty.description || ""}
-                  onChange={(e) =>
-                    setNewProperty({
-                      ...newProperty,
-                      description: e.target.value,
-                    })
-                  }
-                  placeholder="Tell us about this property"
-                  className="min-h-[200px]"
-                />
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button onClick={handleAddEditProperty}>
-              {selectedProperty ? "Update Property" : "Add Property"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      {/* Property Details Modal */}
-      <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="max-w-4xl rounded-2xl border-2 border-[#38b000] shadow-lg">
-          {selectedProperty && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-[#38b000]">
-                  {selectedProperty.name}
-                </DialogTitle>
-                <DialogDescription>
-                  {selectedProperty.address_line1}, {selectedProperty.city},{" "}
-                  {selectedProperty.state}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid grid-cols-2 gap-8">
-                {/* Left Column - Property Details */}
-                <div className="space-y-4">
-                  <div className="bg-[#38b000]/10 p-4 rounded-lg border border-[#38b000]/30">
-                    <h3 className="font-semibold mb-2 flex items-center text-[#38b000]">
-                      <Home className="mr-2" /> Property Information
-                    </h3>
-                    <p>
-                      <strong>Full Address:</strong>{" "}
-                      {selectedProperty.address_line1}{" "}
-                      {selectedProperty.address_line2}
-                    </p>
-                    <p>
-                      <strong>City:</strong> {selectedProperty.city}
-                    </p>
-                    <p>
-                      <strong>State:</strong> {selectedProperty.state}
-                    </p>
-                    <p>
-                      <strong>Postal Code:</strong>{" "}
-                      {selectedProperty.postal_code}
-                    </p>
-                    <p>
-                      <strong>Country:</strong> {selectedProperty.country}
-                    </p>
-                  </div>
-                  <div className="bg-[#38b000]/10 p-4 rounded-lg border border-[#38b000]/30">
-                    <h3 className="font-semibold mb-2 text-[#38b000]">
-                      Description
-                    </h3>
-                    <p>{selectedProperty.description}</p>
-                  </div>
-                </div>
-                {/* Right Column - Units and Actions */}
-                <div className="space-y-4">
-                  <div className="bg-[#38b000]/10 p-4 rounded-lg border border-[#38b000]/30">
-                    <h3 className="font-semibold mb-2 flex items-center text-[#38b000]">
-                      <Building className="mr-2" /> Units
-                    </h3>
-                    {isLoading ? (
-                      <p className="text-muted-foreground">Loading units...</p>
-                    ) : units.length > 0 ? (
-                      <p className="text-muted-foreground">
-                        {units.length} unit{units.length !== 1 ? "s" : ""}{" "}
-                        available
-                      </p>
-                    ) : (
-                      <p className="text-muted-foreground">
-                        No units available
-                      </p>
-                    )}
-                    <Button
-                      className="mt-2"
-                      variant="outline"
-                      onClick={() => setIsCreateModalOpen(true)}
-                    >
-                      Add Unit
-                    </Button>
-                    <AddUnitModal
-                      isOpen={isCreateModalOpen}
-                      onClose={() => setIsCreateModalOpen(false)}
-                      onCreateUnit={handleCreateUnit}
-                      selectedProperty={selectedProperty}
-                    />
-                  </div>
-                  <div className="flex space-x-4">
-                    <Button
-                      onClick={() => {
-                        openPropertyModal(selectedProperty);
-                        setIsDetailModalOpen(false);
-                      }}
-                      className="flex-1"
-                    >
-                      <Edit className="mr-2 h-4 w-4" /> Edit Property
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        setIsDeleteDialogOpen(true);
-                      }}
-                      variant="destructive"
-                      className="flex-1"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete Property
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-      {/* Delete Confirmation Dialog */}
       <AlertDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
@@ -533,6 +441,7 @@ export function Properties() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
       <div className="mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -541,10 +450,11 @@ export function Properties() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 max-w-md mx-auto shadow-sm border-muted-foreground/20 
-  focus:ring-2 focus:ring-[#38b000]/50 transition-all"
+            focus:ring-2 focus:ring-[#38b000]/50 transition-all"
           />
         </div>
       </div>
+
       {filteredProperties.length === 0 ? (
         <div className="text-center py-12 bg-muted/50 rounded-lg">
           <Building className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -558,22 +468,25 @@ export function Properties() {
             <Card
               key={property.id}
               className={cn(
-                "overflow-hidden transition-all duration-300 ",
-                "hover:shadow-xl hover:-translate-y-2 hover:border-primary/50", // Keep this part
+                "overflow-hidden transition-all duration-300",
+                "hover:shadow-xl hover:-translate-y-2 hover:border-primary/50",
                 "border-transparent border-2",
               )}
             >
               <CardHeader
                 className="bg-gradient-to-r from-[#38b000] to-[#38b000]/70 
-  text-white p-4 flex flex-row items-center justify-between"
+                  text-white p-4"
               >
-                <CardTitle className="text-lg font-bold truncate">
-                  {property.name}
-                </CardTitle>
-                <Edit
-                  onClick={() => openPropertyModal(property)}
-                  className="h-5 w-5 opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
-                />
+                <div className="flex items-center justify-between mb-4">
+                  <CardTitle className="text-lg font-bold truncate">
+                    {property.name}
+                  </CardTitle>
+                  <Edit
+                    onClick={() => openPropertyModal(property)}
+                    className="h-5 w-5 opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                  />
+                </div>
+                {renderPropertyLogoSection(property)}
               </CardHeader>
               <CardContent className="pt-6 pb-4 px-4 space-y-3">
                 <div className="flex items-center text-muted-foreground">

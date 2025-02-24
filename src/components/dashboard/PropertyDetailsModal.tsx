@@ -35,11 +35,7 @@ interface PropertyDetailsModalProps {
   onEditProperty: (property: Property) => void;
   onDeleteProperty: () => void;
   onAddUnit: () => void;
-  handleFileSelect: (
-    propertyId: string,
-    property: Property,
-    file: File,
-  ) => void;
+  handleFileSelect: (property: Property, file: File) => void;
 }
 
 export const PropertyDetailsModal = ({

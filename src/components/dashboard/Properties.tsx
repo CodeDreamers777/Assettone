@@ -317,7 +317,7 @@ export function Properties() {
     const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
-        handleFileSelect(property.id, property, file);
+        handleFileSelect(property, file);
       }
     };
 

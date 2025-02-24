@@ -1,6 +1,7 @@
 from requests import request
 from rest_framework import status, viewsets
 from django_filters import rest_framework as filters
+from rest_framework.filters import SearchFilter, OrderingFilter
 from decimal import Decimal
 from django.http import HttpResponse
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -3005,8 +3006,8 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [
         ExpenseFilterBackend,
-        filters.SearchFilter,
-        filters.OrderingFilter,
+        SearchFilter,
+        OrderingFilter,
     ]
     filterset_fields = ["property", "unit", "tenant", "category"]
     search_fields = ["title", "description", "vendor_name", "receipt_number"]

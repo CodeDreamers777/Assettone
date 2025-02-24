@@ -14,6 +14,7 @@ from reportlab.platypus import (
     Image,
 )
 from reportlab.lib.colors import Color, HexColor
+import urllib.request
 
 
 class LeaseDocumentGenerator:
@@ -178,13 +179,25 @@ class LeaseDocumentGenerator:
 
         # Add property logo if available
         if property.logo:
-            logo = Image(property.logo.path)
-            # Set logo size while maintaining aspect ratio
-            logo.drawHeight = 1 * inch
-            aspect = logo.imageWidth / float(logo.imageHeight)
-            logo.drawWidth = logo.drawHeight * aspect
-            content.append(logo)
-            content.append(Spacer(1, 20))
+            try:
+                # Get the logo file content
+                logo_content = property.logo.read()
+                logo_buffer = BytesIO(logo_content)
+
+                # Create Image object from buffer
+                logo = Image(logo_buffer)
+
+                # Set logo size while maintaining aspect ratio
+                logo.drawHeight = 1 * inch
+                aspect = logo.imageWidth / float(logo.imageHeight)
+                logo.drawWidth = logo.drawHeight * aspect
+
+                content.append(logo)
+                content.append(Spacer(1, 20))
+            except Exception as e:
+                # If there's any error loading the logo, skip it and continue
+                print(f"Error loading property logo: {e}")
+                pass
 
         # Add property name
         content.append(Paragraph(property.name.upper(), styles["MainTitle"]))

@@ -27,6 +27,7 @@ router.register(
     views.MaintenanceRequestViewSet,
     basename="maintenance-request",
 )
+router.register(r"expenses", views.ExpenseViewSet, basename="expenses")
 
 urlpatterns = [
     # Authentication and user-related endpoints

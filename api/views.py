@@ -4,6 +4,7 @@ from django_filters import rest_framework as filters
 from decimal import Decimal
 from django.http import HttpResponse
 from rest_framework.parsers import MultiPartParser, FormParser
+from django_filters.rest_framework import DjangoFilterBackend
 
 from rest_framework import serializers
 import re
@@ -46,6 +47,8 @@ from .models import (
     RentPeriodStatus,
     PaymentPeriod,
     PaymentMethod,
+    Expense,
+    ExpenseCategory,
 )
 from .serializers import (
     UserRegistrationSerializer,
@@ -2936,3 +2939,200 @@ class MpesaPaymentView(APIView):
                 {"error": "An unexpected error occurred"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class ExpenseFilterBackend(DjangoFilterBackend):
+    """
+    Custom filter backend for expenses with advanced filtering options
+    """
+
+    def filter_queryset(self, request, queryset, view):
+        # Apply standard filterset filters first
+        queryset = super().filter_queryset(request, queryset, view)
+
+        # Filter by date range
+        start_date = request.query_params.get("start_date")
+        end_date = request.query_params.get("end_date")
+
+        if start_date:
+            try:
+                start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+                queryset = queryset.filter(expense_date__gte=start_date)
+            except ValueError:
+                pass
+
+        if end_date:
+            try:
+                end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+                queryset = queryset.filter(expense_date__lte=end_date)
+            except ValueError:
+                pass
+
+        # Filter by minimum/maximum amount
+        min_amount = request.query_params.get("min_amount")
+        max_amount = request.query_params.get("max_amount")
+
+        if min_amount:
+            try:
+                queryset = queryset.filter(amount__gte=float(min_amount))
+            except ValueError:
+                pass
+
+        if max_amount:
+            try:
+                queryset = queryset.filter(amount__lte=float(max_amount))
+            except ValueError:
+                pass
+
+        # Filter by tax deductible status
+        tax_deductible = request.query_params.get("tax_deductible")
+        if tax_deductible is not None:
+            queryset = queryset.filter(
+                is_tax_deductible=(tax_deductible.lower() == "true")
+            )
+
+        return queryset
+
+
+class ExpenseViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing property expenses
+    """
+
+    queryset = Expense.objects.all().order_by("-expense_date")
+    serializer_class = ExpenseSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [
+        ExpenseFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["property", "unit", "tenant", "category"]
+    search_fields = ["title", "description", "vendor_name", "receipt_number"]
+    ordering_fields = ["expense_date", "amount", "created_at"]
+
+    def get_queryset(self):
+        """
+        Limit expenses to those associated with properties the user has access to
+        """
+        user_profile = self.request.user.profile
+
+        # Admins can see all expenses
+        if user_profile.user_type == "ADMIN":
+            return self.queryset
+
+        # Managers can see expenses for properties they manage
+        if user_profile.user_type == "MANAGER":
+            return self.queryset.filter(
+                property__in=user_profile.managed_properties.all()
+            )
+
+        # Clerks with financial view permission can see expenses
+        if user_profile.user_type == "CLERK" and user_profile.can_view_financial_data:
+            # Get properties associated with the clerk's manager
+            managed_properties = []
+            manager_profile = (
+                user_profile.manager_profile
+            )  # Assuming there's a relation to the manager
+            if manager_profile:
+                managed_properties = manager_profile.managed_properties.all()
+
+            return self.queryset.filter(property__in=managed_properties)
+
+        # No access for tenants or clerks without permission
+        return self.queryset.none()
+
+    def perform_create(self, serializer):
+        """
+        Set created_by field to current user on creation
+        """
+        serializer.save(created_by=self.request.user.profile)
+
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        """
+        Get expense summary statistics by property or category
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+        group_by = request.query_params.get("group_by", "category")
+
+        if group_by == "property":
+            summary = (
+                queryset.values("property__name")
+                .annotate(total=Sum("amount"))
+                .order_by("-total")
+            )
+
+        elif group_by == "month":
+            # Group by month of expense_date
+            summary = []
+            queryset = queryset.order_by("expense_date")
+
+            if queryset.exists():
+                # Get date range for summary
+                period_months = int(request.query_params.get("months", 12))
+                end_date = timezone.now().date()
+                start_date = end_date - timedelta(days=period_months * 30)
+
+                # Filter by date range
+                queryset = queryset.filter(
+                    expense_date__gte=start_date, expense_date__lte=end_date
+                )
+
+                # Group by month and calculate totals
+                month_data = {}
+                for expense in queryset:
+                    month_key = (
+                        f"{expense.expense_date.year}-{expense.expense_date.month:02d}"
+                    )
+                    month_name = expense.expense_date.strftime("%b %Y")
+
+                    if month_key not in month_data:
+                        month_data[month_key] = {"month": month_name, "total": 0}
+
+                    month_data[month_key]["total"] += float(expense.amount)
+
+                # Convert to list and sort by month
+                summary = sorted(
+                    [value for value in month_data.values()],
+                    key=lambda x: datetime.strptime(x["month"], "%b %Y"),
+                )
+        else:
+            # Default to category grouping
+            summary = (
+                queryset.values("category")
+                .annotate(total=Sum("amount"))
+                .order_by("-total")
+            )
+
+            # Replace category codes with display names
+            for item in summary:
+                for code, name in ExpenseCategory.choices:
+                    if item["category"] == code:
+                        item["category_name"] = name
+                        break
+
+        return Response(summary)
+
+    @action(detail=False, methods=["get"])
+    def recent(self, request):
+        """
+        Get recent expenses with optional property filter
+        """
+        property_id = request.query_params.get("property")
+        days = int(request.query_params.get("days", 30))
+
+        queryset = self.get_queryset()
+
+        if property_id:
+            queryset = queryset.filter(property_id=property_id)
+
+        # Filter for recent expenses
+        cutoff_date = timezone.now().date() - timedelta(days=days)
+        queryset = queryset.filter(expense_date__gte=cutoff_date)
+
+        # Limit to 20 most recent
+        queryset = queryset.order_by("-expense_date")[:20]
+        serializer = self.get_serializer(queryset, many=True)
+
+        return Response(serializer.data)

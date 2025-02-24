@@ -17,13 +17,15 @@ from .models import (
     LeaseStatus,
     MaintenanceRequest,
     MaintenancePriority,
+    ExpenseCategory,
+    Expense,
     CommunicationHistory,
     MaintenanceStatus,
 )
 from decimal import Decimal
 import uuid
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
 import string
 import random
 from django.contrib.auth.password_validation import validate_password
@@ -1146,3 +1148,87 @@ class ReportMaintenanceSerializer(serializers.ModelSerializer):
             "completed_date",
             "repair_cost",
         ]
+
+
+class ExpenseSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Expense model
+    """
+
+    # Add helpful readable fields
+    category_display = serializers.CharField(
+        source="get_category_display", read_only=True
+    )
+    property_name = serializers.CharField(source="property.name", read_only=True)
+    unit_number = serializers.CharField(source="unit.unit_number", read_only=True)
+    tenant_name = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
+    receipt_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Expense
+        fields = "__all__"
+        read_only_fields = ("created_by", "created_at", "updated_at")
+
+    def get_tenant_name(self, obj):
+        if obj.tenant:
+            return f"{obj.tenant.first_name} {obj.tenant.last_name}"
+        return None
+
+    def get_created_by_name(self, obj):
+        if obj.created_by:
+            return f"{obj.created_by.user.first_name} {obj.created_by.user.last_name}"
+        return None
+
+    def get_receipt_url(self, obj):
+        if obj.receipt_file:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.receipt_file.url)
+        return None
+
+    def validate(self, data):
+        """
+        Additional validation for expense data
+        """
+        # Validate custom category
+        if data.get("category") == ExpenseCategory.OTHER and not data.get(
+            "custom_category"
+        ):
+            raise serializers.ValidationError(
+                {
+                    "custom_category": "Custom category name is required when category is OTHER"
+                }
+            )
+
+        # Ensure unit belongs to property if specified
+        unit = data.get("unit")
+        property_obj = data.get("property")
+
+        if unit and property_obj and unit.property != property_obj:
+            raise serializers.ValidationError(
+                {"unit": "Unit must belong to the specified property"}
+            )
+
+        # Ensure tenant has a lease in property if specified
+        tenant = data.get("tenant")
+        if tenant and property_obj:
+            has_lease = tenant.leases.filter(
+                unit__property=property_obj, status="ACTIVE"
+            ).exists()
+
+            if not has_lease:
+                raise serializers.ValidationError(
+                    {
+                        "tenant": "Tenant must have an active lease in the specified property"
+                    }
+                )
+
+        # Ensure expense date is not in the future
+        expense_date = data.get("expense_date")
+        if expense_date and expense_date > datetime.now().date():
+            raise serializers.ValidationError(
+                {"expense_date": "Expense date cannot be in the future"}
+            )
+
+        return data

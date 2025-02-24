@@ -705,3 +705,123 @@ class RentPeriodStatus(models.Model):
     def update_payment_status(self):
         self.is_paid = self.amount_paid >= self.amount_due
         self.save()
+
+
+class ExpenseCategory(models.TextChoices):
+    """
+    Predefined expense categories common in property management
+    """
+
+    MAINTENANCE = "MAINTENANCE", _("Maintenance")
+    REPAIRS = "REPAIRS", _("Repairs")
+    UTILITIES = "UTILITIES", _("Utilities")
+    TAXES = "TAXES", _("Property Taxes")
+    INSURANCE = "INSURANCE", _("Insurance")
+    CLEANING = "CLEANING", _("Cleaning")
+    LANDSCAPING = "LANDSCAPING", _("Landscaping")
+    MANAGEMENT = "MANAGEMENT", _("Management Fees")
+    LEGAL = "LEGAL", _("Legal Fees")
+    ADVERTISING = "ADVERTISING", _("Advertising")
+    SUPPLIES = "SUPPLIES", _("Supplies")
+    RENOVATION = "RENOVATION", _("Renovation")
+    MORTGAGE = "MORTGAGE", _("Mortgage")
+    OTHER = "OTHER", _("Other")
+
+
+class Expense(models.Model):
+    """
+    Model for tracking property-related expenses
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Core expense details
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True, null=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    expense_date = models.DateField()
+    category = models.CharField(
+        max_length=20, choices=ExpenseCategory.choices, default=ExpenseCategory.OTHER
+    )
+
+    # Custom category name for OTHER
+    custom_category = models.CharField(
+        max_length=100, blank=True, null=True, help_text="Required if category is OTHER"
+    )
+
+    # Related entities - property is required, unit and tenant are optional
+    property = models.ForeignKey(
+        "Property", on_delete=models.CASCADE, related_name="expenses"
+    )
+    unit = models.ForeignKey(
+        "Unit",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="expenses",
+    )
+    tenant = models.ForeignKey(
+        "Tenant",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="expenses",
+    )
+
+    # Payment details
+    payment_method = models.CharField(
+        max_length=20, choices=PaymentMethod.choices, default=PaymentMethod.CASH
+    )
+
+    # Vendor information
+    vendor_name = models.CharField(max_length=200, blank=True, null=True)
+    vendor_contact = models.CharField(max_length=100, blank=True, null=True)
+
+    # Receipt/invoice tracking
+    receipt_number = models.CharField(max_length=100, blank=True, null=True)
+    receipt_file = models.FileField(
+        upload_to="expense_receipts/",
+        blank=True,
+        null=True,
+        help_text="Upload receipt or invoice",
+    )
+
+    # Tax deductible flag for financial reporting
+    is_tax_deductible = models.BooleanField(default=True)
+
+    # Metadata
+    created_by = models.ForeignKey(
+        "Profile", on_delete=models.SET_NULL, null=True, related_name="created_expenses"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.title} - {self.property.name} (${self.amount})"
+
+    def clean(self):
+        """
+        Validate expense details
+        """
+        from django.core.exceptions import ValidationError
+
+        # Validate custom category
+        if self.category == ExpenseCategory.OTHER and not self.custom_category:
+            raise ValidationError(
+                "Custom category name is required when category is OTHER"
+            )
+
+        # Ensure unit belongs to property if specified
+        if self.unit and self.unit.property != self.property:
+            raise ValidationError("Unit must belong to the specified property")
+
+        # Ensure tenant has a lease in the property if specified
+        if self.tenant:
+            has_lease = self.tenant.leases.filter(
+                unit__property=self.property, status="ACTIVE"
+            ).exists()
+
+            if not has_lease:
+                raise ValidationError(
+                    "Tenant must have an active lease in the specified property"
+                )

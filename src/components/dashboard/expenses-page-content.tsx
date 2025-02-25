@@ -1,3 +1,4 @@
+// The rest of your imports and interfaces remain the same
 "use client";
 
 import type React from "react";
@@ -44,6 +45,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DateRangePicker } from "./date-range-picker";
 import { AddExpenseModal } from "./add-expense-modal";
 import { ExpenseDetailsModal } from "./expense-details-modal";
+import { DateRange } from "react-day-picker"; // Import DateRange from react-day-picker
 
 // Types
 interface Expense {
@@ -97,8 +99,6 @@ interface ExpenseCategory {
   label: string;
 }
 
-// Fix 1: Make sure the interface matches what AddExpenseModal expects
-
 interface FilterState {
   property: string | null;
   unit: string | null;
@@ -110,12 +110,6 @@ interface FilterState {
   maxAmount: string;
   search: string;
   taxDeductible: boolean | null;
-}
-
-// Fix 2: Make the DateRange interface match what react-day-picker expects
-interface DateRange {
-  from: Date | undefined;
-  to: Date | undefined;
 }
 
 // API service functions
@@ -319,7 +313,7 @@ const ExpensesPageContent: React.FC = () => {
     });
   };
 
-  // Fix 3: Make the function accept the same type that DateRangePicker expects to pass
+  // Fixed to match DateRange from react-day-picker
   const handleDateRangeChange = (date: DateRange) => {
     setFilters({
       ...filters,

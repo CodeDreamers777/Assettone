@@ -30,7 +30,6 @@ export function DateRangePicker({
     if (value) {
       return value;
     }
-
     if (startDate && endDate) {
       try {
         return {
@@ -41,14 +40,12 @@ export function DateRangePicker({
         return undefined;
       }
     }
-
     return undefined;
   });
 
   // Handle date changes
   const handleSelect = (newDate: DateRange | undefined) => {
     setDate(newDate);
-
     // Call onChange prop if it exists
     if (onChange && newDate) {
       onChange(newDate);

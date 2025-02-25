@@ -43,7 +43,7 @@ import { Filter, MoreVertical, Search, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DateRangePicker } from "./date-range-picker";
 import { AddExpenseModal } from "./add-expense-modal";
-import { ExpenseDetailsModal } from "./expense-details-modal"; // Import the new ExpenseDetailsModal
+import { ExpenseDetailsModal } from "./expense-details-modal";
 
 // Types
 interface Expense {
@@ -97,14 +97,7 @@ interface ExpenseCategory {
   label: string;
 }
 
-// Define the props interface for AddExpenseModal
-interface AddExpenseModalProps {
-  properties: Property[];
-  onAddExpense: () => Promise<void>;
-  // Add missing props that the component expects
-  units?: Unit[];
-  tenants?: Tenant[];
-}
+// Fix 1: Make sure the interface matches what AddExpenseModal expects
 
 interface FilterState {
   property: string | null;
@@ -119,6 +112,7 @@ interface FilterState {
   taxDeductible: boolean | null;
 }
 
+// Fix 2: Make the DateRange interface match what react-day-picker expects
 interface DateRange {
   from: Date | undefined;
   to: Date | undefined;
@@ -325,6 +319,7 @@ const ExpensesPageContent: React.FC = () => {
     });
   };
 
+  // Fix 3: Make the function accept the same type that DateRangePicker expects to pass
   const handleDateRangeChange = (date: DateRange) => {
     setFilters({
       ...filters,
@@ -355,7 +350,6 @@ const ExpensesPageContent: React.FC = () => {
           </Button>
           <AddExpenseModal
             properties={properties}
-            units={units}
             tenants={tenants}
             onAddExpense={() =>
               queryClient.invalidateQueries({ queryKey: ["expenses"] })

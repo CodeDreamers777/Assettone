@@ -97,9 +97,13 @@ interface ExpenseCategory {
   label: string;
 }
 
-interface PaymentMethod {
-  value: string;
-  label: string;
+// Define the props interface for AddExpenseModal
+interface AddExpenseModalProps {
+  properties: Property[];
+  onAddExpense: () => Promise<void>;
+  // Add missing props that the component expects
+  units?: Unit[];
+  tenants?: Tenant[];
 }
 
 interface FilterState {
@@ -107,8 +111,8 @@ interface FilterState {
   unit: string | null;
   tenant: string | null;
   category: string | null;
-  startDate: Date | null;
-  endDate: Date | null;
+  startDate: Date | undefined;
+  endDate: Date | undefined;
   minAmount: string;
   maxAmount: string;
   search: string;
@@ -116,8 +120,8 @@ interface FilterState {
 }
 
 interface DateRange {
-  from: Date | null;
-  to: Date | null;
+  from: Date | undefined;
+  to: Date | undefined;
 }
 
 // API service functions
@@ -235,8 +239,8 @@ const ExpensesPageContent: React.FC = () => {
     unit: null,
     tenant: null,
     category: null,
-    startDate: null,
-    endDate: null,
+    startDate: undefined,
+    endDate: undefined,
     minAmount: "",
     maxAmount: "",
     search: "",
@@ -297,8 +301,8 @@ const ExpensesPageContent: React.FC = () => {
       unit: null,
       tenant: null,
       category: null,
-      startDate: null,
-      endDate: null,
+      startDate: undefined,
+      endDate: undefined,
       minAmount: "",
       maxAmount: "",
       search: "",
@@ -321,11 +325,11 @@ const ExpensesPageContent: React.FC = () => {
     });
   };
 
-  const handleDateRangeChange = (range: DateRange) => {
+  const handleDateRangeChange = (date: DateRange) => {
     setFilters({
       ...filters,
-      startDate: range.from,
-      endDate: range.to,
+      startDate: date.from,
+      endDate: date.to,
     });
   };
 
@@ -652,7 +656,6 @@ const ExpensesPageContent: React.FC = () => {
                               Actions
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            {/* REPLACE THIS DROPDOWN MENU ITEM */}
                             <DropdownMenuItem asChild>
                               <ExpenseDetailsModal
                                 expense={expense}

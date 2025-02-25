@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Menu,
   FileBarChart,
+  CreditCard,
   X,
 } from "lucide-react";
 import { Button } from "../ui/button";
@@ -33,6 +34,7 @@ const adminItems = [
   { icon: User, label: "Profile", href: "/dashboard/profile" },
   { icon: Settings, label: "Settings", href: "/dashboard/settings" },
   { icon: FileBarChart, label: "Reports", href: "/dashboard/reports" },
+  { icon: CreditCard, label: "Expenses", href: "/dashboard/expenses" },
 ];
 
 // Tenant menu items (same as before)

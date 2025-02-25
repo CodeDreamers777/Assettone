@@ -11,6 +11,7 @@ import ProfilePage from "./Profile";
 import { Units } from "./dashboard/Units";
 import Maintenance from "./dashboard/Maintenance";
 import Reports from "./dashboard/Reports";
+import ExpensesPage from "./dashboard/Expenses";
 
 export function Dashboard() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -37,6 +38,8 @@ export function Dashboard() {
           <Route path="/" element={<Overview />} />
           <Route path="/properties" element={<Properties />} />
           <Route path="/tenants" element={<Tenants />} />
+          <Route path="/expenses" element={<ExpensesPage />} />
+
           <Route path="/leases" element={<Leases />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<ProfilePage />} />

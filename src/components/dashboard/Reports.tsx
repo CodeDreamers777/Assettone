@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 export const Reports: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 to-green-100 p-8">
-      <h1 className="text-4xl font-bold text-center mb-8 text-blue-800">
+      <h1 className="text-4xl font-bold text-center mb-8 text-green-800">
         Property Management Reports
       </h1>
       <Card className="w-full max-w-6xl mx-auto shadow-lg">

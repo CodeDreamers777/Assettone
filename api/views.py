@@ -2893,6 +2893,188 @@ class ExtendedReportsViewSet(viewsets.ViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+    @action(detail=False, methods=["GET"])
+    def expenses_report(self, request):
+        """
+        Comprehensive expenses report
+        """
+        try:
+            # Get query parameters
+            start_date = request.query_params.get("start_date")
+            end_date = request.query_params.get("end_date")
+            property_id = request.query_params.get("property_id")
+            unit_id = request.query_params.get("unit_id")
+            category = request.query_params.get("category")
+
+            # Base date filter
+            date_filter = self._get_date_range_filter(start_date, end_date)
+
+            # Convert created_at filter to expense_date filter for expenses
+            expense_date_filter = Q()
+            if start_date:
+                expense_date_filter &= Q(expense_date__gte=start_date)
+            if end_date:
+                expense_date_filter &= Q(expense_date__lte=end_date)
+
+            # Additional filters
+            property_filter = Q(property_id=property_id) if property_id else Q()
+            unit_filter = Q(unit_id=unit_id) if unit_id else Q()
+            category_filter = Q(category=category) if category else Q()
+
+            # Combine filters for expenses query
+            expense_filter = (
+                expense_date_filter & property_filter & unit_filter & category_filter
+            )
+
+            # Calculate total expenses
+            total_expenses = (
+                Expense.objects.filter(expense_filter).aggregate(total=Sum("amount"))[
+                    "total"
+                ]
+                or 0
+            )
+
+            # Aggregate expenses data
+            expenses_report = {
+                "total_expenses": total_expenses,
+                "expense_breakdown_by_category": list(
+                    Expense.objects.filter(expense_filter)
+                    .values("category")
+                    .annotate(total=Sum("amount"))
+                    .order_by("-total")
+                ),
+                "expense_breakdown_by_property": list(
+                    Expense.objects.filter(expense_filter)
+                    .values("property__name", "property__id")
+                    .annotate(total=Sum("amount"))
+                    .order_by("-total")
+                )
+                if not property_id
+                else [],
+                "expense_breakdown_by_unit": list(
+                    Expense.objects.filter(expense_filter & ~Q(unit=None))
+                    .values("unit__unit_number", "unit__id")
+                    .annotate(total=Sum("amount"))
+                    .order_by("-total")
+                )
+                if not unit_id
+                else [],
+                "monthly_expense_trend": list(
+                    Expense.objects.filter(expense_filter)
+                    .annotate(month=TruncMonth("expense_date"))
+                    .values("month")
+                    .annotate(total=Sum("amount"))
+                    .order_by("month")
+                ),
+                "tax_deductible_summary": {
+                    "deductible": Expense.objects.filter(
+                        expense_filter & Q(is_tax_deductible=True)
+                    ).aggregate(total=Sum("amount"))["total"]
+                    or 0,
+                    "non_deductible": Expense.objects.filter(
+                        expense_filter & Q(is_tax_deductible=False)
+                    ).aggregate(total=Sum("amount"))["total"]
+                    or 0,
+                },
+                "recent_expenses": list(
+                    Expense.objects.filter(expense_filter)
+                    .values(
+                        "id",
+                        "title",
+                        "amount",
+                        "expense_date",
+                        "category",
+                        "property__name",
+                        "unit__unit_number",
+                        "vendor_name",
+                        "payment_method",
+                        "is_tax_deductible",
+                    )
+                    .order_by("-expense_date")[:20]
+                ),
+            }
+
+            # Add vendor breakdown if expenses exist
+            if total_expenses > 0:
+                expenses_report["expense_breakdown_by_vendor"] = list(
+                    Expense.objects.filter(
+                        expense_filter & ~Q(vendor_name="") & ~Q(vendor_name=None)
+                    )
+                    .values("vendor_name")
+                    .annotate(total=Sum("amount"))
+                    .order_by("-total")
+                )
+
+            # Add comparison to previous period if start_date and end_date are provided
+            if start_date and end_date:
+                try:
+                    # Calculate duration of the current period
+                    current_start = datetime.strptime(start_date, "%Y-%m-%d")
+                    current_end = datetime.strptime(end_date, "%Y-%m-%d")
+                    period_days = (current_end - current_start).days
+
+                    # Calculate previous period dates
+                    previous_end = current_start - timedelta(days=1)
+                    previous_start = previous_end - timedelta(days=period_days)
+
+                    # Create previous period filter
+                    previous_filter = (
+                        Q(
+                            expense_date__gte=previous_start.strftime("%Y-%m-%d"),
+                            expense_date__lte=previous_end.strftime("%Y-%m-%d"),
+                        )
+                        & property_filter
+                        & unit_filter
+                        & category_filter
+                    )
+
+                    # Get previous period total
+                    previous_total = (
+                        Expense.objects.filter(previous_filter).aggregate(
+                            total=Sum("amount")
+                        )["total"]
+                        or 0
+                    )
+
+                    # Calculate percentage change
+                    if previous_total > 0:
+                        percent_change = (
+                            (total_expenses - previous_total) / previous_total
+                        ) * 100
+                    else:
+                        percent_change = None
+
+                    # Add comparison to report
+                    expenses_report["previous_period_comparison"] = {
+                        "current_period_total": total_expenses,
+                        "previous_period_total": previous_total,
+                        "previous_period_start": previous_start.strftime("%Y-%m-%d"),
+                        "previous_period_end": previous_end.strftime("%Y-%m-%d"),
+                        "absolute_change": total_expenses - previous_total,
+                        "percent_change": percent_change,
+                    }
+                except Exception as e:
+                    # If date parsing fails, continue without comparison
+                    pass
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Expenses report generated successfully",
+                    "data": expenses_report,
+                }
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": f"Error generating expenses report: {str(e)}",
+                    "data": None,
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
 
 class MpesaPaymentView(APIView):
     def extract_mpesa_details(self, message):

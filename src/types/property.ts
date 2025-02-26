@@ -1,4 +1,3 @@
-// Define the Property interface with index signature
 export interface Property {
   id: string;
   name: string;
@@ -16,8 +15,7 @@ export interface Property {
   manager?: string | null;
   owner?: string;
   total_units?: number;
-  [key: string]: string | null | undefined; // Index signature for dynamic property access
+  [key: string]: string | number | null | undefined; // Updated index signature
 }
 
-// Property field type for typesafe access
 export type PropertyField = keyof Property;

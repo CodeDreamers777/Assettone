@@ -32,7 +32,7 @@ interface PropertyDetailsModalProps {
   property: Property | null;
   units: Unit[];
   isLoading: boolean;
-  onEditProperty: (property: Property) => void;
+  onEditProperty: (property?: Property) => void; // Updated to make property parameter optional
   onDeleteProperty: () => void;
   onAddUnit: () => void;
   handleFileSelect: (property: Property, file: File) => void;

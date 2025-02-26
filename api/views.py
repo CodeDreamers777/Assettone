@@ -4,7 +4,7 @@ from django_filters import rest_framework as filters
 from rest_framework.filters import SearchFilter, OrderingFilter
 from decimal import Decimal
 from django.http import HttpResponse
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django_filters.rest_framework import DjangoFilterBackend
 
 from rest_framework import serializers
@@ -370,7 +370,7 @@ class PropertyViewSet(viewsets.ModelViewSet):
     queryset = Property.objects.all()
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
-    parser_classes = (MultiPartParser, FormParser)
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_queryset(self):
         """Custom queryset method to return properties based on user role"""

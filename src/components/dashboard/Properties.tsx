@@ -33,23 +33,8 @@ import { AddEditPropertyModal } from "./AddEditPropertyModal";
 import { PropertyDetailsModal } from "./PropertyDetailsModal";
 import { AddUnitModal } from "./add-unit-modal";
 import type { Unit } from "./Units";
-
-interface Property {
-  id: string;
-  name: string;
-  logo: string | null;
-  logo_url: string | null;
-  address_line1: string;
-  address_line2?: string;
-  city: string;
-  state: string;
-  postal_code: string;
-  country: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-  [key: string]: string | null | undefined; // Index signature for dynamic property access
-}
+// Import the shared Property interface
+import { Property } from "@/types/property";
 
 export function Properties() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -339,10 +324,23 @@ export function Properties() {
     }
   };
 
+  // Fixed: Make property parameter optional
   const openPropertyModal = (property?: Property) => {
     if (property) {
       setSelectedProperty(property);
       setNewProperty(property);
+    } else {
+      setSelectedProperty(null);
+      setNewProperty({
+        name: "",
+        address_line1: "",
+        address_line2: "",
+        city: "",
+        state: "",
+        postal_code: "",
+        country: "",
+        description: "",
+      });
     }
     setIsAddEditModalOpen(true);
   };

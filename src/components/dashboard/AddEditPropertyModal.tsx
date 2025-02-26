@@ -10,25 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
-
-interface Property {
-  id: string;
-  name: string;
-  logo: string | null;
-  logo_url: string | null;
-  address_line1: string;
-  address_line2?: string;
-  city: string;
-  state: string;
-  postal_code: string;
-  country: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-  manager?: string | null;
-  owner?: string;
-  total_units?: number;
-}
+import { Property } from "@/types/property";
 
 // Define a type for field names to avoid string indexing issues
 type PropertyField = keyof Property;

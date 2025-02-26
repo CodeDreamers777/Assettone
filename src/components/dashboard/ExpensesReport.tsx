@@ -41,11 +41,6 @@ interface Unit {
   unit_number: string;
 }
 
-interface ExpenseCategory {
-  id: string;
-  name: string;
-}
-
 const BASE_URL = "https://assettoneestates.pythonanywhere.com/api/v1";
 
 // List of expense categories - update with your actual categories

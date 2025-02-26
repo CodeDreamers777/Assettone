@@ -29,6 +29,7 @@ interface DashboardData {
     occupancy_rate: number;
   };
   financial_metrics: any;
+  expenses_data: any;
   maintenance_metrics: any;
   monthly_trends: any[];
 }

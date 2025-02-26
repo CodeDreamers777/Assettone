@@ -5,7 +5,12 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import axios from "axios";
 import { toast } from "@/hooks/use-toast";
-import { CalendarIcon, TrendingDown, TrendingUp } from "lucide-react";
+import {
+  CalendarIcon,
+  TrendingDown,
+  TrendingUp,
+  AlertCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -129,6 +134,11 @@ export const UnitReport: React.FC = () => {
     return (reportData.total_rent_paid / reportData.expected_rent) * 100 || 0;
   };
 
+  const calculateBalanceOwed = () => {
+    if (!reportData) return 0;
+    return reportData.expected_rent - reportData.total_rent_paid;
+  };
+
   return (
     <div className="space-y-6 bg-green-50 p-6 rounded-lg">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -213,7 +223,7 @@ export const UnitReport: React.FC = () => {
         <div className="mt-6 space-y-6">
           <ExportOptions data={reportData} filename="unit_report" />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="border-green-200 bg-white">
               <CardHeader>
                 <CardTitle className="text-green-800">Expected Rent</CardTitle>
@@ -255,6 +265,25 @@ export const UnitReport: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+
+            <Card className="border-green-200 bg-white">
+              <CardHeader>
+                <CardTitle className="text-green-800">Balance Owed</CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-center space-x-4">
+                <AlertCircle className="h-8 w-8 text-amber-500" />
+                <div>
+                  <p className="text-3xl font-bold text-amber-600">
+                    KES {calculateBalanceOwed().toFixed(2)}
+                  </p>
+                  <p className="text-sm text-amber-500">
+                    {calculateBalanceOwed() > 0
+                      ? "Outstanding balance"
+                      : "No outstanding balance"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <Card className="border-green-200 bg-white hover:bg-green-50 transition-colors">
@@ -270,39 +299,49 @@ export const UnitReport: React.FC = () => {
                 Current Lease
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-green-50 p-4 rounded-lg">
-                <div className="space-y-2 text-green-700">
-                  <p>
-                    Tenant: {reportData.current_lease.tenant__first_name}{" "}
-                    {reportData.current_lease.tenant__last_name}
-                  </p>
-                  <p>
-                    Start Date:{" "}
-                    {format(
-                      new Date(reportData.current_lease.start_date),
-                      "PP",
-                    )}
-                  </p>
-                  <p>
-                    End Date:{" "}
-                    {format(new Date(reportData.current_lease.end_date), "PP")}
-                  </p>
-                </div>
-                <div className="space-y-2 text-green-700">
-                  <p>Status: {reportData.current_lease.status}</p>
-                  <p>
-                    Monthly Rent: KES{" "}
-                    {reportData.current_lease.monthly_rent.toFixed(2)}
-                  </p>
-                  <p>
-                    Security Deposit: KES{" "}
-                    {reportData.current_lease.security_deposit.toFixed(2)}
-                  </p>
-                </div>
+                {reportData.current_lease ? (
+                  <>
+                    <div className="space-y-2 text-green-700">
+                      <p>
+                        Tenant: {reportData.current_lease.tenant__first_name}{" "}
+                        {reportData.current_lease.tenant__last_name}
+                      </p>
+                      <p>
+                        Start Date:{" "}
+                        {format(
+                          new Date(reportData.current_lease.start_date),
+                          "PP",
+                        )}
+                      </p>
+                      <p>
+                        End Date:{" "}
+                        {format(
+                          new Date(reportData.current_lease.end_date),
+                          "PP",
+                        )}
+                      </p>
+                    </div>
+                    <div className="space-y-2 text-green-700">
+                      <p>Status: {reportData.current_lease.status}</p>
+                      <p>
+                        Monthly Rent: KES{" "}
+                        {reportData.current_lease.monthly_rent.toFixed(2)}
+                      </p>
+                      <p>
+                        Security Deposit: KES{" "}
+                        {reportData.current_lease.security_deposit.toFixed(2)}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="col-span-2 text-amber-500 py-4 text-center">
+                    No active lease for this unit
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Rest of the existing cards remain unchanged */}
           <Card className="border-green-200 bg-white">
             <CardHeader>
               <CardTitle className="text-green-800">Lease History</CardTitle>

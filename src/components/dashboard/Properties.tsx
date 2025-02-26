@@ -251,7 +251,8 @@ export function Properties() {
         editableFields.forEach((field) => {
           // Only include field if it's different from the original
           if (newProperty[field] !== selectedProperty[field]) {
-            changedData[field] = newProperty[field];
+            // Fix: Ensure we only pass string | null | undefined to changedData
+            changedData[field] = String(newProperty[field]);
           }
         });
 
@@ -324,7 +325,7 @@ export function Properties() {
     }
   };
 
-  // Fixed: Make property parameter optional
+  // Make property parameter explicitly of type Property to match the PropertyDetailsModal interface
   const openPropertyModal = (property?: Property) => {
     if (property) {
       setSelectedProperty(property);
@@ -432,16 +433,19 @@ export function Properties() {
         setNewProperty={setNewProperty}
       />
 
+      {/* Type assertion to ensure compatibility with PropertyDetailsModal */}
       <PropertyDetailsModal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         property={selectedProperty}
         units={units}
         isLoading={isLoading}
-        onEditProperty={openPropertyModal}
+        onEditProperty={openPropertyModal as (property?: Property) => void}
         onDeleteProperty={() => setIsDeleteDialogOpen(true)}
         onAddUnit={() => setIsCreateModalOpen(true)}
-        handleFileSelect={handleFileSelect}
+        handleFileSelect={
+          handleFileSelect as (property: Property, file: File) => void
+        }
       />
 
       <AddUnitModal

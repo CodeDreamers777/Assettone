@@ -1891,13 +1891,13 @@ def dashboard_metrics(request):
     else:
         properties = Property.objects.none()
 
-    # Property metrics
+    # Property metrics (unchanged)
     property_metrics = {
         "total_properties": properties.count(),
         "total_units": Unit.objects.filter(property__in=properties).count(),
     }
 
-    # Occupancy metrics
+    # Occupancy metrics (unchanged)
     units = Unit.objects.filter(property__in=properties)
     occupancy_metrics = {
         "total_units": units.count(),
@@ -1942,6 +1942,31 @@ def dashboard_metrics(request):
         or 0
     )
 
+    # Get all expenses for the current period
+    expenses = Expense.objects.filter(
+        property__in=properties, expense_date__range=(start_date, end_date)
+    )
+
+    # Calculate total expenses
+    total_expenses = expenses.aggregate(total=Sum("amount"))["total"] or 0
+
+    # Get expenses by category
+    expenses_by_category = (
+        expenses.values("category").annotate(total=Sum("amount")).order_by("-total")
+    )
+
+    # Format expenses by category for the response
+    expense_categories = [
+        {
+            "category": item["category"],
+            "category_name": dict(ExpenseCategory.choices).get(
+                item["category"], "Other"
+            ),
+            "amount": item["total"],
+        }
+        for item in expenses_by_category
+    ]
+
     # Calculate rent collection rate
     rent_collection_rate = (
         round((rent_collected / expected_rent * 100), 2) if expected_rent > 0 else 0
@@ -1952,10 +1977,12 @@ def dashboard_metrics(request):
         "rent_collected": rent_collected,
         "rent_collection_rate": rent_collection_rate,
         "maintenance_expenses": maintenance_expenses,
-        "net_income": rent_collected - maintenance_expenses,
+        "total_expenses": total_expenses,
+        "expenses_by_category": expense_categories,
+        "net_income": rent_collected - total_expenses,
     }
 
-    # Maintenance metrics
+    # Maintenance metrics (unchanged)
     maintenance_metrics = {
         "total_requests": MaintenanceRequest.objects.filter(
             property__in=properties
@@ -1995,6 +2022,18 @@ def dashboard_metrics(request):
         .order_by("month")
     )
 
+    # Get expenses by month
+    monthly_expenses = (
+        Expense.objects.filter(
+            property__in=properties,
+            expense_date__gte=six_months_ago,
+        )
+        .annotate(month=TruncMonth("expense_date"))
+        .values("month")
+        .annotate(expense_amount=Sum("amount"))
+        .order_by("month")
+    )
+
     # Combine the data
     monthly_data = {}
 
@@ -2005,6 +2044,7 @@ def dashboard_metrics(request):
                 "month": item["month"].strftime("%B %Y"),
                 "rent_collected": 0,
                 "maintenance_cost": 0,
+                "expense_amount": 0,
             }
         monthly_data[month_str]["rent_collected"] = item["rent_collected"] or 0
 
@@ -2015,15 +2055,42 @@ def dashboard_metrics(request):
                 "month": item["month"].strftime("%B %Y"),
                 "rent_collected": 0,
                 "maintenance_cost": 0,
+                "expense_amount": 0,
             }
         monthly_data[month_str]["maintenance_cost"] = item["maintenance_cost"] or 0
+
+    for item in monthly_expenses:
+        month_str = item["month"].strftime("%Y-%m")
+        if month_str not in monthly_data:
+            monthly_data[month_str] = {
+                "month": item["month"].strftime("%B %Y"),
+                "rent_collected": 0,
+                "maintenance_cost": 0,
+                "expense_amount": 0,
+            }
+        monthly_data[month_str]["expense_amount"] = item["expense_amount"] or 0
 
     # Convert to list and calculate net income
     trend_data = []
     for month_str in sorted(monthly_data.keys()):
         data = monthly_data[month_str]
-        data["net_income"] = data["rent_collected"] - data["maintenance_cost"]
+        data["total_expenses"] = data["maintenance_cost"] + data["expense_amount"]
+        data["net_income"] = data["rent_collected"] - data["total_expenses"]
         trend_data.append(data)
+
+    # Add expense metrics section
+    expense_metrics = {
+        "total_expenses": total_expenses,
+        "expense_categories": expense_categories,
+        "tax_deductible_expenses": expenses.filter(is_tax_deductible=True).aggregate(
+            total=Sum("amount")
+        )["total"]
+        or 0,
+        "non_tax_deductible_expenses": expenses.filter(
+            is_tax_deductible=False
+        ).aggregate(total=Sum("amount"))["total"]
+        or 0,
+    }
 
     return Response(
         {
@@ -2031,6 +2098,7 @@ def dashboard_metrics(request):
             "occupancy_metrics": occupancy_metrics,
             "financial_metrics": financial_metrics,
             "maintenance_metrics": maintenance_metrics,
+            "expense_metrics": expense_metrics,  # New section
             "monthly_trends": trend_data,
             "date_range": {
                 "start_date": start_date.strftime("%Y-%m-%d"),

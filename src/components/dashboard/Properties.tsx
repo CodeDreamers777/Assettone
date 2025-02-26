@@ -48,6 +48,7 @@ interface Property {
   description: string;
   created_at: string;
   updated_at: string;
+  [key: string]: string | null | undefined; // Index signature for dynamic property access
 }
 
 export function Properties() {
@@ -246,10 +247,9 @@ export function Properties() {
       // For existing properties, use PATCH with only changed fields
       else {
         // Get only the fields that changed
-        const changedData = {};
-
-        // Always include the ID for the API to identify the property
-        changedData.id = selectedProperty.id;
+        const changedData: Record<string, string | null | undefined> = {
+          id: selectedProperty.id,
+        };
 
         // Check each editable field to see if it changed
         const editableFields = [

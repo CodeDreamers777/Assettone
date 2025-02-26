@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { DashboardHeader } from "./header";
@@ -15,6 +14,7 @@ interface DateRange {
   end_date: string;
 }
 
+// Updated interface to match both the API response and AdminDashboard requirements
 interface DashboardData {
   date_range: DateRange;
   tenant_metrics?: any;
@@ -29,9 +29,12 @@ interface DashboardData {
     occupancy_rate: number;
   };
   financial_metrics: any;
-  expenses_data: any;
   maintenance_metrics: any;
   monthly_trends: any[];
+  // Make the property optional since it might not be in the API response
+  expenses_data?: any;
+  // Add the property required by AdminDashboard
+  expense_metrics?: any;
 }
 
 export function Overview() {
@@ -57,7 +60,13 @@ export function Overview() {
     const fetchData = async () => {
       try {
         const data = await fetchDashboardMetrics();
-        setDashboardData(data);
+        // Map API response to our interface if needed
+        const mappedData: DashboardData = {
+          ...data,
+          // Add expense_metrics if it's expected by AdminDashboard but not in the API
+          expense_metrics: data.expenses_data || {},
+        };
+        setDashboardData(mappedData);
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
         toast({

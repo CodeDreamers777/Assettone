@@ -39,7 +39,7 @@ interface AddEditPropertyModalProps {
   onConfirm: (changedProperty: Partial<Property>, isPartial: boolean) => void;
   property: Property | null;
   newProperty: Partial<Property>;
-  setNewProperty: (property: Partial<Property>) => void;
+  setNewProperty: React.Dispatch<React.SetStateAction<Partial<Property>>>;
 }
 
 export const AddEditPropertyModal = ({
@@ -73,7 +73,7 @@ export const AddEditPropertyModal = ({
   }, [isOpen, property, setNewProperty]);
 
   const handleFieldChange = (fieldName: PropertyField, value: string) => {
-    setNewProperty((prev) => ({
+    setNewProperty((prev: Partial<Property>) => ({
       ...prev,
       [fieldName]: value,
     }));
@@ -104,15 +104,14 @@ export const AddEditPropertyModal = ({
     ];
 
     // Only add fields that have actually changed
-    let hasChanges = false;
     editableFields.forEach((field) => {
       // Only add the field if it exists in newProperty and is different from the original
       if (
         newProperty[field] !== undefined &&
         originalProperty[field] !== newProperty[field]
       ) {
-        patchPayload[field] = newProperty[field];
-        hasChanges = true;
+        // Use type assertion to ensure TypeScript understands this is a valid assignment
+        patchPayload[field] = newProperty[field] as any;
       }
     });
 

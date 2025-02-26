@@ -228,21 +228,61 @@ export function Properties() {
         ? `https://assettoneestates.pythonanywhere.com/api/v1/properties/${selectedProperty.id}/`
         : "https://assettoneestates.pythonanywhere.com/api/v1/properties/";
 
-      const method = selectedProperty ? "PUT" : "POST";
+      // For new properties, use POST with all fields
+      if (!selectedProperty) {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(newProperty),
+        });
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(newProperty),
-      });
+        if (!response.ok) {
+          throw new Error("Failed to create property");
+        }
+      }
+      // For existing properties, use PATCH with only changed fields
+      else {
+        // Get only the fields that changed
+        const changedData = {};
 
-      if (!response.ok) {
-        throw new Error(
-          `Failed to ${selectedProperty ? "update" : "create"} property`,
-        );
+        // Always include the ID for the API to identify the property
+        changedData.id = selectedProperty.id;
+
+        // Check each editable field to see if it changed
+        const editableFields = [
+          "name",
+          "address_line1",
+          "address_line2",
+          "city",
+          "state",
+          "postal_code",
+          "country",
+          "description",
+        ];
+
+        editableFields.forEach((field) => {
+          // Only include field if it's different from the original
+          if (newProperty[field] !== selectedProperty[field]) {
+            changedData[field] = newProperty[field];
+          }
+        });
+
+        // Make the PATCH request with only changed fields
+        const response = await fetch(url, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(changedData),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to update property");
+        }
       }
 
       await fetchProperties();

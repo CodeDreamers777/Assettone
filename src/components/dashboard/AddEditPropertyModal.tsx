@@ -25,12 +25,18 @@ interface Property {
   description: string;
   created_at: string;
   updated_at: string;
+  manager?: string | null;
+  owner?: string;
+  total_units?: number;
 }
+
+// Define a type for field names to avoid string indexing issues
+type PropertyField = keyof Property;
 
 interface AddEditPropertyModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (changedProperty: Partial<Property>) => void;
+  onConfirm: (changedProperty: Partial<Property>, isPartial: boolean) => void;
   property: Property | null;
   newProperty: Partial<Property>;
   setNewProperty: (property: Partial<Property>) => void;
@@ -44,35 +50,74 @@ export const AddEditPropertyModal = ({
   newProperty,
   setNewProperty,
 }: AddEditPropertyModalProps) => {
-  const [changedFields, setChangedFields] = useState<Record<string, boolean>>(
-    {},
+  // Store the original property values to compare against
+  const [originalProperty, setOriginalProperty] = useState<Property | null>(
+    null,
   );
 
-  // Reset changed fields when modal opens with a new property
+  // Initialize on open
   useEffect(() => {
     if (isOpen) {
-      setChangedFields({});
-    }
-  }, [isOpen, property]);
+      if (property) {
+        // Store a deep copy of the original property for comparison
+        setOriginalProperty(JSON.parse(JSON.stringify(property)));
 
-  const handleFieldChange = (fieldName: string, value: string) => {
-    setNewProperty({ ...newProperty, [fieldName]: value });
-    setChangedFields({ ...changedFields, [fieldName]: true });
+        // Initialize form with current property values
+        setNewProperty(JSON.parse(JSON.stringify(property)));
+      } else {
+        // For new properties, start with empty object
+        setOriginalProperty(null);
+        setNewProperty({});
+      }
+    }
+  }, [isOpen, property, setNewProperty]);
+
+  const handleFieldChange = (fieldName: PropertyField, value: string) => {
+    setNewProperty((prev) => ({
+      ...prev,
+      [fieldName]: value,
+    }));
   };
 
   const handleConfirm = () => {
-    // Only include fields that were changed
-    const changedData = Object.keys(changedFields).reduce((acc, key) => {
-      acc[key] = newProperty[key];
-      return acc;
-    }, {} as Partial<Property>);
-
-    // If editing an existing property, include the ID
-    if (property?.id) {
-      changedData.id = property.id;
+    // For new properties, just send the new data
+    if (!originalProperty) {
+      onConfirm(newProperty, false); // Not partial for new properties
+      return;
     }
 
-    onConfirm(changedData);
+    // For existing properties, create a PATCH payload with ONLY changed fields
+    const patchPayload: Partial<Property> = {
+      id: originalProperty.id, // Always include ID
+    };
+
+    // Editable fields - only these will be included in PATCH
+    const editableFields: PropertyField[] = [
+      "name",
+      "address_line1",
+      "address_line2",
+      "city",
+      "state",
+      "postal_code",
+      "country",
+      "description",
+    ];
+
+    // Only add fields that have actually changed
+    let hasChanges = false;
+    editableFields.forEach((field) => {
+      // Only add the field if it exists in newProperty and is different from the original
+      if (
+        newProperty[field] !== undefined &&
+        originalProperty[field] !== newProperty[field]
+      ) {
+        patchPayload[field] = newProperty[field];
+        hasChanges = true;
+      }
+    });
+
+    // Call onConfirm with just the changed fields and specify this is a partial update
+    onConfirm(patchPayload, true);
   };
 
   return (

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useState, useEffect } from "react";
 
 interface Property {
   id: string;
@@ -29,7 +30,7 @@ interface Property {
 interface AddEditPropertyModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (changedProperty: Partial<Property>) => void;
   property: Property | null;
   newProperty: Partial<Property>;
   setNewProperty: (property: Partial<Property>) => void;
@@ -43,6 +44,37 @@ export const AddEditPropertyModal = ({
   newProperty,
   setNewProperty,
 }: AddEditPropertyModalProps) => {
+  const [changedFields, setChangedFields] = useState<Record<string, boolean>>(
+    {},
+  );
+
+  // Reset changed fields when modal opens with a new property
+  useEffect(() => {
+    if (isOpen) {
+      setChangedFields({});
+    }
+  }, [isOpen, property]);
+
+  const handleFieldChange = (fieldName: string, value: string) => {
+    setNewProperty({ ...newProperty, [fieldName]: value });
+    setChangedFields({ ...changedFields, [fieldName]: true });
+  };
+
+  const handleConfirm = () => {
+    // Only include fields that were changed
+    const changedData = Object.keys(changedFields).reduce((acc, key) => {
+      acc[key] = newProperty[key];
+      return acc;
+    }, {} as Partial<Property>);
+
+    // If editing an existing property, include the ID
+    if (property?.id) {
+      changedData.id = property.id;
+    }
+
+    onConfirm(changedData);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl rounded-2xl">
@@ -59,9 +91,7 @@ export const AddEditPropertyModal = ({
               <Label>Property Name</Label>
               <Input
                 value={newProperty.name || ""}
-                onChange={(e) =>
-                  setNewProperty({ ...newProperty, name: e.target.value })
-                }
+                onChange={(e) => handleFieldChange("name", e.target.value)}
                 placeholder="Enter property name"
               />
             </div>
@@ -71,10 +101,7 @@ export const AddEditPropertyModal = ({
               <Input
                 value={newProperty.address_line1 || ""}
                 onChange={(e) =>
-                  setNewProperty({
-                    ...newProperty,
-                    address_line1: e.target.value,
-                  })
+                  handleFieldChange("address_line1", e.target.value)
                 }
                 placeholder="Street address"
               />
@@ -85,10 +112,7 @@ export const AddEditPropertyModal = ({
               <Input
                 value={newProperty.address_line2 || ""}
                 onChange={(e) =>
-                  setNewProperty({
-                    ...newProperty,
-                    address_line2: e.target.value,
-                  })
+                  handleFieldChange("address_line2", e.target.value)
                 }
                 placeholder="Apartment, suite, etc."
               />
@@ -99,18 +123,14 @@ export const AddEditPropertyModal = ({
                 <Label>City</Label>
                 <Input
                   value={newProperty.city || ""}
-                  onChange={(e) =>
-                    setNewProperty({ ...newProperty, city: e.target.value })
-                  }
+                  onChange={(e) => handleFieldChange("city", e.target.value)}
                 />
               </div>
               <div>
                 <Label>State</Label>
                 <Input
                   value={newProperty.state || ""}
-                  onChange={(e) =>
-                    setNewProperty({ ...newProperty, state: e.target.value })
-                  }
+                  onChange={(e) => handleFieldChange("state", e.target.value)}
                 />
               </div>
             </div>
@@ -124,10 +144,7 @@ export const AddEditPropertyModal = ({
                 <Input
                   value={newProperty.postal_code || ""}
                   onChange={(e) =>
-                    setNewProperty({
-                      ...newProperty,
-                      postal_code: e.target.value,
-                    })
+                    handleFieldChange("postal_code", e.target.value)
                   }
                 />
               </div>
@@ -135,12 +152,7 @@ export const AddEditPropertyModal = ({
                 <Label>Country</Label>
                 <Input
                   value={newProperty.country || ""}
-                  onChange={(e) =>
-                    setNewProperty({
-                      ...newProperty,
-                      country: e.target.value,
-                    })
-                  }
+                  onChange={(e) => handleFieldChange("country", e.target.value)}
                 />
               </div>
             </div>
@@ -150,10 +162,7 @@ export const AddEditPropertyModal = ({
               <Textarea
                 value={newProperty.description || ""}
                 onChange={(e) =>
-                  setNewProperty({
-                    ...newProperty,
-                    description: e.target.value,
-                  })
+                  handleFieldChange("description", e.target.value)
                 }
                 placeholder="Tell us about this property"
                 className="min-h-[200px]"
@@ -163,7 +172,7 @@ export const AddEditPropertyModal = ({
         </div>
 
         <DialogFooter>
-          <Button onClick={onConfirm}>
+          <Button onClick={handleConfirm}>
             {property ? "Update Property" : "Add Property"}
           </Button>
         </DialogFooter>

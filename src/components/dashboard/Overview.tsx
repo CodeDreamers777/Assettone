@@ -14,8 +14,61 @@ interface DateRange {
   end_date: string;
 }
 
-// Updated interface to match both the API response and AdminDashboard requirements
+// Updated to exactly match what AdminDashboard expects
 interface DashboardData {
+  date_range: DateRange;
+  tenant_metrics?: any;
+  property_metrics: {
+    total_properties: number;
+    total_units: number;
+  };
+  occupancy_metrics: {
+    total_units: number;
+    occupied_units: number;
+    vacant_units: number;
+    occupancy_rate: number;
+  };
+  financial_metrics: {
+    expected_rent: number;
+    rent_collected: number;
+    rent_collection_rate: number;
+    maintenance_expenses: number;
+    total_expenses: number;
+    expenses_by_category: Array<{
+      category: string;
+      category_name: string;
+      amount: number;
+    }>;
+    net_income: number;
+  };
+  maintenance_metrics: {
+    total_requests: number;
+    pending_requests: number;
+    in_progress_requests: number;
+  };
+  // Make this required, not optional
+  expense_metrics: {
+    total_expenses: number;
+    expense_categories: Array<{
+      category: string;
+      category_name: string;
+      amount: number;
+    }>;
+    tax_deductible_expenses: number;
+    non_tax_deductible_expenses: number;
+  };
+  monthly_trends: Array<{
+    month: string;
+    rent_collected: number;
+    maintenance_cost: number;
+    expense_amount: number;
+    total_expenses: number;
+    net_income: number;
+  }>;
+}
+
+// This type represents what might come from the API
+interface ApiResponse {
   date_range: DateRange;
   tenant_metrics?: any;
   property_metrics: {
@@ -31,18 +84,8 @@ interface DashboardData {
   financial_metrics: any;
   maintenance_metrics: any;
   monthly_trends: any[];
-  // Either expenses_data OR expense_metrics should be present
   expenses_data?: any;
-  expense_metrics?: {
-    total_expenses: number;
-    expense_categories: Array<{
-      category: string;
-      category_name: string;
-      amount: number;
-    }>;
-    tax_deductible_expenses: number;
-    non_tax_deductible_expenses: number;
-  };
+  expense_metrics?: any;
 }
 
 export function Overview() {
@@ -67,20 +110,38 @@ export function Overview() {
 
     const fetchData = async () => {
       try {
-        const data = await fetchDashboardMetrics();
+        const apiData: ApiResponse = await fetchDashboardMetrics();
 
-        // Transform the API response to match what AdminDashboard expects
+        // Create a proper expense_metrics object, regardless of API structure
+        const expenseMetrics = {
+          total_expenses:
+            apiData.expense_metrics?.total_expenses ||
+            apiData.expenses_data?.total_expenses ||
+            0,
+          expense_categories:
+            apiData.expense_metrics?.expense_categories ||
+            apiData.expenses_data?.expense_categories ||
+            [],
+          tax_deductible_expenses:
+            apiData.expense_metrics?.tax_deductible_expenses ||
+            apiData.expenses_data?.tax_deductible_expenses ||
+            0,
+          non_tax_deductible_expenses:
+            apiData.expense_metrics?.non_tax_deductible_expenses ||
+            apiData.expenses_data?.non_tax_deductible_expenses ||
+            0,
+        };
+
+        // Construct a properly typed DashboardData object
         const transformedData: DashboardData = {
-          ...data,
-          // If API returns expenses_data but not expense_metrics, create expense_metrics from expenses_data
-          expense_metrics: data.expense_metrics || {
-            total_expenses: data.expenses_data?.total_expenses || 0,
-            expense_categories: data.expenses_data?.expense_categories || [],
-            tax_deductible_expenses:
-              data.expenses_data?.tax_deductible_expenses || 0,
-            non_tax_deductible_expenses:
-              data.expenses_data?.non_tax_deductible_expenses || 0,
-          },
+          date_range: apiData.date_range,
+          tenant_metrics: apiData.tenant_metrics,
+          property_metrics: apiData.property_metrics,
+          occupancy_metrics: apiData.occupancy_metrics,
+          financial_metrics: apiData.financial_metrics,
+          maintenance_metrics: apiData.maintenance_metrics,
+          monthly_trends: apiData.monthly_trends,
+          expense_metrics: expenseMetrics,
         };
 
         setDashboardData(transformedData);

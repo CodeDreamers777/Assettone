@@ -109,7 +109,7 @@ const PermissionInfoDialog = ({
               <Info
                 className={`
                   h-4 w-4 
-                  ${isGranted ? "text-green-500" : "text-red-500"}
+                  ${isGranted ? "text-green-600" : "text-red-500"}
                   hover:opacity-75
                   transition-opacity
                 `}
@@ -123,23 +123,23 @@ const PermissionInfoDialog = ({
       </TooltipProvider>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[425px] rounded-xl shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-gray-800 capitalize">
+        <DialogContent className="sm:max-w-[425px] rounded-xl shadow-2xl bg-white">
+          <DialogHeader className="bg-green-100 p-4 rounded-t-xl">
+            <DialogTitle className="text-2xl font-bold text-green-800 capitalize">
               {permissionKey.split("_").join(" ")}
             </DialogTitle>
             <DialogClose
               className="
                 absolute 
-                right-0 
-                top-0 
+                right-4 
+                top-4 
                 p-2 
-                hover:bg-gray-100 
+                hover:bg-green-200 
                 rounded-full 
                 transition-colors
               "
             >
-              <X className="h-5 w-5 text-gray-500 hover:text-gray-800" />
+              <X className="h-5 w-5 text-green-700" />
             </DialogClose>
           </DialogHeader>
           <div className="p-4">
@@ -147,7 +147,7 @@ const PermissionInfoDialog = ({
               <ShieldCheck
                 className={`
                   h-8 w-8 
-                  ${isGranted ? "text-green-500" : "text-red-500"}
+                  ${isGranted ? "text-green-600" : "text-red-500"}
                   transition-colors
                 `}
               />
@@ -160,7 +160,7 @@ const PermissionInfoDialog = ({
                 {isGranted ? "Granted" : "Not Granted"}
               </span>
             </div>
-            <p className="text-gray-700">
+            <p className="text-green-900">
               {
                 PERMISSION_DESCRIPTIONS[
                   permissionKey as keyof typeof PERMISSION_DESCRIPTIONS
@@ -286,29 +286,46 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      <div className="flex items-center justify-center min-h-screen bg-green-50">
+        <Loader2 className="h-12 w-12 animate-spin text-green-600" />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-10 px-4">
-      <Card className="max-w-4xl mx-auto shadow-lg hover:shadow-xl transition-shadow duration-300">
-        <CardHeader className="pb-4 bg-gray-50 rounded-t-lg">
+    <div className="container mx-auto py-10 px-4 bg-green-50">
+      <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm mb-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-green-800">
+            User Profile
+          </h2>
+          <p className="text-sm text-green-600">
+            {new Date().toLocaleDateString()}
+          </p>
+        </div>
+        <Badge
+          variant="outline"
+          className="bg-green-100 text-green-800 px-3 py-1 text-sm font-medium"
+        >
+          {profile?.user_type}
+        </Badge>
+      </div>
+
+      <Card className="max-w-4xl mx-auto shadow-lg border-l-4 border-l-green-500">
+        <CardHeader className="pb-4 bg-green-100 rounded-t-lg">
           <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
-            <Avatar className="h-24 w-24 border-4 border-primary/20 shadow-md">
+            <Avatar className="h-24 w-24 border-4 border-green-200 shadow-md">
               <AvatarImage
                 src={`https://api.dicebear.com/6.x/initials/svg?seed=${profile?.username}`}
                 alt={profile?.username}
                 className="object-cover"
               />
-              <AvatarFallback className="bg-primary/10 text-primary font-bold">
+              <AvatarFallback className="bg-green-700 text-white font-bold">
                 {profile?.username.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div className="text-center sm:text-left">
-              <CardTitle className="text-3xl font-bold text-gray-800 mb-2">
+              <CardTitle className="text-3xl font-bold text-green-800 mb-2">
                 {profile?.username}
               </CardTitle>
               <Badge
@@ -316,9 +333,9 @@ export default function ProfilePage() {
                 className="
                   px-3 py-1 
                   text-sm 
-                  bg-primary/10 
-                  text-primary 
-                  hover:bg-primary/20 
+                  bg-green-600 
+                  text-white 
+                  hover:bg-green-700 
                   transition-colors
                 "
               >
@@ -333,22 +350,22 @@ export default function ProfilePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {[
                 {
-                  icon: <Mail className="h-6 w-6 text-primary" />,
+                  icon: <Mail className="h-6 w-6 text-green-600" />,
                   label: "Email",
                   value: profile?.email,
                 },
                 {
-                  icon: <Phone className="h-6 w-6 text-primary" />,
+                  icon: <Phone className="h-6 w-6 text-green-600" />,
                   label: "Phone",
                   value: profile?.phone_number,
                 },
                 {
-                  icon: <FileText className="h-6 w-6 text-primary" />,
+                  icon: <FileText className="h-6 w-6 text-green-600" />,
                   label: "Identification Type",
                   value: profile?.identification_type,
                 },
                 {
-                  icon: <Building className="h-6 w-6 text-primary" />,
+                  icon: <Building className="h-6 w-6 text-green-600" />,
                   label: "Identification Number",
                   value: profile?.identification_number,
                 },
@@ -359,9 +376,10 @@ export default function ProfilePage() {
                     flex items-center 
                     space-x-4 
                     p-4 
-                    bg-gray-50 
+                    bg-white 
                     rounded-lg 
                     shadow-sm 
+                    border-l-4 border-l-green-400
                     hover:shadow-md 
                     transition-all 
                     duration-300
@@ -369,10 +387,10 @@ export default function ProfilePage() {
                 >
                   {item.icon}
                   <div>
-                    <p className="text-sm font-semibold text-gray-600">
+                    <p className="text-sm font-semibold text-green-700">
                       {item.label}
                     </p>
-                    <p className="text-sm text-gray-800 font-medium">
+                    <p className="text-sm text-green-900 font-medium">
                       {item.value}
                     </p>
                   </div>
@@ -380,47 +398,53 @@ export default function ProfilePage() {
               ))}
             </div>
 
-            <Separator className="my-6 bg-gray-200" />
+            <Separator className="my-6 bg-green-200" />
 
             {/* Permissions Section */}
-            <div>
-              <h3 className="text-xl font-semibold mb-4 text-gray-800">
-                Permissions
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {Object.entries(profile?.permissions || {}).map(
-                  ([key, value]) => (
-                    <div
-                      key={key}
-                      className="
-                        flex items-center 
-                        space-x-3 
-                        p-3 
-                        rounded-lg 
-                        transition-colors 
-                        duration-300
-                        hover:bg-gray-100
-                        "
-                    >
-                      <ShieldCheck
-                        className={`
-                          h-6 w-6 
-                          ${value ? "text-green-500" : "text-red-500"}
-                          transition-colors
-                        `}
-                      />
-                      <span className="text-sm text-gray-700 capitalize">
-                        {key.split("_").join(" ")}
-                      </span>
-                      <PermissionInfoDialog
-                        permissionKey={key}
-                        isGranted={value}
-                      />
-                    </div>
-                  ),
-                )}
-              </div>
-            </div>
+            <Card className="shadow-sm border-0">
+              <CardHeader className="bg-green-100 rounded-t-lg">
+                <CardTitle className="text-lg text-green-800">
+                  Permissions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 bg-white">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {Object.entries(profile?.permissions || {}).map(
+                    ([key, value]) => (
+                      <div
+                        key={key}
+                        className="
+                          flex items-center 
+                          space-x-3 
+                          p-3 
+                          rounded-lg 
+                          bg-white
+                          border border-green-100
+                          transition-colors 
+                          duration-300
+                          hover:bg-green-50
+                          "
+                      >
+                        <ShieldCheck
+                          className={`
+                            h-6 w-6 
+                            ${value ? "text-green-600" : "text-red-500"}
+                            transition-colors
+                          `}
+                        />
+                        <span className="text-sm text-green-800 capitalize">
+                          {key.split("_").join(" ")}
+                        </span>
+                        <PermissionInfoDialog
+                          permissionKey={key}
+                          isGranted={value}
+                        />
+                      </div>
+                    ),
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Edit Profile Dialog */}
             <Dialog>
@@ -432,7 +456,9 @@ export default function ProfilePage() {
                     group 
                     transition-all 
                     duration-300 
-                    hover:bg-primary-600
+                    bg-green-600
+                    hover:bg-green-700
+                    text-white
                   "
                 >
                   <Edit className="mr-2 h-5 w-5 group-hover:rotate-6 transition-transform" />
@@ -440,43 +466,43 @@ export default function ProfilePage() {
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px] rounded-xl shadow-2xl">
-                <DialogHeader className="relative">
-                  <DialogTitle className="text-2xl font-bold text-gray-800">
+                <DialogHeader className="relative bg-green-100 p-4 rounded-t-xl">
+                  <DialogTitle className="text-2xl font-bold text-green-800">
                     Edit Profile
                   </DialogTitle>
                   <DialogClose
                     className="
                       absolute 
-                      right-0 
-                      top-0 
+                      right-4 
+                      top-4 
                       p-2 
-                      hover:bg-gray-100 
+                      hover:bg-green-200 
                       rounded-full 
                       transition-colors
                     "
                   >
-                    <X className="h-5 w-5 text-gray-500 hover:text-gray-800" />
+                    <X className="h-5 w-5 text-green-700" />
                   </DialogClose>
                 </DialogHeader>
                 <Form {...form}>
                   <form
                     onSubmit={form.handleSubmit(onSubmit)}
-                    className="space-y-6"
+                    className="space-y-6 p-6"
                   >
                     <FormField
                       control={form.control}
                       name="username"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-gray-700">
+                          <FormLabel className="text-green-800">
                             Username
                           </FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               className="
-                                focus:border-primary 
-                                focus:ring-primary/30 
+                                focus:border-green-600 
+                                focus:ring-green-300/30 
                                 transition-colors
                               "
                             />
@@ -490,7 +516,7 @@ export default function ProfilePage() {
                       name="phone_number"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-gray-700">
+                          <FormLabel className="text-green-800">
                             Phone Number
                           </FormLabel>
                           <FormControl>
@@ -498,8 +524,8 @@ export default function ProfilePage() {
                               {...field}
                               type="tel"
                               className="
-                                focus:border-primary 
-                                focus:ring-primary/30 
+                                focus:border-green-600
+                                focus:ring-green-300/30 
                                 transition-colors
                               "
                             />
@@ -514,9 +540,9 @@ export default function ProfilePage() {
                           type="button"
                           variant="outline"
                           className="
-                            border-gray-300 
-                            text-gray-700 
-                            hover:bg-gray-50 
+                            border-green-300 
+                            text-green-700 
+                            hover:bg-green-50 
                             transition-colors
                           "
                         >
@@ -526,9 +552,10 @@ export default function ProfilePage() {
                       <Button
                         type="submit"
                         className="
-                          bg-primary 
-                          hover:bg-primary-600 
+                          bg-green-600 
+                          hover:bg-green-700 
                           transition-colors
+                          text-white
                         "
                       >
                         Update Profile

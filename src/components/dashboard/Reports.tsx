@@ -1,9 +1,9 @@
 "use client";
-
 import type React from "react";
 import { TenantReport } from "./TenantReport";
 import { PropertyReport } from "./PropertyReport";
 import { UnitReport } from "./UnitReport";
+import { ExpensesReport } from "./ExpensesReport";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -16,10 +16,11 @@ export const Reports: React.FC = () => {
       <Card className="w-full max-w-6xl mx-auto shadow-lg">
         <CardContent className="p-6">
           <Tabs defaultValue="tenant" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsList className="grid w-full grid-cols-4 mb-6">
               <TabsTrigger value="tenant">Tenant Reports</TabsTrigger>
               <TabsTrigger value="property">Property Reports</TabsTrigger>
               <TabsTrigger value="unit">Unit Reports</TabsTrigger>
+              <TabsTrigger value="expenses">Expenses Reports</TabsTrigger>
             </TabsList>
             <div id="report-content">
               <TabsContent value="tenant">
@@ -30,6 +31,9 @@ export const Reports: React.FC = () => {
               </TabsContent>
               <TabsContent value="unit">
                 <UnitReport />
+              </TabsContent>
+              <TabsContent value="expenses">
+                <ExpensesReport />
               </TabsContent>
             </div>
           </Tabs>

@@ -31,10 +31,18 @@ interface DashboardData {
   financial_metrics: any;
   maintenance_metrics: any;
   monthly_trends: any[];
-  // Make the property optional since it might not be in the API response
+  // Either expenses_data OR expense_metrics should be present
   expenses_data?: any;
-  // Add the property required by AdminDashboard
-  expense_metrics?: any;
+  expense_metrics?: {
+    total_expenses: number;
+    expense_categories: Array<{
+      category: string;
+      category_name: string;
+      amount: number;
+    }>;
+    tax_deductible_expenses: number;
+    non_tax_deductible_expenses: number;
+  };
 }
 
 export function Overview() {
@@ -60,13 +68,22 @@ export function Overview() {
     const fetchData = async () => {
       try {
         const data = await fetchDashboardMetrics();
-        // Map API response to our interface if needed
-        const mappedData: DashboardData = {
+
+        // Transform the API response to match what AdminDashboard expects
+        const transformedData: DashboardData = {
           ...data,
-          // Add expense_metrics if it's expected by AdminDashboard but not in the API
-          expense_metrics: data.expenses_data || {},
+          // If API returns expenses_data but not expense_metrics, create expense_metrics from expenses_data
+          expense_metrics: data.expense_metrics || {
+            total_expenses: data.expenses_data?.total_expenses || 0,
+            expense_categories: data.expenses_data?.expense_categories || [],
+            tax_deductible_expenses:
+              data.expenses_data?.tax_deductible_expenses || 0,
+            non_tax_deductible_expenses:
+              data.expenses_data?.non_tax_deductible_expenses || 0,
+          },
         };
-        setDashboardData(mappedData);
+
+        setDashboardData(transformedData);
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
         toast({

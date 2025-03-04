@@ -35,6 +35,14 @@ export function Login({ onLoginSuccess }: LoginProps) {
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
 
+  // Helper component for required field label
+  const RequiredLabel = ({ children }: { children: React.ReactNode }) => (
+    <div className="flex items-center">
+      {children}
+      <span className="text-red-500 ml-1">*</span>
+    </div>
+  );
+
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -42,6 +50,21 @@ export function Login({ onLoginSuccess }: LoginProps) {
       password: "",
     },
   });
+
+  // Function to format date and time
+  const formatLastLogin = (dateString: string) => {
+    const date = new Date(dateString);
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    };
+    return date.toLocaleString(undefined, options);
+  };
 
   async function onSubmit(values: z.infer<typeof loginSchema>) {
     try {
@@ -80,10 +103,10 @@ export function Login({ onLoginSuccess }: LoginProps) {
       if (lastSession) {
         localStorage.setItem("lastSession", lastSession);
 
-        // Show last session toast in green
+        // Personalized last session toast
         toast({
-          title: "Last Session",
-          description: `Previous login: ${new Date(lastSession).toLocaleString()}`,
+          title: `Welcome, ${data.profile.username}!`,
+          description: `Your last login was on ${formatLastLogin(lastSession)}`,
           variant: "default",
           className: "bg-green-500 text-white",
         });
@@ -115,13 +138,15 @@ export function Login({ onLoginSuccess }: LoginProps) {
           name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Username</FormLabel>
+              <FormLabel>
+                <RequiredLabel>Username</RequiredLabel>
+              </FormLabel>
               <FormControl>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-600" />
                   <Input
                     placeholder="Enter your username"
-                    className="pl-10"
+                    className="pl-10 border-green-600 focus:border-green-800 focus:ring-green-500"
                     {...field}
                   />
                 </div>
@@ -135,20 +160,22 @@ export function Login({ onLoginSuccess }: LoginProps) {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <FormLabel>
+                <RequiredLabel>Password</RequiredLabel>
+              </FormLabel>
               <FormControl>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-600" />
                   <Input
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
-                    className="pl-10 pr-10"
+                    className="pl-10 pr-10 border-green-600 focus:border-green-800 focus:ring-green-500"
                     {...field}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-600"
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
@@ -158,7 +185,10 @@ export function Login({ onLoginSuccess }: LoginProps) {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full">
+        <Button
+          type="submit"
+          className="w-full bg-green-600 hover:bg-green-700 focus:ring-green-500"
+        >
           Sign In
         </Button>
       </form>

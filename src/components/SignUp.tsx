@@ -112,6 +112,14 @@ export function SignUp({ onSignUpSuccess }: SignUpProps) {
     }
   }
 
+  // Helper component for required field label
+  const RequiredLabel = ({ children }: { children: React.ReactNode }) => (
+    <div className="flex items-center">
+      {children}
+      <span className="text-red-500 ml-1">*</span>
+    </div>
+  );
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -120,13 +128,15 @@ export function SignUp({ onSignUpSuccess }: SignUpProps) {
           name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Username</FormLabel>
+              <FormLabel>
+                <RequiredLabel>Username</RequiredLabel>
+              </FormLabel>
               <FormControl>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-600" />
                   <Input
                     placeholder="Enter your username"
-                    className="pl-10"
+                    className="pl-10 border-green-600 focus:border-green-800 focus:ring-green-500"
                     {...field}
                   />
                 </div>
@@ -140,13 +150,15 @@ export function SignUp({ onSignUpSuccess }: SignUpProps) {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>
+                <RequiredLabel>Email</RequiredLabel>
+              </FormLabel>
               <FormControl>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-600" />
                   <Input
                     placeholder="Enter your email"
-                    className="pl-10"
+                    className="pl-10 border-green-600 focus:border-green-800 focus:ring-green-500"
                     {...field}
                   />
                 </div>
@@ -161,9 +173,15 @@ export function SignUp({ onSignUpSuccess }: SignUpProps) {
             name="first_name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>First Name</FormLabel>
+                <FormLabel>
+                  <RequiredLabel>First Name</RequiredLabel>
+                </FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter your first name" {...field} />
+                  <Input
+                    placeholder="Enter your first name"
+                    className="border-green-600 focus:border-green-800 focus:ring-green-500"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -174,9 +192,15 @@ export function SignUp({ onSignUpSuccess }: SignUpProps) {
             name="last_name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Last Name</FormLabel>
+                <FormLabel>
+                  <RequiredLabel>Last Name</RequiredLabel>
+                </FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter your last name" {...field} />
+                  <Input
+                    placeholder="Enter your last name"
+                    className="border-green-600 focus:border-green-800 focus:ring-green-500"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -188,13 +212,15 @@ export function SignUp({ onSignUpSuccess }: SignUpProps) {
           name="phone_number"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Phone Number</FormLabel>
+              <FormLabel>
+                <RequiredLabel>Phone Number</RequiredLabel>
+              </FormLabel>
               <FormControl>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-600" />
                   <Input
                     placeholder="Enter your phone number"
-                    className="pl-10"
+                    className="pl-10 border-green-600 focus:border-green-800 focus:ring-green-500"
                     {...field}
                   />
                 </div>
@@ -208,10 +234,12 @@ export function SignUp({ onSignUpSuccess }: SignUpProps) {
           name="identification_type"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Identification Type</FormLabel>
+              <FormLabel>
+                <RequiredLabel>Identification Type</RequiredLabel>
+              </FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-green-600 focus:border-green-800 focus:ring-green-500">
                     <SelectValue placeholder="Select identification type" />
                   </SelectTrigger>
                 </FormControl>
@@ -234,13 +262,15 @@ export function SignUp({ onSignUpSuccess }: SignUpProps) {
           name="identification_number"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Identification Number</FormLabel>
+              <FormLabel>
+                <RequiredLabel>Identification Number</RequiredLabel>
+              </FormLabel>
               <FormControl>
                 <div className="relative">
-                  <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-600" />
                   <Input
                     placeholder="Enter your identification number"
-                    className="pl-10"
+                    className="pl-10 border-green-600 focus:border-green-800 focus:ring-green-500"
                     {...field}
                   />
                 </div>
@@ -254,20 +284,22 @@ export function SignUp({ onSignUpSuccess }: SignUpProps) {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <FormLabel>
+                <RequiredLabel>Password</RequiredLabel>
+              </FormLabel>
               <FormControl>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-600" />
                   <Input
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
-                    className="pl-10 pr-10"
+                    className="pl-10 pr-10 border-green-600 focus:border-green-800 focus:ring-green-500"
                     {...field}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-600"
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
@@ -277,7 +309,10 @@ export function SignUp({ onSignUpSuccess }: SignUpProps) {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full">
+        <Button
+          type="submit"
+          className="w-full bg-green-600 hover:bg-green-700 focus:ring-green-500"
+        >
           Create Account
         </Button>
       </form>

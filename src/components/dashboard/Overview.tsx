@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { DashboardHeader } from "./header";
 import { DashboardShell } from "./shell";
 import { DateRangePicker } from "./date-range-picker";
@@ -93,15 +93,36 @@ export function Overview() {
     null,
   );
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+
+  // Function to format date and time
+  const formatLastLogin = (dateString: string) => {
+    const date = new Date(dateString);
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    };
+    return date.toLocaleString(undefined, options);
+  };
 
   useEffect(() => {
     const lastSession = localStorage.getItem("lastSession");
+    const username = localStorage.getItem("username");
+
     if (lastSession) {
       try {
-        const lastSessionDate = new Date(lastSession);
+        const formattedLastLogin = formatLastLogin(lastSession);
+
         toast({
-          title: "Last Login",
-          description: `You last logged in on: ${lastSessionDate.toLocaleString()}`,
+          title: username ? `Welcome back, ${username}!` : "Welcome back!",
+          description: `Your last login was on ${formattedLastLogin}`,
+          variant: "default",
+          className: "bg-green-500 text-white",
         });
       } catch (error) {
         console.error("Error parsing last session date:", error);

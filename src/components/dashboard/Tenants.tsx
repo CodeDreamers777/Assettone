@@ -26,14 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  PlusCircle,
-  Pencil,
-  Trash,
-  FileText,
-  Ban,
-  ArrowRightLeft,
-} from "lucide-react";
+import { PlusCircle, Pencil, Trash, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DashboardHeader } from "./header";
 import { DashboardShell } from "./shell";

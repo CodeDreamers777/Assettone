@@ -166,12 +166,12 @@ export const TenantReport: React.FC = () => {
               },
               {
                 title: "Expected Rent",
-                value: `$${reportData.expected_rent.toFixed(2)}`,
+                value: `KES ${reportData.expected_rent.toFixed(2)}`,
                 description: "Monthly",
               },
               {
                 title: "Total Rent Paid",
-                value: `$${reportData.total_rent_paid.toFixed(2)}`,
+                value: `KES ${reportData.total_rent_paid.toFixed(2)}`,
                 description: "For selected period",
               },
               {
@@ -237,7 +237,7 @@ export const TenantReport: React.FC = () => {
                             {format(new Date(payment.payment_date), "PP")}
                           </td>
                           <td className="px-4 py-2">
-                            ${payment.amount.toFixed(2)}
+                            KES {payment.amount.toFixed(2)}
                           </td>
                           <td className="px-4 py-2">
                             {payment.lease__unit__property__name}

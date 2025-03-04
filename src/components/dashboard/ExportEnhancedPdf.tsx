@@ -137,22 +137,28 @@ const getSummaryData = (data: ReportData, reportType: string): TableRow[] => {
     case "unit":
       return [
         ["Total Leases", data.total_leases ?? 0],
-        ["Expected Rent", `$${(data.expected_rent ?? 0).toLocaleString()}`],
-        ["Total Rent Paid", `$${(data.total_rent_paid ?? 0).toLocaleString()}`],
+        ["Expected Rent", `KES ${(data.expected_rent ?? 0).toLocaleString()}`],
+        [
+          "Total Rent Paid",
+          `KES ${(data.total_rent_paid ?? 0).toLocaleString()}`,
+        ],
       ];
     case "property":
       return [
         ["Total Units", data.total_units ?? 0],
         ["Occupied Units", data.occupied_units ?? 0],
         ["Active Leases", data.active_leases ?? 0],
-        ["Expected Rent", `$${(data.expected_rent ?? 0).toLocaleString()}`],
+        ["Expected Rent", `KES ${(data.expected_rent ?? 0).toLocaleString()}`],
       ];
     case "tenant":
       return [
         ["Total Leases", data.total_leases ?? 0],
         ["Active Leases", data.active_leases ?? 0],
-        ["Expected Rent", `$${(data.expected_rent ?? 0).toLocaleString()}`],
-        ["Total Rent Paid", `$${(data.total_rent_paid ?? 0).toLocaleString()}`],
+        ["Expected Rent", `KES ${(data.expected_rent ?? 0).toLocaleString()}`],
+        [
+          "Total Rent Paid",
+          `KES ${(data.total_rent_paid ?? 0).toLocaleString()}`,
+        ],
       ];
     default:
       return [];

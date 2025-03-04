@@ -155,39 +155,6 @@ export function Tenants() {
     setIsLeaseModalOpen(true);
   };
 
-  const handleTerminateLease = (id: string) => {
-    // Implement terminate lease functionality
-    console.log(id);
-
-    toast({
-      title: "Not Implemented",
-      description: "Terminate lease functionality is not yet implemented.",
-      variant: "default",
-    });
-  };
-
-  const handleDeactivateLease = (id: string) => {
-    // Implement deactivate lease functionality
-    console.log(id);
-
-    toast({
-      title: "Not Implemented",
-      description: "Deactivate lease functionality is not yet implemented.",
-      variant: "default",
-    });
-  };
-
-  const handleTransferLease = (id: string) => {
-    // Implement transfer lease functionality
-    console.log(id);
-
-    toast({
-      title: "Not Implemented",
-      description: "Transfer lease functionality is not yet implemented.",
-      variant: "default",
-    });
-  };
-
   const handlePropertyChange = (value: string) => {
     setSelectedProperty(value);
   };
@@ -315,28 +282,7 @@ export function Tenants() {
                           <FileText className="mr-2 h-4 w-4" />
                           Lease
                         </DropdownMenuItem>
-                        {tenant.status === "ACTIVE" && (
-                          <>
-                            <DropdownMenuItem
-                              onClick={() => handleTerminateLease(tenant.id)}
-                            >
-                              <Ban className="mr-2 h-4 w-4" />
-                              Terminate Lease
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDeactivateLease(tenant.id)}
-                            >
-                              <Ban className="mr-2 h-4 w-4" />
-                              Deactivate Lease
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleTransferLease(tenant.id)}
-                            >
-                              <ArrowRightLeft className="mr-2 h-4 w-4" />
-                              Transfer Lease
-                            </DropdownMenuItem>
-                          </>
-                        )}
+                        {tenant.status === "ACTIVE" && <></>}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

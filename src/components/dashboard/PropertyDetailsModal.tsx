@@ -8,21 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Building, Edit, Home, Trash2 } from "lucide-react";
 
-interface Property {
-  id: string;
-  name: string;
-  logo: string | null;
-  logo_url: string | null;
-  address_line1: string;
-  address_line2?: string;
-  city: string;
-  state: string;
-  postal_code: string;
-  country: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-}
+import { Property } from "@/types/property";
 
 type Unit = {};
 

@@ -15,7 +15,7 @@ export interface Property {
   manager?: string | null;
   owner?: string;
   total_units?: number;
-  [key: string]: string | number | null | undefined; // Updated index signature
+  [key: string]: string | number | null | undefined;
 }
 
 export type PropertyField = keyof Property;

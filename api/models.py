@@ -9,6 +9,7 @@ from django.utils.translation import gettext_lazy as _
 from .utils.send_mail import EmailService
 from .utils.create_lease_document import LeaseDocumentGenerator
 from django.core.files.storage import default_storage
+from django.utils import timezone
 
 
 class UserType(models.TextChoices):
@@ -40,6 +41,11 @@ class Profile(models.Model):
     identification_number = models.CharField(
         max_length=50, blank=True, null=True, unique=True
     )
+    # Password reset fields
+    reset_otp = models.CharField(max_length=6, blank=True, null=True)
+    reset_otp_expiry = models.DateTimeField(blank=True, null=True)
+
+    # Permission fields
     can_manage_properties = models.BooleanField(default=False)
     can_add_units = models.BooleanField(default=False)
     can_edit_units = models.BooleanField(default=False)
@@ -57,6 +63,36 @@ class Profile(models.Model):
             ).exclude(pk=self.pk)
             if existing_profiles.exists():
                 raise ValidationError("This identification number is already in use")
+
+    def generate_otp(self):
+        """Generate a 6-digit OTP and set expiry to 15 minutes from now"""
+        import random
+
+        self.reset_otp = "".join(random.choices("0123456789", k=6))
+        self.reset_otp_expiry = timezone.now() + timezone.timedelta(minutes=15)
+        self.save()
+        return self.reset_otp
+
+    def clear_otp(self):
+        """Clear OTP after verification"""
+        self.reset_otp = None
+        self.reset_otp_expiry = None
+        self.save()
+
+    def is_otp_valid(self, otp):
+        """Check if the provided OTP is valid and not expired"""
+        if not self.reset_otp or not self.reset_otp_expiry:
+            return False
+
+        if self.reset_otp != otp:
+            return False
+
+        if timezone.now() > self.reset_otp_expiry:
+            # OTP expired, clear it
+            self.clear_otp()
+            return False
+
+        return True
 
 
 class UnitType(models.TextChoices):

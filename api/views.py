@@ -244,6 +244,190 @@ class UserLoginView(APIView):
             )
 
 
+class RequestPasswordResetView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = [JWTAuthentication]
+
+    def post(self, request):
+        """
+        Request a password reset and send OTP to user's email
+        """
+        email = request.data.get("email")
+
+        if not email:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Email is required",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # Find user by email
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                # For security reasons, don't reveal if the email exists
+                return Response(
+                    {
+                        "success": True,
+                        "message": "If your email is registered, you will receive a reset code",
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            # Get user profile
+            try:
+                profile = Profile.objects.get(user=user)
+            except Profile.DoesNotExist:
+                # Create profile if it doesn't exist
+                profile = Profile.objects.create(user=user)
+
+            # Generate OTP
+            otp = profile.generate_otp()
+
+            # Prepare email context
+            context = {
+                "user_name": f"{user.first_name} {user.last_name}"
+                if user.first_name
+                else user.username,
+                "reset_otp": otp,
+            }
+
+            # Send email
+            email_service = EmailService()
+            email_service.send_email(
+                recipient_email=user.email,
+                recipient_name=f"{user.first_name} {user.last_name}"
+                if user.first_name
+                else user.username,
+                subject="Password Reset Verification Code",
+                template_name="emails/password_reset.html",
+                context=context,
+            )
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "If your email is registered, you will receive a reset code",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            # Log the error but don't reveal details to user
+            print(f"Password reset request error: {str(e)}")
+            return Response(
+                {
+                    "success": False,
+                    "message": "An unexpected error occurred",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class VerifyAndResetPasswordView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = [JWTAuthentication]
+
+    def post(self, request):
+        """
+        Verify OTP and reset password
+        """
+        email = request.data.get("email")
+        otp = request.data.get("otp")
+        new_password = request.data.get("new_password")
+        confirm_password = request.data.get("confirm_password")
+
+        # Validate inputs
+        if not all([email, otp, new_password, confirm_password]):
+            return Response(
+                {
+                    "success": False,
+                    "message": "Email, OTP, new password and confirmation are required",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if new_password != confirm_password:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Passwords do not match",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # Find user by email
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                return Response(
+                    {
+                        "success": False,
+                        "message": "Invalid or expired verification code",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Get user profile
+            try:
+                profile = Profile.objects.get(user=user)
+            except Profile.DoesNotExist:
+                return Response(
+                    {
+                        "success": False,
+                        "message": "Invalid or expired verification code",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Validate OTP
+            if not profile.is_otp_valid(otp):
+                return Response(
+                    {
+                        "success": False,
+                        "message": "Invalid or expired verification code",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Change password
+            user.set_password(new_password)
+            user.save()
+
+            # Clear OTP
+            profile.clear_otp()
+
+            # Generate new tokens
+            refresh = RefreshToken.for_user(user)
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Password reset successful",
+                    "tokens": {
+                        "refresh": str(refresh),
+                        "access": str(refresh.access_token),
+                    },
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            # Log the error
+            print(f"Password reset verification error: {str(e)}")
+            return Response(
+                {
+                    "success": False,
+                    "message": "An unexpected error occurred",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]

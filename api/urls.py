@@ -36,6 +36,16 @@ urlpatterns = [
     path("register/", views.UserRegistrationView.as_view(), name="user_register"),
     path("login/", views.UserLoginView.as_view(), name="user_login"),
     path(
+        "reset-password/",
+        views.RequestPasswordResetView.as_view(),
+        name="reset-password",
+    ),
+    path(
+        "reset-password/verify/",
+        views.VerifyAndResetPasswordView.as_view(),
+        name="verify-reset-password",
+    ),
+    path(
         "change-password/", views.ChangePasswordView.as_view(), name="change-password"
     ),
     path("profile/", views.UserProfileView.as_view(), name="user_profile"),

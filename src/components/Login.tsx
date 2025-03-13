@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { User, Lock, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ForgotPassword } from "./ForgotPassword";
 
 export type UserType = "ADMIN" | "MANAGER" | "CLERK" | "TENANT";
 
@@ -130,6 +131,12 @@ export function Login({ onLoginSuccess }: LoginProps) {
     }
   }
 
+  // Handle successful password reset
+  const handleResetSuccess = () => {
+    // Call onLoginSuccess after password reset
+    onLoginSuccess();
+  };
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -185,6 +192,12 @@ export function Login({ onLoginSuccess }: LoginProps) {
             </FormItem>
           )}
         />
+
+        {/* Forgot Password Link */}
+        <div className="flex justify-end">
+          <ForgotPassword onResetSuccess={handleResetSuccess} />
+        </div>
+
         <Button
           type="submit"
           className="w-full bg-green-600 hover:bg-green-700 focus:ring-green-500"

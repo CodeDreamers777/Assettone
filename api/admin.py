@@ -1,7 +1,18 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
-from .models import Profile, Property, Unit, Tenant, Lease
+from .models import (
+    Profile,
+    Property,
+    Unit,
+    Tenant,
+    Lease,
+    RentPayment,
+    MaintenanceRequest,
+    CommunicationHistory,
+    RentPeriodStatus,
+    Expense,
+)
 from django.utils.translation import gettext_lazy as _
 
 
@@ -109,15 +120,6 @@ class UnitAdmin(admin.ModelAdmin):
         if obj.unit_type == "CUSTOM":
             return obj.custom_unit_type
         return obj.get_unit_type_display()
-
-
-# Unregister the default User admin and register our custom one
-admin.site.unregister(User)
-admin.site.register(User, CustomUserAdmin)
-
-# Register the Property and Unit models with their custom admin classes
-admin.site.register(Property, PropertyAdmin)
-admin.site.register(Unit, UnitAdmin)
 
 
 @admin.register(Profile)
@@ -263,3 +265,199 @@ class LeaseAdmin(admin.ModelAdmin):
         if obj:  # editing an existing object
             return self.readonly_fields + ("unit", "tenant")
         return self.readonly_fields
+
+
+@admin.register(RentPayment)
+class RentPaymentAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for RentPayment model
+    """
+
+    list_display = (
+        "lease",
+        "amount",
+        "payment_date",
+        "payment_method",
+        "created_at",
+    )
+    list_filter = ("payment_date", "payment_method")
+    search_fields = (
+        "lease__tenant__first_name",
+        "lease__tenant__last_name",
+        "lease__unit__unit_number",
+        "lease__unit__property__name",
+        "notes",
+    )
+    readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(MaintenanceRequest)
+class MaintenanceRequestAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for MaintenanceRequest model
+    """
+
+    list_display = (
+        "title",
+        "unit",
+        "tenant",
+        "property",
+        "status",
+        "priority",
+        "requested_date",
+    )
+    list_filter = ("status", "priority", "requested_date", "property__name")
+    search_fields = (
+        "title",
+        "description",
+        "unit__unit_number",
+        "tenant__first_name",
+        "tenant__last_name",
+        "property__name",
+    )
+    readonly_fields = ("created_at", "updated_at")
+
+    fieldsets = (
+        ("Request Information", {"fields": ("title", "description", "priority")}),
+        ("Related Objects", {"fields": ("property", "unit", "tenant")}),
+        (
+            "Status",
+            {
+                "fields": (
+                    "status",
+                    "approved_rejected_by",
+                    "approved_rejected_date",
+                    "completed_date",
+                )
+            },
+        ),
+        ("Financial", {"fields": ("repair_cost",)}),
+        ("Notes", {"fields": ("notes",)}),
+    )
+
+
+@admin.register(CommunicationHistory)
+class CommunicationHistoryAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for CommunicationHistory model
+    """
+
+    list_display = (
+        "type",
+        "subject",
+        "sent_by",
+        "sent_at",
+        "status",
+    )
+    list_filter = ("type", "status", "sent_at")
+    search_fields = (
+        "subject",
+        "message",
+        "sent_by__user__username",
+        "recipients",
+    )
+    readonly_fields = ("sent_at",)
+
+
+@admin.register(RentPeriodStatus)
+class RentPeriodStatusAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for RentPeriodStatus model
+    """
+
+    list_display = (
+        "lease",
+        "period_start_date",
+        "period_end_date",
+        "amount_due",
+        "amount_paid",
+        "is_paid",
+    )
+    list_filter = ("is_paid", "period_start_date", "period_end_date")
+    search_fields = (
+        "lease__tenant__first_name",
+        "lease__tenant__last_name",
+        "lease__unit__unit_number",
+        "lease__unit__property__name",
+    )
+
+    readonly_fields = ("is_paid",)
+
+    actions = ["update_payment_status"]
+
+    def update_payment_status(self, request, queryset):
+        """
+        Admin action to recalculate payment status
+        """
+        for period in queryset:
+            period.update_payment_status()
+        self.message_user(
+            request, f"Updated payment status for {queryset.count()} periods"
+        )
+
+    update_payment_status.short_description = (
+        "Update payment status for selected periods"
+    )
+
+
+@admin.register(Expense)
+class ExpenseAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for Expense model
+    """
+
+    list_display = (
+        "title",
+        "property",
+        "unit",
+        "category",
+        "amount",
+        "expense_date",
+        "created_by",
+    )
+    list_filter = (
+        "category",
+        "expense_date",
+        "payment_method",
+        "is_tax_deductible",
+        "property__name",
+    )
+    search_fields = (
+        "title",
+        "description",
+        "property__name",
+        "unit__unit_number",
+        "vendor_name",
+        "receipt_number",
+    )
+    readonly_fields = ("created_at", "updated_at")
+
+    fieldsets = (
+        (
+            "Expense Information",
+            {
+                "fields": (
+                    "title",
+                    "description",
+                    "amount",
+                    "expense_date",
+                    "category",
+                    "custom_category",
+                )
+            },
+        ),
+        ("Related Objects", {"fields": ("property", "unit", "tenant")}),
+        ("Payment Details", {"fields": ("payment_method", "is_tax_deductible")}),
+        ("Vendor Information", {"fields": ("vendor_name", "vendor_contact")}),
+        ("Receipt/Invoice", {"fields": ("receipt_number", "receipt_file")}),
+        ("Metadata", {"fields": ("created_by", "created_at", "updated_at")}),
+    )
+
+
+# Unregister the default User admin and register our custom one
+admin.site.unregister(User)
+admin.site.register(User, CustomUserAdmin)
+
+# Register the Property and Unit models with their custom admin classes
+admin.site.register(Property, PropertyAdmin)
+admin.site.register(Unit, UnitAdmin)

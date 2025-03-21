@@ -158,30 +158,38 @@ class UserLoginView(APIView):
             )
 
         try:
-            # Check if user exists by either username or email
-            try:
-                # First try to find by username
-                if "@" in login_identifier:
+            # First, determine if the identifier is an email or username
+            is_email = "@" in login_identifier
+
+            # Try to find the user by either email or username
+            if is_email:
+                try:
                     user = User.objects.get(email=login_identifier)
-                    # If found by email, authenticate using email
-                    authenticated_user = authenticate(
-                        email=login_identifier, password=password
+                    username = user.username  # Get actual username for authentication
+                except User.DoesNotExist:
+                    return Response(
+                        {
+                            "success": False,
+                            "message": "No user found with this email address",
+                        },
+                        status=status.HTTP_404_NOT_FOUND,
                     )
-                else:
+            else:
+                try:
                     user = User.objects.get(username=login_identifier)
-                    # If found by username, authenticate using username
-                    authenticated_user = authenticate(
-                        username=login_identifier, password=password
+                    username = user.username  # Username is already the identifier
+                except User.DoesNotExist:
+                    return Response(
+                        {
+                            "success": False,
+                            "message": "No user found with this username",
+                        },
+                        status=status.HTTP_404_NOT_FOUND,
                     )
 
-            except User.DoesNotExist:
-                return Response(
-                    {
-                        "success": False,
-                        "message": "No user found with the provided username or email",
-                    },
-                    status=status.HTTP_404_NOT_FOUND,
-                )
+            # Always authenticate with username and password
+            # This is crucial because Django's default authenticate() uses username
+            authenticated_user = authenticate(username=username, password=password)
 
             # If authentication failed
             if authenticated_user is None:

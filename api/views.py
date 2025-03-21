@@ -140,42 +140,55 @@ class UserLoginView(APIView):
 
     def post(self, request):
         """
-        Handle user login with comprehensive error handling
+        Handle user login with email or username
         """
-        username = request.data.get("username")
+        login_identifier = request.data.get(
+            "login_identifier"
+        )  # Could be email or username
         password = request.data.get("password")
 
         # Validate input
-        if not username or not password:
+        if not login_identifier or not password:
             return Response(
                 {
                     "success": False,
-                    "message": "Both username and password are required",
+                    "message": "Both login identifier (username or email) and password are required",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
-            # Check if user exists
+            # Check if user exists by either username or email
             try:
-                user = User.objects.get(username=username)
+                # First try to find by username
+                if "@" in login_identifier:
+                    user = User.objects.get(email=login_identifier)
+                    # If found by email, authenticate using email
+                    authenticated_user = authenticate(
+                        email=login_identifier, password=password
+                    )
+                else:
+                    user = User.objects.get(username=login_identifier)
+                    # If found by username, authenticate using username
+                    authenticated_user = authenticate(
+                        username=login_identifier, password=password
+                    )
+
             except User.DoesNotExist:
                 return Response(
                     {
                         "success": False,
-                        "message": "User does not exist",
+                        "message": "No user found with the provided username or email",
                     },
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            # Authenticate user
-            authenticated_user = authenticate(username=username, password=password)
-
+            # If authentication failed
             if authenticated_user is None:
                 return Response(
                     {
                         "success": False,
-                        "message": "Invalid password",
+                        "message": "Invalid credentials",
                     },
                     status=status.HTTP_401_UNAUTHORIZED,
                 )

@@ -803,6 +803,83 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
         return lease
 
 
+class LeaseUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer specifically for updating Lease objects
+    Supports partial updates via PATCH
+    """
+
+    class Meta:
+        model = Lease
+        fields = "__all__"
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "previous_lease",
+            "monthly_rent",
+            "security_deposit",
+            "signing_token",
+            "is_signed",
+            "signed_at",
+        ]
+
+    def validate(self, data):
+        """
+        Validate lease update
+        """
+        # Get instance for comparison
+        instance = self.instance
+
+        # Ensure unit is valid if provided
+        unit = data.get("unit", instance.unit if instance else None)
+        if unit:
+            # Check if unit is already leased, excluding this lease
+            active_leases = Lease.objects.filter(unit=unit, status=LeaseStatus.ACTIVE)
+            if instance:
+                active_leases = active_leases.exclude(pk=instance.pk)
+            if active_leases.exists():
+                raise serializers.ValidationError(
+                    "This unit already has an active lease."
+                )
+
+        # Validate date range if both dates provided
+        start_date = data.get("start_date", instance.start_date if instance else None)
+        end_date = data.get("end_date", instance.end_date if instance else None)
+        if start_date and end_date and start_date >= end_date:
+            raise serializers.ValidationError("Lease end date must be after start date")
+
+        return data
+
+    def update(self, instance, validated_data):
+        """
+        Custom update method that handles partial updates
+        """
+        # Only update unit-related fields if unit is provided or has changed
+        if "unit" in validated_data:
+            unit = validated_data.get("unit")
+            # Only process unit changes if the unit has actually changed
+            if unit != instance.unit:
+                # Update monthly rent from unit's rent
+                validated_data["monthly_rent"] = unit.rent
+                # Update security deposit
+                validated_data["security_deposit"] = unit.rent * Decimal("1.5")
+
+                # Update unit occupancy
+                instance.unit.is_occupied = False
+                instance.unit.save()
+                unit.is_occupied = True
+                unit.save()
+
+        # Use super().update to update the instance with validated data
+        updated_instance = super().update(instance, validated_data)
+
+        # Log the update for debugging
+        print(f"Lease {instance.id} updated: {validated_data.keys()}")
+
+        return updated_instance
+
+
 class LeaseTransferSerializer(serializers.Serializer):
     """
     Simplified serializer for transferring a lease to a new tenant while maintaining history

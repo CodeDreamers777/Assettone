@@ -68,10 +68,8 @@ from .serializers import (
     StaffAccountSerializer,
     StaffProfileSerializer,
     RentPaymentSerializer,
-    ReportLeaseSerializer,
-    ReportMaintenanceSerializer,
-    ReportPaymentSerializer,
     ExpenseSerializer,
+    LeaseUpdateSerializer,
 )
 from rest_framework.decorators import action
 from .utils.decorator import jwt_required
@@ -1145,8 +1143,10 @@ class LeaseViewSet(viewsets.ModelViewSet):
         """
         Use different serializers for different actions
         """
-        if self.action == "create" or self.action == "update":
+        if self.action == "create":
             return LeaseCreateSerializer
+        elif self.action == "update" or self.action == "partial_update":
+            return LeaseUpdateSerializer  # New dedicated serializer for updates
         return LeaseSerializer
 
     def get_queryset(self):

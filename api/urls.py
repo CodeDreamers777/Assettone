@@ -56,6 +56,11 @@ urlpatterns = [
     path("contact-us/", views.ContactUsView.as_view(), name="contact-us"),
     path("dashboard-metrics/", views.dashboard_metrics, name="dashboard-metrics"),
     path(
+        "tenants/whatsapp/",
+        views.WhatsAppTenantsView.as_view(),
+        name="tenant-whatsapp",
+    ),
+    path(
         "create-staff-account/",
         views.CreateStaffAccountView.as_view(),
         name="create-staff-account",

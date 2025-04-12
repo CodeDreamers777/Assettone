@@ -669,6 +669,7 @@ class CommunicationType(models.TextChoices):
     EMAIL = "EMAIL", "Email"
     SMS = "SMS", "SMS"
     NOTIFICATION = "NOTIFICATION", "In-App Notification"
+    WHATSAPP = "WHATSAPP", "WhatsApp"
 
 
 class CommunicationHistory(models.Model):

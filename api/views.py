@@ -76,6 +76,7 @@ from .serializers import (
 from rest_framework.decorators import action
 from .utils.decorator import jwt_required
 from .utils.create_lease_document import LeaseDocumentGenerator
+from .utils.send_whatsapp import WhatsAppService
 from django.utils.decorators import method_decorator
 import os
 from .utils.send_mail import EmailService
@@ -2470,6 +2471,120 @@ class CommunicationHistoryView(APIView):
 
             return Response(
                 {"success": True, "data": serializer.data}, status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {"success": False, "message": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class WhatsAppTenantsView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def send_tenant_whatsapp(self, tenant_phone: str, tenant_name: str, message: str):
+        """Helper method to send WhatsApp message to a single tenant"""
+        whatsapp_service = WhatsAppService()
+        try:
+            response = whatsapp_service.send_text_message(
+                recipient_number=tenant_phone, message_text=message
+            )
+            return True, None
+        except Exception as e:
+            return False, str(e)
+
+    def post(self, request):
+        """
+        Send WhatsApp messages to multiple tenants using threading and store communication history
+        """
+        try:
+            # Validate request data
+            required_fields = ["message", "tenants"]
+            if not all(field in request.data for field in required_fields):
+                return Response(
+                    {"success": False, "message": "Missing required fields"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            message = request.data["message"]
+            tenant_ids = request.data["tenants"]
+
+            # Get all tenants
+            tenants = Tenant.objects.filter(id__in=tenant_ids)
+            if not tenants:
+                return Response(
+                    {"success": False, "message": "No valid tenants found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Prepare recipients list for history
+            recipients_list = []
+            success_count = 0
+            failed_recipients = []
+
+            # Create threads for sending WhatsApp messages
+            threads = []
+            results = {}  # Dictionary to store results for each tenant
+
+            for tenant in tenants:
+                if tenant.phone_number:  # Ensure tenant has a phone number
+                    tenant_name = f"{tenant.first_name} {tenant.last_name}"
+                    recipient_info = {
+                        "id": str(tenant.id),
+                        "name": tenant_name,
+                        "phone": tenant.phone_number,
+                    }
+                    recipients_list.append(recipient_info)
+
+                    thread = threading.Thread(
+                        target=lambda tenant_id=str(tenant.id),
+                        phone=tenant.phone_number,
+                        name=tenant_name: results.update(
+                            {tenant_id: self.send_tenant_whatsapp(phone, name, message)}
+                        )
+                    )
+                    threads.append(thread)
+                    thread.start()
+
+            # Wait for all threads to complete
+            for thread in threads:
+                thread.join()
+
+            # Process results
+            for tenant_id, (success, error) in results.items():
+                if success:
+                    success_count += 1
+                else:
+                    failed_recipients.append({"tenant_id": tenant_id, "error": error})
+
+            # Determine overall status
+            if success_count == len(recipients_list):
+                status_value = "SUCCESS"
+            elif success_count == 0:
+                status_value = "FAILED"
+            else:
+                status_value = "PARTIAL"
+
+            # Store communication history
+            CommunicationHistory.objects.create(
+                type=CommunicationType.WHATSAPP,  # Assuming WHATSAPP is defined in your CommunicationType enum
+                subject="WhatsApp Message",  # WhatsApp doesn't have subjects, using a default
+                message=message,
+                sent_by=request.user.profile,
+                recipients=recipients_list,
+                status=status_value,
+                error_message=str(failed_recipients) if failed_recipients else None,
+            )
+
+            return Response(
+                {
+                    "success": True,
+                    "message": f"WhatsApp messages sent successfully to {success_count} tenants",
+                    "failed": failed_recipients,
+                },
+                status=status.HTTP_200_OK,
             )
 
         except Exception as e:

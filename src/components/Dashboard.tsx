@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { Sidebar } from "./dashboard/Sidebar";
 import { Overview } from "./dashboard/Overview";
 import { Properties } from "./dashboard/Properties";
@@ -15,6 +15,29 @@ import ExpensesPage from "./dashboard/Expenses";
 
 export function Dashboard() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Save the current path to localStorage whenever it changes
+  useEffect(() => {
+    // Only save actual dashboard paths, not the index path
+    if (location.pathname !== "/dashboard") {
+      localStorage.setItem("lastDashboardPath", location.pathname);
+    }
+  }, [location.pathname]);
+
+  // Check for a saved path when the component mounts
+  useEffect(() => {
+    const savedPath = localStorage.getItem("lastDashboardPath");
+
+    // Only redirect if we're at the dashboard root and there's a saved path
+    if (location.pathname === "/dashboard" && savedPath) {
+      navigate(savedPath, { replace: true });
+    }
+
+    console.log("Dashboard mounted, current path:", location.pathname);
+    console.log("Saved path:", savedPath);
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -22,7 +45,6 @@ export function Dashboard() {
       <div className="hidden lg:block">
         <Sidebar />
       </div>
-
       {/* Mobile Sidebar Toggle */}
       <div className="lg:hidden">
         <Sidebar
@@ -31,22 +53,20 @@ export function Dashboard() {
           onMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
         />
       </div>
-
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto">
         <Routes>
-          <Route path="/" element={<Overview />} />
-          <Route path="/properties" element={<Properties />} />
-          <Route path="/tenants" element={<Tenants />} />
-          <Route path="/expenses" element={<ExpensesPage />} />
-
-          <Route path="/leases" element={<Leases />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/units" element={<Units />} />
-          <Route path="/messages" element={<Messages />} />
-          <Route path="/maintenance" element={<Maintenance />} />
-          <Route path="/reports" element={<Reports />} />
+          <Route index element={<Overview />} />
+          <Route path="properties" element={<Properties />} />
+          <Route path="tenants" element={<Tenants />} />
+          <Route path="expenses" element={<ExpensesPage />} />
+          <Route path="leases" element={<Leases />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="units" element={<Units />} />
+          <Route path="messages" element={<Messages />} />
+          <Route path="maintenance" element={<Maintenance />} />
+          <Route path="reports" element={<Reports />} />
         </Routes>
       </main>
     </div>

@@ -211,12 +211,8 @@ export function Units() {
     }
   };
   const handleEdit = (unit: Unit) => {
-    console.log(unit);
-    toast({
-      title: "Not Implemented",
-      description: "Edit is not yet implemented.",
-      variant: "default",
-    });
+    setEditingUnit(unit);
+    setIsEditModalOpen(true);
   };
 
   const fetchUnits = async (propertyId: string) => {

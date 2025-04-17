@@ -150,7 +150,7 @@ class PropertySerializer(serializers.ModelSerializer):
     owner_name = serializers.SerializerMethodField()
     manager_name = serializers.SerializerMethodField()
     city = serializers.CharField(required=True)
-    total_units = serializers.IntegerField(read_only=True)  # Will be calculated
+    units_count = serializers.IntegerField(read_only=True)  # Will be calculated
 
     class Meta:
         model = Property
@@ -168,7 +168,7 @@ class PropertySerializer(serializers.ModelSerializer):
             "owner_name",
             "manager",
             "manager_name",
-            "total_units",
+            "units_count",
             "description",
             "created_at",
             "updated_at",

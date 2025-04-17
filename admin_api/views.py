@@ -266,7 +266,7 @@ class PropertyListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         # Annotate with unit count
-        return Property.objects.annotate(total_units=Count("units")).select_related(
+        return Property.objects.annotate(unit_count=Count("units")).select_related(
             "owner__user", "manager__user"
         )
 
@@ -283,7 +283,7 @@ class PropertyDetailAPIView(generics.RetrieveAPIView):
     lookup_field = "id"
 
     def get_queryset(self):
-        return Property.objects.annotate(total_units=Count("units")).select_related(
+        return Property.objects.annotate(unit_count=Count("units")).select_related(
             "owner__user", "manager__user"
         )
 

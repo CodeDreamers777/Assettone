@@ -3,6 +3,8 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from rest_framework import status, viewsets, generics, filters
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -20,6 +22,7 @@ from .serializers import (
 )
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class AdminLoginAPIView(APIView):
     """
     API endpoint for admin login

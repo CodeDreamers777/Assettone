@@ -144,3 +144,92 @@ class LandlordUpdateSerializer(serializers.Serializer):
 
         instance.save()
         return instance
+
+
+class PropertySerializer(serializers.ModelSerializer):
+    owner_name = serializers.SerializerMethodField()
+    manager_name = serializers.SerializerMethodField()
+    city = serializers.CharField(required=True)
+    total_units = serializers.IntegerField(read_only=True)  # Will be calculated
+
+    class Meta:
+        model = Property
+        fields = [
+            "id",
+            "name",
+            "logo",
+            "address_line1",
+            "address_line2",
+            "city",
+            "state",
+            "postal_code",
+            "country",
+            "owner",
+            "owner_name",
+            "manager",
+            "manager_name",
+            "total_units",
+            "description",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_owner_name(self, obj):
+        if obj.owner and obj.owner.user:
+            return f"{obj.owner.user.first_name} {obj.owner.user.last_name}"
+        return None
+
+    def get_manager_name(self, obj):
+        if obj.manager and obj.manager.user:
+            return f"{obj.manager.user.first_name} {obj.manager.user.last_name}"
+        return None
+
+
+class PropertyCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Property
+        fields = [
+            "name",
+            "logo",
+            "address_line1",
+            "address_line2",
+            "city",
+            "state",
+            "postal_code",
+            "country",
+            "owner",
+            "manager",
+            "description",
+        ]
+
+    def validate_owner(self, value):
+        if value.user_type != UserType.ADMIN:
+            raise serializers.ValidationError("Owner must be a property owner (ADMIN)")
+        return value
+
+    def validate_manager(self, value):
+        if value and value.user_type != UserType.MANAGER:
+            raise serializers.ValidationError("Manager must have MANAGER user type")
+        return value
+
+
+class PropertyUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Property
+        fields = [
+            "name",
+            "logo",
+            "address_line1",
+            "address_line2",
+            "city",
+            "state",
+            "postal_code",
+            "country",
+            "manager",
+            "description",
+        ]
+
+    def validate_manager(self, value):
+        if value and value.user_type != UserType.MANAGER:
+            raise serializers.ValidationError("Manager must have MANAGER user type")
+        return value

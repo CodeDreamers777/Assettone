@@ -13,12 +13,15 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters.rest_framework import DjangoFilterBackend
-from api.models import Profile, UserType, Property
+from api.models import Profile, UserType, Property, Unit
 from .serializers import (
     UserSerializer,
     ProfileSerializer,
     LandlordCreateSerializer,
     LandlordUpdateSerializer,
+    PropertySerializer,
+    PropertyCreateSerializer,
+    PropertyUpdateSerializer,
 )
 
 
@@ -237,5 +240,180 @@ class ActivateDeactivateLandlordAPIView(APIView):
         except Profile.DoesNotExist:
             return Response(
                 {"status": "error", "message": "Landlord not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+
+class PropertyListAPIView(generics.ListAPIView):
+    """
+    API endpoint to list all properties
+    """
+
+    serializer_class = PropertySerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    authentication_classes = [JWTAuthentication]
+
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_fields = ["city", "state", "country", "owner__id"]
+    search_fields = ["name", "address_line1", "city", "state", "postal_code"]
+    ordering_fields = ["name", "created_at", "city"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        # Annotate with unit count
+        return Property.objects.annotate(total_units=Count("units")).select_related(
+            "owner__user", "manager__user"
+        )
+
+
+class PropertyDetailAPIView(generics.RetrieveAPIView):
+    """
+    API endpoint to get details of a specific property
+    """
+
+    serializer_class = PropertySerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    authentication_classes = [JWTAuthentication]
+
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return Property.objects.annotate(total_units=Count("units")).select_related(
+            "owner__user", "manager__user"
+        )
+
+
+class PropertyCreateAPIView(generics.CreateAPIView):
+    """
+    API endpoint to create a new property
+    """
+
+    serializer_class = PropertyCreateSerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    authentication_classes = [JWTAuthentication]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        property_instance = serializer.save()
+
+        return Response(
+            {
+                "status": "success",
+                "message": "Property created successfully",
+                "data": PropertySerializer(property_instance).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PropertyUpdateAPIView(generics.UpdateAPIView):
+    """
+    API endpoint to update a property
+    """
+
+    serializer_class = PropertyUpdateSerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    authentication_classes = [JWTAuthentication]
+
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return Property.objects.all()
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        # Refresh instance to get updated data
+        instance = self.get_object()
+
+        return Response(
+            {
+                "status": "success",
+                "message": "Property updated successfully",
+                "data": PropertySerializer(instance).data,
+            }
+        )
+
+
+class PropertyDeleteAPIView(generics.DestroyAPIView):
+    """
+    API endpoint to delete a property
+    """
+
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    authentication_classes = [JWTAuthentication]
+
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return Property.objects.all()
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        property_name = instance.name
+        self.perform_destroy(instance)
+
+        return Response(
+            {
+                "status": "success",
+                "message": f'Property "{property_name}" deleted successfully',
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class PropertyStatisticsAPIView(APIView):
+    """
+    API endpoint to get statistics about a specific property
+    """
+
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    authentication_classes = [JWTAuthentication]
+
+    def get(self, request, pk):
+        try:
+            property = Property.objects.get(id=pk)
+
+            # Get units statistics
+            total_units = Unit.objects.filter(property=property).count()
+            occupied_units = Unit.objects.filter(
+                property=property, is_occupied=True
+            ).count()
+            vacant_units = total_units - occupied_units
+            occupancy_rate = (
+                (occupied_units / total_units * 100) if total_units > 0 else 0
+            )
+
+            # Get units by type
+            unit_types = (
+                Unit.objects.filter(property=property)
+                .values("unit_type")
+                .annotate(count=Count("unit_type"))
+            )
+
+            return Response(
+                {
+                    "property_id": str(property.id),
+                    "property_name": property.name,
+                    "total_units": total_units,
+                    "occupied_units": occupied_units,
+                    "vacant_units": vacant_units,
+                    "occupancy_rate": round(occupancy_rate, 2),
+                    "unit_types": unit_types,
+                }
+            )
+
+        except Property.DoesNotExist:
+            return Response(
+                {"status": "error", "message": "Property not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )

@@ -138,6 +138,12 @@ class Property(models.Model):
 
     # Location details
     address_line1 = models.CharField(max_length=255)
+    code = models.CharField(
+        max_length=10,
+        unique=True,
+        null=True,
+        help_text="Unique code for M-Pesa integration",
+    )
     address_line2 = models.CharField(max_length=255, blank=True, null=True)
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=100)
@@ -414,6 +420,10 @@ class Lease(models.Model):
     signature_document = models.FileField(
         upload_to="signed_lease_documents/", blank=True, null=True
     )
+
+    def get_payment_account_number(self):
+        """Generate the account number for M-Pesa payments"""
+        return f"PROP{self.unit.property.code}-UNIT{self.unit.unit_number}"
 
     def send_lease_signing_email(self):
         """
@@ -862,3 +872,36 @@ class Expense(models.Model):
                 raise ValidationError(
                     "Tenant must have an active lease in the specified property"
                 )
+
+
+class MpesaTransaction(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    transaction_id = models.CharField(max_length=30, unique=True)
+    phone_number = models.CharField(max_length=15)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    account_number = models.CharField(max_length=50)
+    transaction_date = models.DateTimeField()
+    processed = models.BooleanField(default=False)
+
+    # Will be populated after processing
+    property = models.ForeignKey(
+        "Property", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    unit = models.ForeignKey("Unit", on_delete=models.SET_NULL, null=True, blank=True)
+    tenant = models.ForeignKey(
+        "Tenant", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    rent_period = models.ForeignKey(
+        "RentPeriodStatus", on_delete=models.SET_NULL, null=True, blank=True
+    )
+
+    # Additional fields for error handling
+    processing_error = models.TextField(null=True, blank=True)
+    processing_attempts = models.IntegerField(default=0)
+    last_attempt = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.transaction_id} - {self.amount} - {self.account_number}"

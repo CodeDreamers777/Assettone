@@ -1,5 +1,6 @@
 from django.urls import path, include
 from . import views
+from . import mpesa_views
 from rest_framework.routers import DefaultRouter
 from rest_framework_nested.routers import NestedDefaultRouter
 
@@ -73,6 +74,26 @@ urlpatterns = [
         "communication-history/",
         views.CommunicationHistoryView.as_view(),
         name="communication-history",
+    ),
+    path(
+        "mpesa/validation/",
+        mpesa_views.MpesaValidationAPIView.as_view(),
+        name="mpesa_validation",
+    ),
+    path(
+        "mpesa/confirmation/",
+        mpesa_views.MpesaConfirmationAPIView.as_view(),
+        name="mpesa_confirmation",
+    ),
+    path(
+        "mpesa/register-urls/",
+        mpesa_views.MpesaRegisterCallbackURLView.as_view(),
+        name="mpesa_register_urls",
+    ),
+    path(
+        "mpesa/simulate/",
+        mpesa_views.MpesaSimulatePaymentView.as_view(),
+        name="mpesa_simulate",
     ),
     # Property-related routes
     path("", include(property_router.urls)),

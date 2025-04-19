@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "api",
     "admin_api",
     "corsheaders",
+    "django_celery_results",
 ]
 
 MIDDLEWARE = [
@@ -137,6 +138,28 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
+
+# M-Pesa API Configuration
+MPESA_CONSUMER_KEY = os.getenv("MPESA_CONSUMER_KEY")
+MPESA_CONSUMER_SECRET = os.getenv("MPESA_CONSUMER_SECRET")
+MPESA_SHORTCODE = os.getenv("MPESA_SHORTCODE")
+MPESA_PASSKEY = os.getenv("MPESA_PASSKEY")
+MPESA_API_URL = os.getenv("MPESA_API_URL", "https://sandbox.safaricom.co.ke")
+MPESA_SANDBOX = os.getenv("MPESA_SANDBOX", "True") == "True"
+
+# Process M-Pesa payments asynchronously (requires Celery)
+PROCESS_MPESA_PAYMENTS_ASYNC = (
+    os.getenv("PROCESS_MPESA_PAYMENTS_ASYNC", "True") == "True"
+)
+
+
+# Celery Configuration
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = "django-db"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
 
 # Use relative path or BASE_DIR
 STATICFILES_DIRS = [

@@ -39,6 +39,18 @@ interface PropertyTenants {
   [propertyName: string]: Array<Tenant>;
 }
 
+// Define separate interfaces for different message types
+interface EmailPayload {
+  subject: string;
+  message: string;
+  tenants: string[];
+}
+
+interface WhatsAppPayload {
+  message: string;
+  tenants: string[];
+}
+
 export function Messages() {
   const [propertyTenants, setPropertyTenants] = useState<PropertyTenants>({});
   const [selectedProperty, setSelectedProperty] = useState<string>("");
@@ -170,17 +182,19 @@ export function Messages() {
     try {
       const accessToken = localStorage.getItem("accessToken");
 
-      let endpoint =
-        "https://assettone-rental-management-production.up.railway.app/api/v1/email-tenants/";
-      let payload = {
-        subject,
-        message,
-        tenants: selectedTenants,
-      };
+      let endpoint = `${API_BASE_URL}/api/v1/email-tenants/`;
+      let payload: EmailPayload | WhatsAppPayload;
 
       if (messagingMode === "whatsapp") {
         endpoint = `${API_BASE_URL}/api/v1/tenants/whatsapp/`;
         payload = {
+          message,
+          tenants: selectedTenants,
+        };
+      } else {
+        // For email
+        payload = {
+          subject,
           message,
           tenants: selectedTenants,
         };
@@ -214,11 +228,11 @@ export function Messages() {
       setMessage("");
       setSelectedTenants([]);
       setSelectAll(false);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`Error sending ${messagingMode}:`, error);
       toast({
         title: "Error",
-        description: `Failed to send ${messagingMode === "email" ? "email" : "WhatsApp message"}. ${error.message || "Please try again."}`,
+        description: `Failed to send ${messagingMode === "email" ? "email" : "WhatsApp message"}. ${error instanceof Error ? error.message : "Please try again."}`,
         variant: "destructive",
       });
     } finally {

@@ -12,12 +12,13 @@ import { Units } from "./dashboard/Units";
 import Maintenance from "./dashboard/Maintenance";
 import Reports from "./dashboard/Reports";
 import ExpensesPage from "./dashboard/Expenses";
-
 // Create a context for modal state management
 import { createContext } from "react";
+
+// Define the context type with proper typing for the setter function
 export const ModalContext = createContext({
   modalOpen: false,
-  setModalOpen: (open) => {},
+  setModalOpen: (open: boolean) => {},
 });
 
 export function Dashboard() {
@@ -52,7 +53,6 @@ export function Dashboard() {
         <div className="hidden lg:block">
           <Sidebar />
         </div>
-
         {/* Mobile Sidebar Toggle */}
         <div className="lg:hidden">
           <Sidebar
@@ -61,7 +61,6 @@ export function Dashboard() {
             onMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
           />
         </div>
-
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto">
           <Routes>

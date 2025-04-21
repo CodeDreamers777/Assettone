@@ -15,10 +15,16 @@ import ExpensesPage from "./dashboard/Expenses";
 // Create a context for modal state management
 import { createContext } from "react";
 
-// Define the context type with proper typing for the setter function
-export const ModalContext = createContext({
+// Define the context type
+interface ModalContextType {
+  modalOpen: boolean;
+  setModalOpen: (open: boolean) => void;
+}
+
+export const ModalContext = createContext<ModalContextType>({
   modalOpen: false,
-  setModalOpen: (open: boolean) => {},
+  // Use empty function without parameters
+  setModalOpen: () => {},
 });
 
 export function Dashboard() {

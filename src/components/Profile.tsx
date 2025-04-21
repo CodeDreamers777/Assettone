@@ -199,7 +199,7 @@ export default function ProfilePage() {
         }
 
         const response = await fetch(
-          "https://assettoneestates.pythonanywhere.com/api/v1/profile/",
+          "https://assettone-rental-management-production.up.railway.app/api/v1/profile/",
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,

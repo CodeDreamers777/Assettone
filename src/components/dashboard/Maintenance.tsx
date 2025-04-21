@@ -118,7 +118,7 @@ const Maintenance: React.FC = () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/maintenance-requests/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -145,7 +145,7 @@ const Maintenance: React.FC = () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/properties/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/properties/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -170,7 +170,7 @@ const Maintenance: React.FC = () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `https://assettoneestates.pythonanywhere.com/api/v1/properties/${propertyId}/units/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/properties/${propertyId}/units/`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -196,7 +196,7 @@ const Maintenance: React.FC = () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/tenants/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/tenants/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -279,14 +279,14 @@ const Maintenance: React.FC = () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
       let url =
-        "https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/";
+        "https://assettone-rental-management-production.up.railway.app/api/v1/maintenance-requests/";
 
       if (selectedProperty) {
-        url = `https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/by_property/?property_id=${selectedProperty}`;
+        url = `https://assettone-rental-management-production.up.railway.app/api/v1/maintenance-requests/by_property/?property_id=${selectedProperty}`;
       } else if (selectedUnit) {
-        url = `https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/by_unit/?unit_id=${selectedUnit}`;
+        url = `https://assettone-rental-management-production.up.railway.app/api/v1/maintenance-requests/by_unit/?unit_id=${selectedUnit}`;
       } else if (selectedTenant) {
-        url = `https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/by_tenant/?tenant_id=${selectedTenant}`;
+        url = `https://assettone-rental-management-production.up.railway.app/api/v1/maintenance-requests/by_tenant/?tenant_id=${selectedTenant}`;
       }
 
       const response = await fetch(url, {
@@ -305,7 +305,7 @@ const Maintenance: React.FC = () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
       await fetch(
-        `https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/${id}/approve/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/maintenance-requests/${id}/approve/`,
         {
           method: "POST",
           headers: {
@@ -323,7 +323,7 @@ const Maintenance: React.FC = () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
       await fetch(
-        `https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/${id}/reject/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/maintenance-requests/${id}/reject/`,
         {
           method: "POST",
           headers: {
@@ -342,7 +342,7 @@ const Maintenance: React.FC = () => {
       try {
         const accessToken = localStorage.getItem("accessToken");
         await fetch(
-          `https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/${selectedRequestId}/complete/`,
+          `https://assettone-rental-management-production.up.railway.app/api/v1/maintenance-requests/${selectedRequestId}/complete/`,
           {
             method: "POST",
             headers: {
@@ -369,7 +369,7 @@ const Maintenance: React.FC = () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/maintenance-requests/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/maintenance-requests/",
         {
           method: "POST",
           headers: {

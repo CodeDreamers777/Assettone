@@ -66,7 +66,7 @@ export function AddTenantModal({
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/properties/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/properties/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -102,7 +102,7 @@ export function AddTenantModal({
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/tenants/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/tenants/",
         {
           method: "POST",
           headers: {

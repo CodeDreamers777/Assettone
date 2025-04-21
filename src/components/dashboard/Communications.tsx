@@ -60,7 +60,7 @@ const CommunicationHistory = () => {
       setLoading(true);
       const accessToken = localStorage.getItem("accessToken");
       let url =
-        "https://assettoneestates.pythonanywhere.com/api/v1/communication-history/";
+        "https://assettone-rental-management-production.up.railway.app/api/v1/communication-history/";
 
       const params = new URLSearchParams();
       if (type && type !== "ALL") params.append("type", type);

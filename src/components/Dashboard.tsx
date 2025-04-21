@@ -13,8 +13,16 @@ import Maintenance from "./dashboard/Maintenance";
 import Reports from "./dashboard/Reports";
 import ExpensesPage from "./dashboard/Expenses";
 
+// Create a context for modal state management
+import { createContext } from "react";
+export const ModalContext = createContext({
+  modalOpen: false,
+  setModalOpen: (open) => {},
+});
+
 export function Dashboard() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -29,46 +37,48 @@ export function Dashboard() {
   // Check for a saved path when the component mounts
   useEffect(() => {
     const savedPath = localStorage.getItem("lastDashboardPath");
-
     // Only redirect if we're at the dashboard root and there's a saved path
     if (location.pathname === "/dashboard" && savedPath) {
       navigate(savedPath, { replace: true });
     }
-
     console.log("Dashboard mounted, current path:", location.pathname);
     console.log("Saved path:", savedPath);
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:block">
-        <Sidebar />
+    <ModalContext.Provider value={{ modalOpen, setModalOpen }}>
+      <div className="flex h-screen overflow-hidden">
+        {/* Desktop Sidebar */}
+        <div className="hidden lg:block">
+          <Sidebar />
+        </div>
+
+        {/* Mobile Sidebar Toggle */}
+        <div className="lg:hidden">
+          <Sidebar
+            isMobileOpen={isMobileSidebarOpen}
+            onClose={() => setIsMobileSidebarOpen(false)}
+            onMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+          />
+        </div>
+
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto">
+          <Routes>
+            <Route index element={<Overview />} />
+            <Route path="properties" element={<Properties />} />
+            <Route path="tenants" element={<Tenants />} />
+            <Route path="expenses" element={<ExpensesPage />} />
+            <Route path="leases" element={<Leases />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="units" element={<Units />} />
+            <Route path="messages" element={<Messages />} />
+            <Route path="maintenance" element={<Maintenance />} />
+            <Route path="reports" element={<Reports />} />
+          </Routes>
+        </main>
       </div>
-      {/* Mobile Sidebar Toggle */}
-      <div className="lg:hidden">
-        <Sidebar
-          isMobileOpen={isMobileSidebarOpen}
-          onClose={() => setIsMobileSidebarOpen(false)}
-          onMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-        />
-      </div>
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto">
-        <Routes>
-          <Route index element={<Overview />} />
-          <Route path="properties" element={<Properties />} />
-          <Route path="tenants" element={<Tenants />} />
-          <Route path="expenses" element={<ExpensesPage />} />
-          <Route path="leases" element={<Leases />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="units" element={<Units />} />
-          <Route path="messages" element={<Messages />} />
-          <Route path="maintenance" element={<Maintenance />} />
-          <Route path="reports" element={<Reports />} />
-        </Routes>
-      </main>
-    </div>
+    </ModalContext.Provider>
   );
 }

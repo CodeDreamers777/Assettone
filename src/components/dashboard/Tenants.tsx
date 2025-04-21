@@ -63,7 +63,7 @@ export function Tenants() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/tenants/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/tenants/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -109,7 +109,7 @@ export function Tenants() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `https://assettoneestates.pythonanywhere.com/api/v1/tenants/${id}/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/tenants/${id}/`,
         {
           method: "DELETE",
           headers: {

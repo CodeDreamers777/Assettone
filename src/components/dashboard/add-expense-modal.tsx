@@ -114,7 +114,8 @@ const PAYMENT_METHODS: PaymentMethod[] = [
 ];
 
 // API function
-const API_URL = "https://assettoneestates.pythonanywhere.com/api/v1";
+const API_URL =
+  "https://assettone-rental-management-production.up.railway.app/api/v1";
 const getAuthHeaders = () => {
   const accessToken = localStorage.getItem("accessToken");
   return {

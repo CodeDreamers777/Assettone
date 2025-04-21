@@ -83,7 +83,7 @@ export function Leases() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/leases/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/leases/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -129,7 +129,7 @@ export function Leases() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `https://assettoneestates.pythonanywhere.com/api/v1/leases/${id}/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/leases/${id}/`,
         {
           method: "DELETE",
           headers: {
@@ -171,7 +171,7 @@ export function Leases() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `https://assettoneestates.pythonanywhere.com/api/v1/leases/${id}/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/leases/${id}/`,
         {
           method: "PATCH",
           headers: {
@@ -216,7 +216,7 @@ export function Leases() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `https://assettoneestates.pythonanywhere.com/api/v1/leases/${selectedLease?.id}/transfer_lease/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/leases/${selectedLease?.id}/transfer_lease/`,
         {
           method: "POST",
           headers: {
@@ -254,7 +254,7 @@ export function Leases() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `https://assettoneestates.pythonanywhere.com/api/v1/leases/${id}/terminate_lease/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/leases/${id}/terminate_lease/`,
         {
           method: "POST",
           headers: {

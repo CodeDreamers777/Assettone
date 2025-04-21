@@ -12,7 +12,8 @@ const useAuthorizedAxios = (): AxiosInstance => {
       const token = localStorage.getItem("token"); // Or however you store the token
 
       const instance = axios.create({
-        baseURL: "https://assettoneestates.pythonanywhere.com/", // Or your API base URL
+        baseURL:
+          "https://assettone-rental-management-production.up.railway.app/", // Or your API base URL
         headers: {
           Authorization: `Bearer ${token}`,
         },

@@ -56,7 +56,7 @@ export default function BookADemo() {
     setSubmitMessage(null);
     try {
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/book-demo/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/book-demo/",
         {
           method: "POST",
           headers: {

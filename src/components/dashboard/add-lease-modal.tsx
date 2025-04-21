@@ -87,7 +87,7 @@ export function AddLeaseModal({ isOpen, onClose, onAdd }: AddLeaseModalProps) {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/tenants/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/tenants/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -120,7 +120,7 @@ export function AddLeaseModal({ isOpen, onClose, onAdd }: AddLeaseModalProps) {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/units/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/units/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -156,7 +156,7 @@ export function AddLeaseModal({ isOpen, onClose, onAdd }: AddLeaseModalProps) {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/leases/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/leases/",
         {
           method: "POST",
           headers: {

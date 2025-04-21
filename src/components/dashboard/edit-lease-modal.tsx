@@ -180,7 +180,7 @@ export function EditLeaseModal({
 
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `https://assettoneestates.pythonanywhere.com/api/v1/leases/${lease.id}/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/leases/${lease.id}/`,
         {
           method: "PATCH", // Changed from PUT to PATCH
           headers: {
@@ -220,7 +220,7 @@ export function EditLeaseModal({
   if (!lease) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden">
         <div className="bg-green-50 p-4 border-b border-green-100">
           <DialogHeader>

@@ -55,7 +55,7 @@ export function TransferLeaseModal({
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/tenants/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/tenants/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -80,7 +80,7 @@ export function TransferLeaseModal({
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `https://assettoneestates.pythonanywhere.com/api/v1/leases/${leaseId}/transfer_lease/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/leases/${leaseId}/transfer_lease/`,
         {
           method: "POST",
           headers: {

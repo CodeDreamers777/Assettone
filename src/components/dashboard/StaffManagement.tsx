@@ -86,7 +86,7 @@ export function StaffManagement() {
   const fetchStaff = async () => {
     try {
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/staff/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/staff/",
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
@@ -111,7 +111,7 @@ export function StaffManagement() {
   const handleCreateStaff = async () => {
     try {
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/create-staff-account/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/create-staff-account/",
         {
           method: "POST",
           headers: {
@@ -141,7 +141,7 @@ export function StaffManagement() {
     if (!selectedStaff) return;
     try {
       const response = await fetch(
-        `https://assettoneestates.pythonanywhere.com/api/v1/staff/${selectedStaff.id}/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/staff/${selectedStaff.id}/`,
         {
           method: "PUT",
           headers: {
@@ -170,7 +170,7 @@ export function StaffManagement() {
   const handleDeleteStaff = async (id: string) => {
     try {
       const response = await fetch(
-        `https://assettoneestates.pythonanywhere.com/api/v1/staff/${id}/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/staff/${id}/`,
         {
           method: "DELETE",
           headers: {

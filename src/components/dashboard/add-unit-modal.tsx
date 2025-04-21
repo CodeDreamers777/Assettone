@@ -62,7 +62,7 @@ export function AddUnitModal({
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.get(
-        "https://assettoneestates.pythonanywhere.com/api/v1/tenants/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/tenants/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -130,7 +130,7 @@ export function AddUnitModal({
       };
 
       const response = await axios.post(
-        `https://assettoneestates.pythonanywhere.com/api/v1/units/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/units/`,
         requestData,
         {
           headers: {

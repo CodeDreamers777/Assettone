@@ -21,11 +21,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import CommunicationHistory from "./Communications";
 
+// API base URL constant - change this one value to switch environments
+const API_BASE_URL =
+  "https://assettone-rental-management-production.up.railway.app";
+// Alternate URL for production/local switching:
+// const API_BASE_URL = "http://localhost:3000"; // Local development example
+
 interface Tenant {
   id: string;
   first_name: string;
   last_name: string;
   email: string;
+  phone_number?: string;
 }
 
 interface PropertyTenants {
@@ -41,6 +48,7 @@ export function Messages() {
   const [message, setMessage] = useState("");
   const [messagingMode, setMessagingMode] = useState("email");
   const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchTenants();
@@ -49,14 +57,11 @@ export function Messages() {
   const fetchTenants = async () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/tenants/",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+      const response = await fetch(`${API_BASE_URL}/api/v1/tenants/`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
-      );
+      });
       if (!response.ok) throw new Error("Failed to fetch tenants");
       const data: PropertyTenants = await response.json();
       setPropertyTenants(data);
@@ -92,48 +97,116 @@ export function Messages() {
     }
   };
 
-  const sendMessage = async () => {
-    if (messagingMode !== "email") {
-      toast({
-        title: "Coming Soon",
-        description: `${messagingMode === "sms" ? "SMS" : "In-app messaging"} is not yet available.`,
-      });
-      return;
-    }
-
-    if (!subject || !message || selectedTenants.length === 0) {
+  const validateSendingRequirements = () => {
+    if (selectedTenants.length === 0) {
       toast({
         title: "Error",
-        description:
-          "Please fill in all fields and select at least one tenant.",
+        description: "Please select at least one tenant.",
         variant: "destructive",
       });
+      return false;
+    }
+
+    if (!message) {
+      toast({
+        title: "Error",
+        description: "Please enter a message.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (messagingMode === "email" && !subject) {
+      toast({
+        title: "Error",
+        description: "Please enter a subject for the email.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Validate tenant data based on messaging mode
+    if (messagingMode === "whatsapp") {
+      const selectedTenantData = [];
+
+      for (const property in propertyTenants) {
+        const tenants = propertyTenants[property];
+        for (const tenant of tenants) {
+          if (selectedTenants.includes(tenant.id)) {
+            selectedTenantData.push(tenant);
+          }
+        }
+      }
+
+      const tenantsWithoutPhone = selectedTenantData.filter(
+        (tenant) => !tenant.phone_number,
+      );
+
+      if (tenantsWithoutPhone.length > 0) {
+        const names = tenantsWithoutPhone
+          .map((t) => `${t.first_name} ${t.last_name}`)
+          .join(", ");
+        toast({
+          title: "Warning",
+          description: `The following tenants don't have a phone number and won't receive WhatsApp messages: ${names}`,
+          variant: "destructive",
+        });
+
+        if (tenantsWithoutPhone.length === selectedTenantData.length) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  };
+
+  const sendMessage = async () => {
+    if (!validateSendingRequirements()) {
       return;
     }
 
+    setLoading(true);
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/email-tenants/",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            subject,
-            message,
-            tenants: selectedTenants,
-          }),
-        },
-      );
 
-      if (!response.ok) throw new Error("Failed to send email");
+      let endpoint =
+        "https://assettone-rental-management-production.up.railway.app/api/v1/email-tenants/";
+      let payload = {
+        subject,
+        message,
+        tenants: selectedTenants,
+      };
+
+      if (messagingMode === "whatsapp") {
+        endpoint = `${API_BASE_URL}/api/v1/tenants/whatsapp/`;
+        payload = {
+          message,
+          tenants: selectedTenants,
+        };
+      }
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to send message");
+      }
+
+      const responseData = await response.json();
 
       toast({
         title: "Success",
-        description: "Email sent successfully.",
+        description:
+          responseData.message ||
+          `${messagingMode === "email" ? "Email" : "WhatsApp message"} sent successfully.`,
       });
 
       // Reset form
@@ -142,12 +215,14 @@ export function Messages() {
       setSelectedTenants([]);
       setSelectAll(false);
     } catch (error) {
-      console.error("Error sending email:", error);
+      console.error(`Error sending ${messagingMode}:`, error);
       toast({
         title: "Error",
-        description: "Failed to send email. Please try again.",
+        description: `Failed to send ${messagingMode === "email" ? "email" : "WhatsApp message"}. ${error.message || "Please try again."}`,
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -261,6 +336,12 @@ export function Messages() {
                                 className="flex-1 cursor-pointer"
                               >
                                 {`${tenant.first_name} ${tenant.last_name}`}
+                                {messagingMode === "whatsapp" &&
+                                  !tenant.phone_number && (
+                                    <span className="ml-2 text-sm text-red-500">
+                                      (No phone)
+                                    </span>
+                                  )}
                               </Label>
                             </div>
                           ))}
@@ -294,6 +375,12 @@ export function Messages() {
                             Email
                           </div>
                         </SelectItem>
+                        <SelectItem value="whatsapp">
+                          <div className="flex items-center">
+                            <Phone className="mr-2 h-4 w-4 text-green-600" />
+                            WhatsApp
+                          </div>
+                        </SelectItem>
                         <SelectItem value="sms" disabled>
                           <div className="flex items-center">
                             <Phone className="mr-2 h-4 w-4" />
@@ -309,16 +396,18 @@ export function Messages() {
                       </SelectContent>
                     </Select>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="subject">Subject</Label>
-                      <Input
-                        id="subject"
-                        value={subject}
-                        onChange={(e) => setSubject(e.target.value)}
-                        placeholder="Enter message subject"
-                        className="border-green-200"
-                      />
-                    </div>
+                    {messagingMode === "email" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="subject">Subject</Label>
+                        <Input
+                          id="subject"
+                          value={subject}
+                          onChange={(e) => setSubject(e.target.value)}
+                          placeholder="Enter message subject"
+                          className="border-green-200"
+                        />
+                      </div>
+                    )}
 
                     <div className="space-y-2">
                       <Label htmlFor="message">Message Content</Label>
@@ -331,6 +420,16 @@ export function Messages() {
                         className="border-green-200"
                       />
                     </div>
+
+                    {messagingMode === "whatsapp" && (
+                      <Alert className="bg-blue-50 border-blue-200">
+                        <Info className="h-4 w-4 text-blue-600" />
+                        <AlertDescription>
+                          WhatsApp messages will be sent only to tenants with
+                          registered phone numbers.
+                        </AlertDescription>
+                      </Alert>
+                    )}
                   </div>
                 </div>
               </div>
@@ -341,19 +440,35 @@ export function Messages() {
                   <Alert className="bg-green-50 border-green-200">
                     <Info className="h-4 w-4 text-green-600" />
                     <AlertDescription>
-                      Selected recipients will receive the message via their
-                      preferred communication method.
+                      Selected recipients will receive the message via{" "}
+                      {messagingMode === "email" ? "email" : "WhatsApp"}.
                     </AlertDescription>
                   </Alert>
                   <Button
                     onClick={sendMessage}
                     className="bg-green-600 hover:bg-green-700 text-white min-w-[200px]"
                     disabled={
-                      !subject || !message || selectedTenants.length === 0
+                      loading ||
+                      !message ||
+                      selectedTenants.length === 0 ||
+                      (messagingMode === "email" && !subject)
                     }
                   >
-                    <Mail className="mr-2 h-4 w-4" />
-                    Send Message
+                    {loading ? (
+                      "Sending..."
+                    ) : (
+                      <>
+                        {messagingMode === "email" ? (
+                          <Mail className="mr-2 h-4 w-4" />
+                        ) : (
+                          <Phone className="mr-2 h-4 w-4" />
+                        )}
+                        Send{" "}
+                        {messagingMode === "email"
+                          ? "Email"
+                          : "WhatsApp Message"}
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>

@@ -64,7 +64,7 @@ const LeaseDownloadPage = () => {
       }
 
       const response = await fetch(
-        `https://assettoneestates.pythonanywhere.com/api/v1/leases/${leaseId}/download_pdf/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/leases/${leaseId}/download_pdf/`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,

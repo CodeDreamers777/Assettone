@@ -52,7 +52,7 @@ export default function ContactUs() {
     setSubmitMessage(null);
     try {
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/contact-us/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/contact-us/",
         {
           method: "POST",
           headers: {

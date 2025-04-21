@@ -89,7 +89,7 @@ export function Properties() {
       }
 
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/properties/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/properties/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -119,7 +119,7 @@ export function Properties() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.get(
-        `https://assettoneestates.pythonanywhere.com/api/v1/properties/${propertyId}/units/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/properties/${propertyId}/units/`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -168,7 +168,7 @@ export function Properties() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.post(
-        `https://assettoneestates.pythonanywhere.com/api/v1/properties/${selectedPropertyForLogo.id}/upload-logo/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/properties/${selectedPropertyForLogo.id}/upload-logo/`,
         formData,
         {
           headers: {
@@ -211,8 +211,8 @@ export function Properties() {
       }
 
       const url = selectedProperty
-        ? `https://assettoneestates.pythonanywhere.com/api/v1/properties/${selectedProperty.id}/`
-        : "https://assettoneestates.pythonanywhere.com/api/v1/properties/";
+        ? `https://assettone-rental-management-production.up.railway.app/api/v1/properties/${selectedProperty.id}/`
+        : "https://assettone-rental-management-production.up.railway.app/api/v1/properties/";
 
       // For new properties, use POST with all fields
       if (!selectedProperty) {
@@ -303,7 +303,7 @@ export function Properties() {
       }
 
       const response = await fetch(
-        `https://assettoneestates.pythonanywhere.com/api/v1/properties/${selectedProperty.id}/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/properties/${selectedProperty.id}/`,
         {
           method: "DELETE",
           headers: {

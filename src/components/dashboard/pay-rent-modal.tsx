@@ -45,7 +45,7 @@ export function PayRentModal({
     try {
       const accessToken = localStorage.getItem("accessToken");
       await axios.post(
-        "https://assettoneestates.pythonanywhere.com/api/v1/payments/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/payments/",
         {
           lease: leaseId,
           amount,

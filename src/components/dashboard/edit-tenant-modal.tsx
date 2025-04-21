@@ -50,7 +50,7 @@ export function EditTenantModal({
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `https://assettoneestates.pythonanywhere.com/api/v1/tenants/${tenant.id}/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/tenants/${tenant.id}/`,
         {
           method: "PUT",
           headers: {

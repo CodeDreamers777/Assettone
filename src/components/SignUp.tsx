@@ -68,7 +68,7 @@ export function SignUp({ onSignUpSuccess }: SignUpProps) {
   async function onSubmit(values: z.infer<typeof signUpSchema>) {
     try {
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/register/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/register/",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

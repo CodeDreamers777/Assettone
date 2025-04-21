@@ -182,7 +182,7 @@ export function Units() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.get(
-        "https://assettoneestates.pythonanywhere.com/api/v1/properties/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/properties/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -220,7 +220,7 @@ export function Units() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.get(
-        `https://assettoneestates.pythonanywhere.com/api/v1/properties/${propertyId}/units/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/properties/${propertyId}/units/`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -254,7 +254,7 @@ export function Units() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.post(
-        `https://assettoneestates.pythonanywhere.com/api/v1/rental-notices/${unitId}/send_notice/`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/rental-notices/${unitId}/send_notice/`,
         {},
         {
           headers: {
@@ -281,7 +281,7 @@ export function Units() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       await axios.delete(
-        `https://assettoneestates.pythonanywhere.com/api/v1/units/${id}`,
+        `https://assettone-rental-management-production.up.railway.app/api/v1/units/${id}`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,

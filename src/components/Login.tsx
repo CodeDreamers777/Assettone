@@ -76,7 +76,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
   async function onSubmit(values: z.infer<typeof loginSchema>) {
     try {
       const response = await fetch(
-        "https://assettoneestates.pythonanywhere.com/api/v1/login/",
+        "https://assettone-rental-management-production.up.railway.app/api/v1/login/",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

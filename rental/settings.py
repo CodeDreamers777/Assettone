@@ -176,6 +176,11 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 CORS_ALLOW_ALL_ORIGINS = True
+# Add this setting to allow CSRF from your Railway domain
+CSRF_TRUSTED_ORIGINS = [
+    "https://assettone-rental-management-production.up.railway.app",
+    # Add any other domains you might use
+]
 
 
 SIMPLE_JWT = {

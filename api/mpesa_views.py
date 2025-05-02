@@ -369,6 +369,7 @@ class MpesaSimulatePaymentView(APIView):
     """
 
     def post(self, request, *args, **kwargs):
+        print("called this view")
         if not settings.MPESA_SANDBOX:
             return Response(
                 {

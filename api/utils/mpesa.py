@@ -25,13 +25,18 @@ class MpesaClient:
     def get_access_token(self):
         """Get OAuth access token from M-Pesa"""
         try:
-            url = f"{self.api_url}/oauth/v1/generate?grant_type=client_credentials"
+            url = "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
+            # url = f"{self.api_url}/oauth/v1/generate?grant_type=client_credentials"
+            print("this are the keys")
+            print(self.consumer_key)
+            print(self.consumer_secret)
             auth = base64.b64encode(
                 f"{self.consumer_key}:{self.consumer_secret}".encode()
             ).decode()
             headers = {"Authorization": f"Basic {auth}"}
 
             response = requests.get(url, headers=headers, timeout=30)
+            print(response)
             response.raise_for_status()
 
             result = response.json()
@@ -68,11 +73,12 @@ class MpesaClient:
 
     def simulate_c2b_transaction(self, phone_number, amount, account_number):
         """Simulate a C2B transaction (for testing in sandbox)"""
+        print("sumulation was called")
         try:
             if not self.access_token:
                 self.get_access_token()
 
-            url = f"{self.api_url}/c2b/v1/simulate"
+            url = f"{self.api_url}/mpesa/c2b/v1/simulate"
             headers = {
                 "Authorization": f"Bearer {self.access_token}",
                 "Content-Type": "application/json",
@@ -84,8 +90,11 @@ class MpesaClient:
                 "Msisdn": phone_number,
                 "BillRefNumber": account_number,
             }
+            print("This is the payload", payload)
 
             response = requests.post(url, json=payload, headers=headers, timeout=30)
+            print("this is response")
+            print(response.text)
             response.raise_for_status()
             return response.json()
         except RequestException as e:

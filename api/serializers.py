@@ -709,6 +709,7 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
             "signing_token",
             "is_signed",
             "signed_at",
+            "account_number",  # Make account_number read-only in the serializer
         ]
 
     def validate(self, data):
@@ -719,7 +720,6 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
         unit = data.get("unit")
         if not unit:
             raise serializers.ValidationError("Unit is required")
-
         # Ensure unit is not already leased
         active_leases = Lease.objects.filter(unit=unit, status=LeaseStatus.ACTIVE)
         # Exclude current lease if it's an update
@@ -727,7 +727,6 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
             active_leases = active_leases.exclude(pk=self.instance.pk)
         if active_leases.exists():
             raise serializers.ValidationError("This unit already has an active lease.")
-
         # Validate date range
         start_date = data.get("start_date")
         end_date = data.get("end_date")
@@ -745,21 +744,23 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
         2. Set security deposit (e.g., as 1.5x monthly rent)
         3. Update unit occupancy
         4. Generate signing token and send signing email
+        5. Generate account number for payments
         """
         # Get the unit and its rent
         unit = validated_data.get("unit")
-
         # Set monthly rent directly from the unit
         validated_data["monthly_rent"] = unit.rent
-
         # Set security deposit (e.g., 1.5 times monthly rent)
         validated_data["security_deposit"] = unit.rent * Decimal("1.5")
-
         # Generate signing token
         validated_data["signing_token"] = uuid.uuid4()
 
         # Create lease
         lease = super().create(validated_data)
+
+        # Generate account number
+        lease.account_number = lease.generate_account_number()
+        lease.save(update_fields=["account_number"])
 
         # Update unit occupancy
         unit.is_occupied = True

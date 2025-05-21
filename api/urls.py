@@ -95,6 +95,11 @@ urlpatterns = [
         mpesa_views.MpesaSimulatePaymentView.as_view(),
         name="mpesa_simulate",
     ),
+    path(
+        "mpesa/payment-receipt",
+        mpesa_views.PaymentReceiptDataView.as_view(),
+        name="payment-receipt-data",
+    ),
     # Property-related routes
     path("", include(property_router.urls)),
     path("", include(property_unit_router.urls)),

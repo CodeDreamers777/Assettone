@@ -405,6 +405,9 @@ class Lease(models.Model):
         related_name="next_lease",
     )
 
+    # Account number for payments
+    account_number = models.CharField(max_length=50, blank=True, null=True)
+
     # Additional Lease Details
     lease_document = models.FileField(
         upload_to="lease_documents/", blank=True, null=True
@@ -421,19 +424,43 @@ class Lease(models.Model):
         upload_to="signed_lease_documents/", blank=True, null=True
     )
 
+    def generate_account_number(self):
+        """Generate the account number for payments"""
+        if not self.unit or not self.unit.property:
+            return None
+
+        # Always use the first three letters of property name in uppercase
+        property_prefix = self.unit.property.name[:3].upper()
+
+        # Generate account number using property prefix and unit number
+        return f"{property_prefix}-{self.unit.unit_number}"
+
     def get_payment_account_number(self):
-        """Generate the account number for M-Pesa payments"""
-        return f"PROP{self.unit.property.code}-UNIT{self.unit.unit_number}"
+        """Get the account number, generating it if not already set"""
+        if not self.account_number:
+            self.account_number = self.generate_account_number()
+            # Save only if the model instance already exists in the database
+            if self.pk:
+                self.save(update_fields=["account_number"])
+        return self.account_number
 
     def send_lease_signing_email(self):
         """
         Send lease signing email with encoded lease details in URL
         """
         print("---was called to send email----")
+        # Ensure account number is generated before sending email
+        if not self.account_number:
+            self.account_number = self.generate_account_number()
+            # Save only if it has a primary key (i.e., already saved to the database)
+            if self.pk:
+                self.save(update_fields=["account_number"])
+
         # Compile lease details using only existing fields
         lease_data = {
             "lease_id": str(self.id),
             "signing_token": str(self.signing_token),
+            "account_number": self.account_number,  # Include account number in email data
             "tenant": {
                 "first_name": self.tenant.first_name,
                 "last_name": self.tenant.last_name,
@@ -492,6 +519,65 @@ class Lease(models.Model):
             context=context,
         )
 
+    def create_initial_rent_period(self):
+        """Creates the initial rent period for a new lease"""
+        from django.utils import timezone
+        from datetime import datetime
+        from dateutil.relativedelta import relativedelta
+
+        today = timezone.now().date()
+
+        # Determine period start date - use first day of current month
+        # or lease start date if it's in the current month
+        current_month_start = today.replace(day=1)
+
+        if self.start_date.month == today.month and self.start_date.year == today.year:
+            start_date = self.start_date
+        else:
+            start_date = current_month_start
+
+        # Calculate amount due based on payment period
+        if self.payment_period == PaymentPeriod.MONTHLY:
+            # Last day of current month
+            next_month = start_date.replace(day=28) + relativedelta(
+                days=4
+            )  # Safely get to next month
+            end_date = next_month.replace(day=1) - relativedelta(
+                days=1
+            )  # Last day of month
+            amount_due = self.monthly_rent
+        elif self.payment_period == PaymentPeriod.QUARTERLY:
+            end_date = start_date + relativedelta(months=3) - relativedelta(days=1)
+            amount_due = self.monthly_rent * 3
+        elif self.payment_period == PaymentPeriod.SEMI_ANNUALLY:
+            end_date = start_date + relativedelta(months=6) - relativedelta(days=1)
+            amount_due = self.monthly_rent * 6
+        elif self.payment_period == PaymentPeriod.ANNUALLY:
+            end_date = start_date + relativedelta(years=1) - relativedelta(days=1)
+            amount_due = self.monthly_rent * 12
+        else:
+            # Default to monthly
+            next_month = start_date.replace(day=28) + relativedelta(days=4)
+            end_date = next_month.replace(day=1) - relativedelta(days=1)
+            amount_due = self.monthly_rent
+
+        # Check if a rent period already exists for this lease and date range
+        from .models import RentPeriodStatus
+
+        existing_period = RentPeriodStatus.objects.filter(
+            lease=self, period_start_date__lte=start_date, period_end_date__gte=end_date
+        ).first()
+
+        if not existing_period:
+            RentPeriodStatus.objects.create(
+                lease=self,
+                period_start_date=start_date,
+                period_end_date=end_date,
+                amount_due=amount_due,
+                amount_paid=0,
+                is_paid=False,
+            )
+
     def __str__(self):
         return f"Lease for {self.tenant} - {self.unit}"
 
@@ -517,8 +603,13 @@ class Lease(models.Model):
                 raise ValidationError("End date must be after start date")
 
     def save(self, *args, **kwargs):
-        """Override save to handle tenant and unit status updates"""
+        """Override save to handle tenant and unit status updates and account number generation"""
         is_new = not self.pk  # Check if this is a new instance
+
+        # Generate account number if not already set
+        if not self.account_number:
+            self.account_number = self.generate_account_number()
+
         if not is_new:
             try:
                 old_instance = Lease.objects.get(pk=self.pk)

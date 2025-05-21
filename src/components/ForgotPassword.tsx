@@ -87,7 +87,7 @@ export function ForgotPassword({ onResetSuccess }: ForgotPasswordProps) {
   async function onEmailSubmit(values: z.infer<typeof emailSchema>) {
     try {
       const response = await fetch(
-        "https://assettone-rental-management-production.up.railway.app/api/v1/reset-password/",
+        "http://127.0.0.1:8000/api/v1/reset-password/",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -132,7 +132,7 @@ export function ForgotPassword({ onResetSuccess }: ForgotPasswordProps) {
   async function onResetSubmit(values: z.infer<typeof resetPasswordSchema>) {
     try {
       const response = await fetch(
-        "https://assettone-rental-management-production.up.railway.app/api/v1/reset-password/verify/",
+        "http://127.0.0.1:8000/api/v1/reset-password/verify/",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

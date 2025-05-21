@@ -55,7 +55,7 @@ export function EditUnitModal({
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.put(
-        `https://assettone-rental-management-production.up.railway.app/api/v1/units/${editingUnit.id}/`, // Added trailing slash here
+        `http://127.0.0.1:8000/api/v1/units/${editingUnit.id}/`, // Added trailing slash here
         editingUnit,
         {
           headers: {

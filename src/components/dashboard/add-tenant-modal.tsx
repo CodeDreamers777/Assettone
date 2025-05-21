@@ -65,14 +65,11 @@ export function AddTenantModal({
   const fetchProperties = async () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch(
-        "https://assettone-rental-management-production.up.railway.app/api/v1/properties/",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+      const response = await fetch("http://127.0.0.1:8000/api/v1/properties/", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
-      );
+      });
       if (!response.ok) throw new Error("Failed to fetch properties");
       const responseData = await response.json();
       const data = responseData.properties;
@@ -101,17 +98,14 @@ export function AddTenantModal({
 
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch(
-        "https://assettone-rental-management-production.up.railway.app/api/v1/tenants/",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify(formData),
+      const response = await fetch("http://127.0.0.1:8000/api/v1/tenants/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
-      );
+        body: JSON.stringify(formData),
+      });
 
       if (!response.ok) {
         throw new Error(await response.text());

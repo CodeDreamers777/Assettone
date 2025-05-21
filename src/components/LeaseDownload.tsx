@@ -64,7 +64,7 @@ const LeaseDownloadPage = () => {
       }
 
       const response = await fetch(
-        `https://assettone-rental-management-production.up.railway.app/api/v1/leases/${leaseId}/download_pdf/`,
+        `http://127.0.0.1:8000/api/v1/leases/${leaseId}/download_pdf/`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,

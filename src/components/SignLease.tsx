@@ -136,7 +136,7 @@ const LeaseSigning: React.FC = () => {
     try {
       const authorizedAxios = createAuthorizedRequest();
       const response = await authorizedAxios.get(
-        `https://assettone-rental-management-production.up.railway.app/api/v1/leases/${leaseData?.lease_id}/download_pdf/`,
+        `http://127.0.0.1:8000/api/v1/leases/${leaseData?.lease_id}/download_pdf/`,
         { responseType: "blob" },
       );
 
@@ -192,7 +192,7 @@ const LeaseSigning: React.FC = () => {
 
         const authorizedAxios = createAuthorizedRequest();
         const response = await authorizedAxios.post(
-          `https://assettone-rental-management-production.up.railway.app/api/v1/leases/${leaseData?.lease_id}/complete_signing/`,
+          `http://127.0.0.1:8000/api/v1/leases/${leaseData?.lease_id}/complete_signing/`,
           formData,
         );
 

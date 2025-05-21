@@ -88,14 +88,11 @@ export function Properties() {
         return;
       }
 
-      const response = await fetch(
-        "https://assettone-rental-management-production.up.railway.app/api/v1/properties/",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+      const response = await fetch("http://127.0.0.1:8000/api/v1/properties/", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
-      );
+      });
 
       if (!response.ok) {
         throw new Error("Failed to fetch properties");
@@ -119,7 +116,7 @@ export function Properties() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.get(
-        `https://assettone-rental-management-production.up.railway.app/api/v1/properties/${propertyId}/units/`,
+        `http://127.0.0.1:8000/api/v1/properties/${propertyId}/units/`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -168,7 +165,7 @@ export function Properties() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.post(
-        `https://assettone-rental-management-production.up.railway.app/api/v1/properties/${selectedPropertyForLogo.id}/upload-logo/`,
+        `http://127.0.0.1:8000/api/v1/properties/${selectedPropertyForLogo.id}/upload-logo/`,
         formData,
         {
           headers: {
@@ -211,8 +208,8 @@ export function Properties() {
       }
 
       const url = selectedProperty
-        ? `https://assettone-rental-management-production.up.railway.app/api/v1/properties/${selectedProperty.id}/`
-        : "https://assettone-rental-management-production.up.railway.app/api/v1/properties/";
+        ? `http://127.0.0.1:8000/api/v1/properties/${selectedProperty.id}/`
+        : "http://127.0.0.1:8000/api/v1/properties/";
 
       // For new properties, use POST with all fields
       if (!selectedProperty) {
@@ -303,7 +300,7 @@ export function Properties() {
       }
 
       const response = await fetch(
-        `https://assettone-rental-management-production.up.railway.app/api/v1/properties/${selectedProperty.id}/`,
+        `http://127.0.0.1:8000/api/v1/properties/${selectedProperty.id}/`,
         {
           method: "DELETE",
           headers: {

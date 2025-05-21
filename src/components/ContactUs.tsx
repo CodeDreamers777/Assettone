@@ -51,16 +51,13 @@ export default function ContactUs() {
     setIsLoading(true);
     setSubmitMessage(null);
     try {
-      const response = await fetch(
-        "https://assettone-rental-management-production.up.railway.app/api/v1/contact-us/",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(values),
+      const response = await fetch("http://127.0.0.1:8000/api/v1/contact-us/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify(values),
+      });
 
       if (!response.ok) {
         throw new Error("Failed to submit the form");

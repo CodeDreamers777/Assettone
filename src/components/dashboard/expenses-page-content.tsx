@@ -113,8 +113,7 @@ interface FilterState {
 }
 
 // API service functions
-const API_URL =
-  "https://assettone-rental-management-production.up.railway.app/api/v1";
+const API_URL = "http://127.0.0.1:8000/api/v1";
 
 // Helper function to get authorization headers
 const getAuthHeaders = () => {

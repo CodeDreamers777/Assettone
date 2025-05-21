@@ -8,7 +8,7 @@ export async function fetchDashboardMetrics(): Promise<DashboardData> {
   }
 
   const response = await fetch(
-    "https://assettone-rental-management-production.up.railway.app/api/v1/dashboard-metrics/",
+    "http://127.0.0.1:8000/api/v1/dashboard-metrics/",
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,

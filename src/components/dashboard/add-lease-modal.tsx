@@ -86,19 +86,19 @@ export function AddLeaseModal({ isOpen, onClose, onAdd }: AddLeaseModalProps) {
   const fetchInactiveTenants = async () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch(
-        "https://assettone-rental-management-production.up.railway.app/api/v1/tenants/",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+      const response = await fetch("http://127.0.0.1:8000/api/v1/tenants/", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
-      );
+      });
       if (!response.ok) throw new Error("Failed to fetch tenants");
       const data = await response.json();
 
-      // Get the array of tenants from the "Nairobi apartments" key
-      const tenantsArray = data["Nairobi apartments"];
+      // Get the first property key from the response
+      const propertyKey = Object.keys(data)[0];
+
+      // Get the array of tenants from that property key
+      const tenantsArray = data[propertyKey] || [];
 
       // Now filter the array for inactive tenants
       const inactiveTenantsData = tenantsArray.filter(
@@ -119,14 +119,11 @@ export function AddLeaseModal({ isOpen, onClose, onAdd }: AddLeaseModalProps) {
   const fetchAvailableUnits = async () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch(
-        "https://assettone-rental-management-production.up.railway.app/api/v1/units/",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+      const response = await fetch("http://127.0.0.1:8000/api/v1/units/", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
-      );
+      });
       if (!response.ok) throw new Error("Failed to fetch units");
       const data = await response.json();
       const availableUnitsData = data.filter((unit: Unit) => !unit.is_occupied);
@@ -155,17 +152,14 @@ export function AddLeaseModal({ isOpen, onClose, onAdd }: AddLeaseModalProps) {
     e.preventDefault();
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch(
-        "https://assettone-rental-management-production.up.railway.app/api/v1/leases/",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify(formData),
+      const response = await fetch("http://127.0.0.1:8000/api/v1/leases/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
-      );
+        body: JSON.stringify(formData),
+      });
       if (!response.ok) throw new Error("Failed to add lease");
       const newLease = await response.json();
       onAdd(newLease);

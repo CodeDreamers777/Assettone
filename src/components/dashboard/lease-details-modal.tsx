@@ -130,7 +130,7 @@ export function LeaseDetailsModal({
       const accessToken = localStorage.getItem("accessToken");
       const id = type === "tenant" ? tenantId : unitId;
       const response = await fetch(
-        `https://assettone-rental-management-production.up.railway.app/api/v1/leases/get_lease_details/?type=${type}&id=${id}`,
+        `http://127.0.0.1:8000/api/v1/leases/get_lease_details/?type=${type}&id=${id}`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,

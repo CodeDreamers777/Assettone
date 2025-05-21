@@ -39,8 +39,7 @@ interface Unit {
   unit_number: string;
 }
 
-const BASE_URL =
-  "https://assettone-rental-management-production.up.railway.app/api/v1";
+const BASE_URL = "http://127.0.0.1:8000/api/v1";
 
 export const UnitReport: React.FC = () => {
   const [startDate, setStartDate] = useState<Date>();

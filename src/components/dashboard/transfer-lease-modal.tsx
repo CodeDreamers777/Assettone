@@ -54,14 +54,11 @@ export function TransferLeaseModal({
   const fetchTenants = async () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await fetch(
-        "https://assettone-rental-management-production.up.railway.app/api/v1/tenants/",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+      const response = await fetch("http://127.0.0.1:8000/api/v1/tenants/", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
-      );
+      });
       if (!response.ok) throw new Error("Failed to fetch tenants");
       const data = await response.json();
       setTenants(data);
@@ -80,7 +77,7 @@ export function TransferLeaseModal({
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `https://assettone-rental-management-production.up.railway.app/api/v1/leases/${leaseId}/transfer_lease/`,
+        `http://127.0.0.1:8000/api/v1/leases/${leaseId}/transfer_lease/`,
         {
           method: "POST",
           headers: {

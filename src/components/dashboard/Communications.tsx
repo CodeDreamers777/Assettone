@@ -59,8 +59,7 @@ const CommunicationHistory = () => {
     try {
       setLoading(true);
       const accessToken = localStorage.getItem("accessToken");
-      let url =
-        "https://assettone-rental-management-production.up.railway.app/api/v1/communication-history/";
+      let url = "http://127.0.0.1:8000/api/v1/communication-history/";
 
       const params = new URLSearchParams();
       if (type && type !== "ALL") params.append("type", type);

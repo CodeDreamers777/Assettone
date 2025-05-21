@@ -26,19 +26,24 @@ class MpesaClient:
         """Get OAuth access token from M-Pesa"""
         try:
             url = "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
-            # url = f"{self.api_url}/oauth/v1/generate?grant_type=client_credentials"
-            print("this are the keys")
-            print(self.consumer_key)
-            print(self.consumer_secret)
+            print("Getting access token with credentials:")
+            print(
+                f"Consumer Key: {self.consumer_key[:5]}...{self.consumer_key[-5:]}"
+            )  # Just show first/last 5 chars for security
+
             auth = base64.b64encode(
                 f"{self.consumer_key}:{self.consumer_secret}".encode()
             ).decode()
             headers = {"Authorization": f"Basic {auth}"}
 
             response = requests.get(url, headers=headers, timeout=30)
-            print(response)
-            response.raise_for_status()
+            print(f"Access token response status: {response.status_code}")
 
+            # Print response body for debugging (be careful with tokens in logs)
+            if response.status_code != 200:
+                print(f"Error response: {response.text}")
+
+            response.raise_for_status()
             result = response.json()
             self.access_token = result.get("access_token")
             return self.access_token
@@ -49,12 +54,11 @@ class MpesaClient:
     def register_callback_url(self, confirmation_url, validation_url):
         """Register C2B callback URLs with M-Pesa"""
         try:
-            if not self.access_token:
-                self.get_access_token()
-
+            # Always get a fresh token to avoid using expired tokens
+            access_token = self.get_access_token()
             url = f"{self.api_url}/mpesa/c2b/v1/registerurl"
             headers = {
-                "Authorization": f"Bearer {self.access_token}",
+                "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json",
             }
             payload = {
@@ -64,7 +68,17 @@ class MpesaClient:
                 "ValidationURL": validation_url,
             }
 
+            # Add debugging to see actual request
+            print(f"Making request to: {url}")
+            print(f"Headers: {headers}")
+            print(f"Payload: {json.dumps(payload, indent=2)}")
+
             response = requests.post(url, json=payload, headers=headers, timeout=30)
+
+            # Print the complete response for debugging
+            print(f"Response status: {response.status_code}")
+            print(f"Response body: {response.text}")
+
             response.raise_for_status()
             return response.json()
         except RequestException as e:

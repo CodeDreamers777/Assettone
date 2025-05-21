@@ -142,8 +142,8 @@ MPESA_CONSUMER_KEY = os.getenv("MPESA_CONSUMER_KEY")
 MPESA_CONSUMER_SECRET = os.getenv("MPESA_CONSUMER_SECRET")
 MPESA_SHORTCODE = os.getenv("MPESA_SHORTCODE")
 MPESA_PASSKEY = os.getenv("MPESA_PASSKEY")
-MPESA_API_URL = os.getenv("MPESA_API_URL", "https://sandbox.safaricom.co.ke")
-MPESA_SANDBOX = os.getenv("MPESA_SANDBOX", "True") == "True"
+MPESA_API_URL = os.getenv("MPESA_API_URL", "https://api.safaricom.co.ke")
+MPESA_SANDBOX = os.getenv("MPESA_SANDBOX", "False") == "False"
 
 # Process M-Pesa payments asynchronously (requires Celery)
 PROCESS_MPESA_PAYMENTS_ASYNC = (

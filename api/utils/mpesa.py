@@ -52,7 +52,7 @@ class MpesaClient:
             if not self.access_token:
                 self.get_access_token()
 
-            url = f"{self.api_url}/c2b/v1/registerurl"
+            url = f"{self.api_url}/mpesa/c2b/v1/registerurl"
             headers = {
                 "Authorization": f"Bearer {self.access_token}",
                 "Content-Type": "application/json",

@@ -45,6 +45,7 @@ class MpesaClient:
 
             response.raise_for_status()
             result = response.json()
+            print("this is the result", result)
             self.access_token = result.get("access_token")
             return self.access_token
         except RequestException as e:
@@ -57,6 +58,7 @@ class MpesaClient:
             # Always get a fresh token to avoid using expired tokens
             access_token = self.get_access_token()
             print("this is access token", access_token)
+
             url = f"{self.api_url}/mpesa/c2b/v1/registerurl"
             headers = {
                 "Authorization": f"Bearer {access_token}",

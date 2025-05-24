@@ -44,7 +44,6 @@ class MpesaClient:
 
             response.raise_for_status()
             result = response.json()
-            print("this is the result", result)
             self.access_token = result.get("access_token")
             self.access_token_generated_at = datetime.now()
             self.access_token_expiry = result.get("expires_in")
@@ -81,7 +80,9 @@ class MpesaClient:
             )
             print("this is access token", access_token)
 
-            url = f"{self.api_url}/mpesa/c2b/v1/registerurl"
+            url = (
+                f"{self.api_url}/mpesa/c2b/v1/registerurl?grant_type=client_credentials"
+            )
             headers = {
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json",

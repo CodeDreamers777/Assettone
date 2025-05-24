@@ -3,7 +3,7 @@ import requests
 import base64
 import logging
 import json
-from datetime import datetime,timedelta
+from datetime import datetime, timedelta
 from requests.exceptions import RequestException
 from django.conf import settings
 
@@ -50,7 +50,9 @@ class MpesaClient:
             result = response.json()
             print("this is the result", result)
             self.access_token = result.get("access_token")
-            self.access_token_generated_at =  datetime.now()
+            self.access_token_generated_at = datetime.now()
+            self.access_token_expiry = result.get("expires_in")
+
             return self.access_token
         except RequestException as e:
             logger.error(f"Error getting access token: {str(e)}")
@@ -60,14 +62,21 @@ class MpesaClient:
         if not self.access_token or not self.access_token_expiry:
             return False
         now = datetime.now()
-        return self.access_token_generated_at + timedelta(seconds=(self.access_token_expiry - 10)) > now:
-
+        return (
+            self.access_token_generated_at
+            + timedelta(seconds=(self.access_token_expiry - 10))
+            > now
+        )
 
     def register_callback_url(self, confirmation_url, validation_url):
         """Register C2B callback URLs with M-Pesa"""
         try:
             # Always get a fresh token to avoid using expired tokens
-            access_token = self.access_token if self.validate_access_token() else self.get_access_token()
+            access_token = (
+                self.access_token
+                if self.validate_access_token()
+                else self.get_access_token()
+            )
             print("this is access token", access_token)
 
             url = f"{self.api_url}/mpesa/c2b/v1/registerurl"

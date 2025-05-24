@@ -56,6 +56,7 @@ class MpesaClient:
         try:
             # Always get a fresh token to avoid using expired tokens
             access_token = self.get_access_token()
+            print("this is access token", access_token)
             url = f"{self.api_url}/mpesa/c2b/v1/registerurl"
             headers = {
                 "Authorization": f"Bearer {access_token}",

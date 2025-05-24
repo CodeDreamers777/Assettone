@@ -29,14 +29,10 @@ class MpesaClient:
         """Get OAuth access token from M-Pesa"""
         try:
             url = "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
-            print("Getting access token with credentials:")
-            print(
-                f"Consumer Key: {self.consumer_key[:5]}...{self.consumer_key[-5:]}"
-            )  # Just show first/last 5 chars for security
 
             auth = base64.b64encode(
-                f"{self.consumer_key}:{self.consumer_secret}".encode()
-            ).decode()
+                f"{self.consumer_key}:{self.consumer_secret}".encode("utf-8")
+            ).decode("utf-8")
             headers = {"Authorization": f"Basic {auth}"}
 
             response = requests.get(url, headers=headers, timeout=30)

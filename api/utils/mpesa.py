@@ -50,6 +50,7 @@ class MpesaClient:
             result = response.json()
             print("this is the result", result)
             self.access_token = result.get("access_token")
+            self.access_token_generated_at =  datetime.now()
             return self.access_token
         except RequestException as e:
             logger.error(f"Error getting access token: {str(e)}")

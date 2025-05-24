@@ -59,14 +59,20 @@ class MpesaClient:
             raise
 
     def validate_access_token(self):
-        if not self.access_token or not self.access_token_expiry:
+        # Check if all required token fields are present
+        if (
+            not self.access_token
+            or not self.access_token_expiry
+            or not self.access_token_generated_at
+        ):
             return False
+
         now = datetime.now()
-        return (
-            self.access_token_generated_at
-            + timedelta(seconds=(self.access_token_expiry - 10))
-            > now
+        # Check if token is still valid (with 10 second buffer)
+        expiry_time = self.access_token_generated_at + timedelta(
+            seconds=(self.access_token_expiry - 10)
         )
+        return expiry_time > now
 
     def register_callback_url(self, confirmation_url, validation_url):
         """Register C2B callback URLs with M-Pesa"""

@@ -394,7 +394,7 @@ class Tenant(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     email = models.EmailField(unique=True, blank=True, null=True)
-    phone_number = models.CharField(max_length=20)
+    phone_number = models.CharField(max_length=100)
 
     # Identification
     identification_type = models.CharField(
@@ -1092,7 +1092,7 @@ class Expense(models.Model):
 class MpesaTransaction(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     transaction_id = models.CharField(max_length=30, unique=True)
-    phone_number = models.CharField(max_length=15)
+    phone_number = models.CharField(max_length=100)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     account_number = models.CharField(max_length=50)
     transaction_date = models.DateTimeField()

@@ -269,7 +269,7 @@ class MpesaConfirmationAPIView(MpesaBaseView):
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         """
-        M-Pesa confirmation callback - process the payment
+        M-Pesa confirmation callback - process the payment immediately
         This is called by M-Pesa after a transaction is completed
         """
         try:
@@ -303,11 +303,14 @@ class MpesaConfirmationAPIView(MpesaBaseView):
             phone = data.get("MSISDN")
             amount = float(data.get("TransAmount"))
 
-            # Parse transaction time with error handling
+            # Parse transaction time with timezone awareness
             try:
-                transaction_date = datetime.strptime(
+                naive_datetime = datetime.strptime(
                     data.get("TransTime"), "%Y%m%d%H%M%S"
                 )
+                # Make it timezone-aware (M-Pesa uses EAT - East Africa Time)
+                eat_tz = pytz.timezone("Africa/Nairobi")
+                transaction_date = eat_tz.localize(naive_datetime)
             except ValueError:
                 logger.error(f"Invalid TransTime format: {data.get('TransTime')}")
                 transaction_date = timezone.now()
@@ -332,21 +335,31 @@ class MpesaConfirmationAPIView(MpesaBaseView):
                 transaction_date=transaction_date,
             )
 
-            # Process payment immediately or queue for processing
-            if settings.PROCESS_MPESA_PAYMENTS_ASYNC:
-                # Queue for async processing
-                logger.info(f"Queuing transaction {transaction_id} for processing")
-                process_rent_payment.delay(str(transaction.id))
-            else:
-                # Process immediately
-                logger.info(f"Processing transaction {transaction_id} immediately")
-                success, tenant, rent_period, lease = self._process_payment(transaction)
+            # Process payment immediately (synchronous)
+            logger.info(f"Processing transaction {transaction_id} immediately")
+            success, tenant, rent_period, lease = self._process_payment(transaction)
 
-                # Send WhatsApp receipt if payment was successful
-                if success and tenant and rent_period and lease:
+            # Send WhatsApp receipt if payment was successful
+            if success and tenant and rent_period and lease:
+                try:
                     self.send_payment_receipt_whatsapp(
                         transaction, rent_period, lease, tenant
                     )
+                    logger.info(
+                        f"WhatsApp receipt sent for transaction {transaction_id}"
+                    )
+                except Exception as whatsapp_error:
+                    logger.error(f"Failed to send WhatsApp receipt: {whatsapp_error}")
+
+            # Log the processing result
+            if success:
+                logger.info(
+                    f"Successfully processed payment for transaction {transaction_id}"
+                )
+            else:
+                logger.warning(
+                    f"Payment processing failed for transaction {transaction_id}"
+                )
 
             return Response(
                 {"ResultCode": 0, "ResultDesc": "Success"}, status=status.HTTP_200_OK

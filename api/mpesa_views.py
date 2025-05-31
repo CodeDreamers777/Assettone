@@ -1,6 +1,8 @@
 # views/mpesa_views.py
 import json
 import pytz
+
+from decimal import Decimal
 import logging
 from datetime import datetime
 from rest_framework.views import APIView
@@ -39,6 +41,7 @@ class MpesaBaseView(APIView):
     def send_payment_receipt_whatsapp(self, transaction, rent_period, lease, tenant):
         try:
             from api.utils.send_whatsapp import WhatsAppService
+            from decimal import Decimal
 
             # Format and log the tenant's phone number
             tenant_phone = tenant.phone_number
@@ -49,10 +52,10 @@ class MpesaBaseView(APIView):
                 logger.error("Tenant phone number is empty or None")
                 return False
 
-            # Calculate balance
+            # Calculate balance - ensure all values are Decimal for consistent arithmetic
             balance = rent_period.amount_due - rent_period.amount_paid
 
-            # Generate payment data
+            # Generate payment data - convert Decimals to float for JSON serialization
             payment_data = {
                 "tenant_id": str(tenant.id),
                 "tenant_name": f"{tenant.first_name} {tenant.last_name}",
@@ -75,19 +78,18 @@ class MpesaBaseView(APIView):
             # Generate encrypted payment link
             link_generator = PaymentLinkGenerator()
             payment_link = link_generator.generate_payment_link(payment_data)
-
             if not payment_link:
                 logger.error("Failed to generate payment link")
                 payment_link = "#"  # Fallback
 
-            # Prepare variables for the message
+            # Prepare variables for the message - use Decimal for formatting to maintain precision
             variables = {
                 "tenant_name": f"{tenant.first_name} {tenant.last_name}",
-                "amount": f"KES {transaction.amount:,.2f}",
+                "amount": f"KES {transaction.amount:,.2f}",  # transaction.amount should now be Decimal
                 "property_name": lease.unit.property.name,
                 "unit_number": lease.unit.unit_number,
                 "period": f"{rent_period.period_start_date.strftime('%d %b %Y')} - {rent_period.period_end_date.strftime('%d %b %Y')}",
-                "balance": f"KES {balance:,.2f}",
+                "balance": f"KES {balance:,.2f}",  # balance is Decimal
                 "payment_link": payment_link,
             }
 
@@ -302,7 +304,8 @@ class MpesaConfirmationAPIView(MpesaBaseView):
             transaction_id = data.get("TransID")
             account_number = data.get("BillRefNumber")
             phone = data.get("MSISDN")
-            amount = float(data.get("TransAmount"))
+            # Convert to Decimal for consistent type handling
+            amount = Decimal(str(data.get("TransAmount")))
 
             # Parse transaction time with timezone awareness
             try:
@@ -331,7 +334,7 @@ class MpesaConfirmationAPIView(MpesaBaseView):
             transaction = MpesaTransaction.objects.create(
                 transaction_id=transaction_id,
                 phone_number=phone,
-                amount=amount,
+                amount=amount,  # Now using Decimal
                 account_number=account_number,
                 transaction_date=transaction_date,
             )
@@ -363,7 +366,7 @@ class MpesaConfirmationAPIView(MpesaBaseView):
                 )
 
             return Response(
-                {"ResultCode": 0, "ResultDesc": "Success"}, status=status.HTTP_200_OK
+                {"Result Code": 0, "ResultDesc": "Success"}, status=status.HTTP_200_OK
             )
 
         except Exception as e:

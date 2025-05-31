@@ -31,6 +31,7 @@ pycparser==2.22
 PyJWT==2.10.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
+pytz==2025.2
 redis==5.2.1
 reportlab==4.3.0
 requests==2.32.3

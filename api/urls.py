@@ -76,27 +76,27 @@ urlpatterns = [
         name="communication-history",
     ),
     path(
-        "mpesa/validation/",
+        "payment/validation/",
         mpesa_views.MpesaValidationAPIView.as_view(),
         name="mpesa_validation",
     ),
     path(
-        "mpesa/confirmation/",
+        "payment/confirmation/",
         mpesa_views.MpesaConfirmationAPIView.as_view(),
         name="mpesa_confirmation",
     ),
     path(
-        "mpesa/register-urls/",
+        "payment/register-urls/",
         mpesa_views.MpesaRegisterCallbackURLView.as_view(),
         name="mpesa_register_urls",
     ),
     path(
-        "mpesa/simulate/",
+        "payment/simulate/",
         mpesa_views.MpesaSimulatePaymentView.as_view(),
         name="mpesa_simulate",
     ),
     path(
-        "mpesa/payment-receipt",
+        "payment/payment-receipt",
         mpesa_views.PaymentReceiptDataView.as_view(),
         name="payment-receipt-data",
     ),

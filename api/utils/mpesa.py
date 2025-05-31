@@ -28,7 +28,7 @@ class MpesaClient:
     def get_access_token(self):
         """Get OAuth access token from M-Pesa"""
         try:
-            url = "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
+            url = "https://api.safaricom.co.ke/oauth/v2/generate?grant_type=client_credentials"
 
             auth = base64.b64encode(
                 f"{self.consumer_key}:{self.consumer_secret}".encode("utf-8")
@@ -81,7 +81,7 @@ class MpesaClient:
             print("this is access token", access_token)
 
             url = (
-                f"{self.api_url}/mpesa/c2b/v1/registerurl?grant_type=client_credentials"
+                f"{self.api_url}/mpesa/c2b/v2/registerurl?grant_type=client_credentials"
             )
             headers = {
                 "Authorization": f"Bearer {access_token}",
@@ -118,7 +118,7 @@ class MpesaClient:
             if not self.access_token:
                 self.get_access_token()
 
-            url = f"{self.api_url}/mpesa/c2b/v1/simulate"
+            url = f"{self.api_url}/mpesa/c2b/v2/simulate"
             headers = {
                 "Authorization": f"Bearer {self.access_token}",
                 "Content-Type": "application/json",

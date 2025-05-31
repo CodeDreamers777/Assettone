@@ -17,6 +17,7 @@ from .models import (
     LeaseStatus,
     MaintenanceRequest,
     MaintenancePriority,
+    RentPeriodStatus,
     ExpenseCategory,
     Expense,
     CommunicationHistory,
@@ -302,6 +303,9 @@ class UnitSerializer(serializers.ModelSerializer):
     rent_payment_status = serializers.SerializerMethodField()
     tenant_id = serializers.UUIDField(write_only=True, required=False)
 
+    # Water billing fields - add these as read-only for display
+    current_water_bill = serializers.SerializerMethodField()
+
     class Meta:
         model = Unit
         fields = [
@@ -315,17 +319,26 @@ class UnitSerializer(serializers.ModelSerializer):
             "floor",
             "square_footage",
             "is_occupied",
+            # Water billing fields
+            "water_units_used",
+            "water_price_per_unit",
+            "water_bill_last_updated",
+            "current_water_bill",  # Calculated field
             "created_at",
             "updated_at",
-            "current_lease",  # New field
-            "rent_payment_status",  # New field
+            "current_lease",
+            "rent_payment_status",
             "tenant_id",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at", "current_water_bill"]
 
     def create(self, validated_data):
         tenant_id = validated_data.pop("tenant_id", None)
         return create_occupied_unit(self, validated_data, tenant_id)
+
+    def get_current_water_bill(self, obj):
+        """Get the calculated current water bill amount"""
+        return float(obj.get_current_water_bill())
 
     def get_current_lease(self, obj):
         """
@@ -354,7 +367,7 @@ class UnitSerializer(serializers.ModelSerializer):
 
     def get_rent_payment_status(self, obj):
         """
-        Calculate rent payment status for the current lease
+        Calculate rent payment status for the current lease including water bill
         """
         current_lease = Lease.objects.filter(
             unit=obj, status=LeaseStatus.ACTIVE
@@ -363,64 +376,104 @@ class UnitSerializer(serializers.ModelSerializer):
         if not current_lease:
             return None
 
-        # Determine current payment period
+        # Get current rent period
         current_date = timezone.now().date()
-        payment_period = current_lease.payment_period
+        current_month_start = current_date.replace(day=1)
 
-        # Calculate rent amount based on payment period
-        if payment_period == PaymentPeriod.MONTHLY:
-            rent_amount = current_lease.monthly_rent
-            period_start = current_date.replace(day=1)
-            period_end = (period_start + timezone.timedelta(days=32)).replace(
-                day=1
-            ) - timezone.timedelta(days=1)
-        elif payment_period == PaymentPeriod.BIMONTHLY:
-            rent_amount = current_lease.monthly_rent * 2
-            period_start = current_date.replace(day=1)
-            period_end = (period_start + timezone.timedelta(days=62)).replace(
-                day=1
-            ) - timezone.timedelta(days=1)
-        elif payment_period == PaymentPeriod.HALF_YEARLY:
-            rent_amount = current_lease.monthly_rent * 6
-            period_start = current_lease.start_date
-            period_end = period_start + timezone.timedelta(days=180)
-        elif payment_period == PaymentPeriod.YEARLY:
-            rent_amount = current_lease.monthly_rent * 12
-            period_start = current_lease.start_date
-            period_end = period_start + timezone.timedelta(days=365)
-
-        # Retrieve payments for the current period
-        payments = RentPayment.objects.filter(
+        # Try to get current rent period from RentPeriodStatus
+        rent_period = RentPeriodStatus.objects.filter(
             lease=current_lease,
-            payment_date__gte=period_start,
-            payment_date__lte=period_end,
-        )
+            period_start_date__lte=current_date,
+            period_end_date__gte=current_date,
+        ).first()
 
-        # Calculate total payments
-        total_payments = sum(payment.amount for payment in payments)
+        if rent_period:
+            # Use data from RentPeriodStatus which includes water bill
+            total_due = float(rent_period.get_total_amount_due())
+            total_paid = float(rent_period.amount_paid)
+            remaining_balance = total_due - total_paid
 
-        # Calculate remaining balance
-        remaining_balance = rent_amount - total_payments
+            return {
+                "total_rent": float(rent_period.amount_due),
+                "water_bill": float(rent_period.water_bill_amount),
+                "water_units_used": float(rent_period.water_units_used),
+                "total_due": total_due,  # rent + water bill
+                "total_paid": total_paid,
+                "remaining_balance": remaining_balance,
+                "payment_status": (
+                    "PAID_IN_FULL"
+                    if remaining_balance <= 0
+                    else "PARTIALLY_PAID"
+                    if total_paid > 0
+                    else "NOT_PAID"
+                ),
+                "payment_period": rent_period.lease.payment_period,
+                "period_start": rent_period.period_start_date,
+                "period_end": rent_period.period_end_date,
+            }
+        else:
+            # Fallback to manual calculation (for backwards compatibility)
+            payment_period = current_lease.payment_period
 
-        return {
-            "total_rent": float(rent_amount),
-            "total_paid": float(total_payments),
-            "remaining_balance": float(remaining_balance),
-            "payment_status": (
-                "PAID_IN_FULL"
-                if remaining_balance <= 0
-                else "PARTIALLY_PAID"
-                if total_payments > 0
-                else "NOT_PAID"
-            ),
-            "payment_period": payment_period,
-            "period_start": period_start,
-            "period_end": period_end,
-        }
+            # Calculate rent amount based on payment period
+            if payment_period == PaymentPeriod.MONTHLY:
+                rent_amount = current_lease.monthly_rent
+                period_start = current_date.replace(day=1)
+                period_end = (period_start + timezone.timedelta(days=32)).replace(
+                    day=1
+                ) - timezone.timedelta(days=1)
+            elif payment_period == PaymentPeriod.BIMONTHLY:
+                rent_amount = current_lease.monthly_rent * 2
+                period_start = current_date.replace(day=1)
+                period_end = (period_start + timezone.timedelta(days=62)).replace(
+                    day=1
+                ) - timezone.timedelta(days=1)
+            elif payment_period == PaymentPeriod.HALF_YEARLY:
+                rent_amount = current_lease.monthly_rent * 6
+                period_start = current_lease.start_date
+                period_end = period_start + timezone.timedelta(days=180)
+            elif payment_period == PaymentPeriod.YEARLY:
+                rent_amount = current_lease.monthly_rent * 12
+                period_start = current_lease.start_date
+                period_end = period_start + timezone.timedelta(days=365)
+
+            # Get current water bill
+            water_bill = float(obj.get_current_water_bill())
+            total_due = float(rent_amount) + water_bill
+
+            # Retrieve payments for the current period
+            payments = RentPayment.objects.filter(
+                lease=current_lease,
+                payment_date__gte=period_start,
+                payment_date__lte=period_end,
+            )
+
+            # Calculate total payments
+            total_payments = sum(float(payment.amount) for payment in payments)
+            remaining_balance = total_due - total_payments
+
+            return {
+                "total_rent": float(rent_amount),
+                "water_bill": water_bill,
+                "water_units_used": float(obj.water_units_used),
+                "total_due": total_due,  # rent + water bill
+                "total_paid": total_payments,
+                "remaining_balance": remaining_balance,
+                "payment_status": (
+                    "PAID_IN_FULL"
+                    if remaining_balance <= 0
+                    else "PARTIALLY_PAID"
+                    if total_payments > 0
+                    else "NOT_PAID"
+                ),
+                "payment_period": payment_period,
+                "period_start": period_start,
+                "period_end": period_end,
+            }
 
     def validate(self, data):
         """
-        Additional validation for unit data
+        Additional validation for unit data including water billing
         """
         # Validate custom unit type
         unit_type = data.get("unit_type", UnitType.STUDIO)
@@ -438,6 +491,21 @@ class UnitSerializer(serializers.ModelSerializer):
         if rent is not None and rent <= 0:
             raise serializers.ValidationError(
                 {"rent": "Rent must be a positive number"}
+            )
+
+        # Validate water billing fields
+        water_units = data.get("water_units_used")
+        if water_units is not None and water_units < 0:
+            raise serializers.ValidationError(
+                {"water_units_used": "Water units must be a positive number"}
+            )
+
+        water_price = data.get("water_price_per_unit")
+        if water_price is not None and water_price < 0:
+            raise serializers.ValidationError(
+                {
+                    "water_price_per_unit": "Water price per unit must be a positive number"
+                }
             )
 
         return data

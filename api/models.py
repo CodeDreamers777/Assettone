@@ -243,6 +243,19 @@ class Unit(models.Model):
     # Occupancy status
     is_occupied = models.BooleanField(default=False)
 
+    water_units_used = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=2.00,
+        help_text="Water units consumed this month (defaults to 2 units)",
+    )
+    water_price_per_unit = models.DecimalField(
+        max_digits=8, decimal_places=2, default=0.00, help_text="Price per water unit"
+    )
+    water_bill_last_updated = models.DateField(
+        null=True, blank=True, help_text="Date when water bill was last updated"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -273,6 +286,84 @@ class Unit(models.Model):
             raise ValidationError(
                 "Custom unit type name is required when unit type is CUSTOM"
             )
+
+    def get_current_water_bill(self):
+        """Calculate current water bill amount"""
+        from decimal import Decimal
+
+        water_units = Decimal(str(self.water_units_used))
+        price_per_unit = Decimal(str(self.water_price_per_unit))
+        return water_units * price_per_unit
+
+    def reset_water_units_if_needed(self):
+        """Reset water units to default if not updated this month"""
+        from django.utils import timezone
+
+        today = timezone.now().date()
+        current_month_start = today.replace(day=1)
+
+        # If water bill hasn't been updated this month, reset to default
+        if (
+            not self.water_bill_last_updated
+            or self.water_bill_last_updated < current_month_start
+        ):
+            from decimal import Decimal
+
+            self.water_units_used = Decimal("2.00")
+            return True
+        return False
+
+
+class WaterBillUpdate(models.Model):
+    """Track monthly water bill updates for units"""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    unit = models.ForeignKey(
+        Unit, on_delete=models.CASCADE, related_name="water_updates"
+    )
+
+    # Water consumption details
+    units_used = models.DecimalField(
+        max_digits=8, decimal_places=2, help_text="Water units consumed"
+    )
+    price_per_unit = models.DecimalField(
+        max_digits=8, decimal_places=2, help_text="Price per water unit"
+    )
+    total_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, help_text="Total water bill amount"
+    )
+
+    # Period details
+    billing_month = models.DateField(help_text="Month for this water bill")
+
+    # Metadata
+    updated_by = models.ForeignKey(
+        Profile, on_delete=models.SET_NULL, null=True, related_name="water_bill_updates"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("unit", "billing_month")
+
+    def save(self, *args, **kwargs):
+        """Override save to update unit's current water bill"""
+        from decimal import Decimal
+
+        units = Decimal(str(self.units_used))
+        price = Decimal(str(self.price_per_unit))
+        self.total_amount = units * price
+
+        # Update the unit's current water bill
+        self.unit.water_units_used = self.units_used
+        self.unit.water_price_per_unit = self.price_per_unit
+        self.unit.water_bill_last_updated = self.billing_month
+        self.unit.save()
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Water Bill - {self.unit} - {self.billing_month.strftime('%B %Y')}"
 
 
 class TenantStatus(models.TextChoices):
@@ -561,6 +652,14 @@ class Lease(models.Model):
             end_date = next_month.replace(day=1) - relativedelta(days=1)
             amount_due = self.monthly_rent
 
+        # Get water bill information
+        unit_reset_needed = self.unit.reset_water_units_if_needed()
+        if unit_reset_needed:
+            self.unit.save()
+
+        water_bill_amount = self.unit.get_current_water_bill()
+        water_units_used = self.unit.water_units_used
+
         # Check if a rent period already exists for this lease and date range
         from .models import RentPeriodStatus
 
@@ -576,6 +675,8 @@ class Lease(models.Model):
                 amount_due=amount_due,
                 amount_paid=0,
                 is_paid=False,
+                water_bill_amount=water_bill_amount,
+                water_units_used=water_units_used,
             )
 
     def __str__(self):
@@ -833,6 +934,19 @@ class RentPeriodStatus(models.Model):
     amount_due = models.DecimalField(max_digits=10, decimal_places=2)
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     is_paid = models.BooleanField(default=False)
+    # Water bill for this period
+    water_bill_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        help_text="Water bill amount for this rental period",
+    )
+    water_units_used = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=2.00,
+        help_text="Water units used during this period",
+    )
 
     class Meta:
         unique_together = ("lease", "period_start_date", "period_end_date")
@@ -840,8 +954,18 @@ class RentPeriodStatus(models.Model):
     def __str__(self):
         return f"{self.lease} - {self.period_start_date} to {self.period_end_date}"
 
+    def get_total_amount_due(self):
+        """Get total amount due including rent and water bill"""
+        from decimal import Decimal
+
+        rent_amount = Decimal(str(self.amount_due))
+        water_amount = Decimal(str(self.water_bill_amount))
+        return rent_amount + water_amount
+
     def update_payment_status(self):
-        self.is_paid = self.amount_paid >= self.amount_due
+        """Update payment status based on total amount due"""
+        total_due = self.get_total_amount_due()
+        self.is_paid = self.amount_paid >= total_due
         self.save()
 
 

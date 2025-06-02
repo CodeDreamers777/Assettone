@@ -25,7 +25,7 @@ interface PaymentData {
 
 export default function PaymentReceiptPage() {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null); // Fix: Specify string type
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
 
@@ -165,7 +165,8 @@ export default function PaymentReceiptPage() {
 
   return (
     <>
-      <style jsx global>{`
+      {/* Fix: Remove jsx prop from style element */}
+      <style>{`
         @media print {
           body {
             background: white !important;

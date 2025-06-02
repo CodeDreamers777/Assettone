@@ -207,10 +207,6 @@ export function LeaseDetailsModal({
     onClose();
   };
 
-  const handleCancel = () => {
-    handleClose();
-  };
-
   // Prevent the dialog from managing open state itself - copied from PayRentModal
   const handleOpenChange = (open: boolean) => {
     console.log("LeaseDetailsModal: handleOpenChange called with:", open);

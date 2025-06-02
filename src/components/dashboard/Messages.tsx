@@ -22,7 +22,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import CommunicationHistory from "./Communications";
 
 // API base URL constant - change this one value to switch environments
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = "https://assettone-rental-management.onrender.com";
 // Alternate URL for production/local switching:
 // const API_BASE_URL = "http://localhost:3000"; // Local development example
 

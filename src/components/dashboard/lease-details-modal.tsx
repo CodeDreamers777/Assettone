@@ -124,13 +124,58 @@ export function LeaseDetailsModal({
     }
   }, [isOpen, tenantId, unitId]);
 
+  // Reset state when modal opens/closes - similar to PayRentModal
+  useEffect(() => {
+    if (isOpen) {
+      setIsLoading(true);
+      setLeaseData(null);
+    }
+  }, [isOpen]);
+
+  // Force cleanup when component unmounts or modal closes - copied from PayRentModal
+  useEffect(() => {
+    const cleanup = () => {
+      // Force reset all possible body styles that might interfere
+      document.body.style.pointerEvents = "";
+      document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.bottom = "";
+      document.body.classList.remove("overflow-hidden");
+
+      // Also reset on document and html
+      document.documentElement.style.overflow = "";
+      document.documentElement.style.pointerEvents = "";
+    };
+
+    if (!isOpen) {
+      // Small delay to ensure dialog cleanup is complete
+      const timeoutId = setTimeout(cleanup, 100);
+      return () => clearTimeout(timeoutId);
+    }
+
+    // Cleanup on unmount
+    return cleanup;
+  }, [isOpen]);
+
+  // Additional cleanup on every render when closed - extra safety
+  useEffect(() => {
+    if (!isOpen) {
+      document.body.style.pointerEvents = "";
+      document.body.style.overflow = "";
+      document.body.classList.remove("overflow-hidden");
+    }
+  });
+
   const fetchLeaseDetails = async () => {
     setIsLoading(true);
     try {
       const accessToken = localStorage.getItem("accessToken");
       const id = type === "tenant" ? tenantId : unitId;
       const response = await fetch(
-        `http://127.0.0.1:8000/api/v1/leases/get_lease_details/?type=${type}&id=${id}`,
+        `https://assettone-rental-management.onrender.com/api/v1/leases/get_lease_details/?type=${type}&id=${id}`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -144,6 +189,33 @@ export function LeaseDetailsModal({
       console.error("Error fetching lease details:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Fixed close handler - copied from PayRentModal pattern
+  const handleClose = () => {
+    console.log("LeaseDetailsModal: handleClose called");
+    if (isLoading) return;
+
+    // Force immediate cleanup
+    document.body.style.pointerEvents = "";
+    document.body.style.overflow = "";
+    document.body.classList.remove("overflow-hidden");
+    document.documentElement.style.overflow = "";
+
+    console.log("LeaseDetailsModal: cleanup complete, calling onClose");
+    onClose();
+  };
+
+  const handleCancel = () => {
+    handleClose();
+  };
+
+  // Prevent the dialog from managing open state itself - copied from PayRentModal
+  const handleOpenChange = (open: boolean) => {
+    console.log("LeaseDetailsModal: handleOpenChange called with:", open);
+    if (!open) {
+      handleClose();
     }
   };
 
@@ -234,8 +306,11 @@ export function LeaseDetailsModal({
   );
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className="max-w-4xl max-h-[90vh] p-0"
+        onPointerDownOutside={handleClose}
+      >
         <DialogHeader className="px-6 py-4 bg-green-50">
           <DialogTitle className="text-2xl font-bold text-green-800">
             {type === "tenant" ? "Tenant" : "Unit"} Lease Details

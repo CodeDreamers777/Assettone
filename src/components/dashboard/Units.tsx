@@ -34,11 +34,13 @@ import {
   FileText,
   DollarSign,
   Bell,
+  Droplets,
 } from "lucide-react";
 import { AddUnitModal } from "./add-unit-modal";
 import { EditUnitModal } from "./edit-unit-modal";
 import { PayRentModal } from "./pay-rent-modal";
 import { LeaseDetailsModal } from "./lease-details-modal";
+import { WaterBillModal } from "./water-bill-modal.tsx";
 
 // Payment Status Enum and Labels
 enum PaymentStatus {
@@ -109,6 +111,9 @@ interface Lease {
 
 interface RentPaymentStatus {
   total_rent: number;
+  water_bill: number;
+  water_units_used: number;
+  total_due: number;
   total_paid: number;
   remaining_balance: number;
   payment_status: string;
@@ -128,6 +133,10 @@ export interface Unit {
   floor: string;
   square_footage: string;
   is_occupied: boolean;
+  water_units_used: string;
+  water_price_per_unit: string;
+  water_bill_last_updated: string | null;
+  current_water_bill: number;
   created_at: string;
   updated_at: string;
   current_lease: Lease | null;
@@ -165,6 +174,9 @@ export function Units() {
   const [selectedLeaseId, setSelectedLeaseId] = useState<string | null>(null);
   const [isLeaseModalOpen, setIsLeaseModalOpen] = useState(false);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const [isWaterBillModalOpen, setIsWaterBillModalOpen] = useState(false);
+  const [selectedUnitForWaterBill, setSelectedUnitForWaterBill] =
+    useState<Unit | null>(null);
 
   useEffect(() => {
     fetchProperties();
@@ -182,7 +194,7 @@ export function Units() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.get(
-        "http://127.0.0.1:8000/api/v1/properties/",
+        "https://assettone-rental-management.onrender.com/api/v1/properties/",
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -210,6 +222,7 @@ export function Units() {
       setProperties([]);
     }
   };
+
   const handleEdit = (unit: Unit) => {
     setEditingUnit(unit);
     setIsEditModalOpen(true);
@@ -220,7 +233,7 @@ export function Units() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.get(
-        `http://127.0.0.1:8000/api/v1/properties/${propertyId}/units/`,
+        `https://assettone-rental-management.onrender.com/api/v1/properties/${propertyId}/units/`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -250,11 +263,57 @@ export function Units() {
       units.map((unit) => (unit.id === updatedUnit.id ? updatedUnit : unit)),
     );
   };
+
+  const handleUpdateWaterBill = async (
+    unitId: string,
+    waterUnits: number,
+    pricePerUnit: number,
+  ) => {
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      await axios.patch(
+        `https://assettone-rental-management.onrender.com/api/v1/units/${unitId}/`,
+        {
+          water_units_used: waterUnits,
+          water_price_per_unit: pricePerUnit,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      // Refresh units after update
+      if (selectedProperty) {
+        await fetchUnits(selectedProperty.id);
+      }
+
+      toast({
+        title: "Success",
+        description: "Water bill updated successfully.",
+      });
+    } catch (error) {
+      console.error("Error updating water bill:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update water bill. Please try again.",
+        variant: "destructive",
+      });
+      throw error; // Re-throw to let modal handle it
+    }
+  };
+
+  const handleWaterBill = (unit: Unit) => {
+    setSelectedUnitForWaterBill(unit);
+    setIsWaterBillModalOpen(true);
+  };
+
   const handleSendReminder = async (unitId: string) => {
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.post(
-        `http://127.0.0.1:8000/api/v1/rental-notices/${unitId}/send_notice/`,
+        `https://assettone-rental-management.onrender.com/api/v1/rental-notices/${unitId}/send_notice/`,
         {},
         {
           headers: {
@@ -280,11 +339,14 @@ export function Units() {
   const handleDelete = async (id: string) => {
     try {
       const accessToken = localStorage.getItem("accessToken");
-      await axios.delete(`http://127.0.0.1:8000/api/v1/units/${id}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
+      await axios.delete(
+        `https://assettone-rental-management.onrender.com/api/v1/units/${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         },
-      });
+      );
       setUnits(units.filter((unit) => unit.id !== id));
       toast({
         title: "Success",
@@ -300,15 +362,63 @@ export function Units() {
     }
   };
 
+  const handlePayRent = (leaseId: string) => {
+    setSelectedLeaseId(leaseId);
+    setIsPayRentModalOpen(true);
+  };
+
   const handleLease = (id: string) => {
     setSelectedUnitId(id);
     setIsLeaseModalOpen(true);
   };
 
-  const handlePayRent = (leaseId: string) => {
-    setSelectedLeaseId(leaseId);
-    setIsPayRentModalOpen(true);
+  // Make sure your PayRentModal call includes the onPaymentComplete callback:
+  const handlePaymentComplete = async () => {
+    try {
+      if (selectedProperty) {
+        await fetchUnits(selectedProperty.id);
+      }
+    } catch (error) {
+      console.error("Error refreshing units:", error);
+    }
   };
+
+  // FIXED: Simple modal close handlers - no setTimeout, no event manipulation
+  const closeCreateModal = () => {
+    setIsCreateModalOpen(false);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingUnit(null);
+  };
+
+  const closePayRentModal = () => {
+    // Force cleanup just in case
+    document.body.style.pointerEvents = "";
+    document.body.style.overflow = "";
+    document.body.classList.remove("overflow-hidden");
+
+    setIsPayRentModalOpen(false);
+    setSelectedLeaseId(null);
+  };
+
+  const closeLeaseModal = () => {
+    // Force cleanup just in case
+    document.body.style.pointerEvents = "";
+    document.body.style.overflow = "";
+    document.body.classList.remove("overflow-hidden");
+
+    setIsLeaseModalOpen(false);
+    setSelectedUnitId(null);
+  };
+
+  const closeWaterBillModal = () => {
+    setIsWaterBillModalOpen(false);
+    setSelectedUnitForWaterBill(null);
+  };
+
+  // FIXED: Remove the pr
 
   if (isLoading) {
     return (
@@ -375,6 +485,8 @@ export function Units() {
                 <TableHead>Status</TableHead>
                 <TableHead>Lease</TableHead>
                 <TableHead>Rent Payment</TableHead>
+                <TableHead>Water Bill</TableHead>
+
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -438,6 +550,14 @@ export function Units() {
                           <span className="text-gray-500">N/A</span>
                         )}
                       </TableCell>
+                      <TableCell>
+                        KES {unit.current_water_bill?.toFixed(2) || "0.00"}
+                        <br />
+                        <span className="text-xs text-gray-500">
+                          Units: {unit.water_units_used} @ KES{" "}
+                          {unit.water_price_per_unit}/unit
+                        </span>
+                      </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -474,6 +594,12 @@ export function Units() {
                               Pay Rent
                             </DropdownMenuItem>
                             <DropdownMenuItem
+                              onClick={() => handleWaterBill(unit)}
+                            >
+                              <Droplets className="mr-2 h-4 w-4" />
+                              Water Bill
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                               onClick={() => handleSendReminder(unit.id)}
                               disabled={
                                 !unit.current_lease ||
@@ -491,7 +617,7 @@ export function Units() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center">
+                    <TableCell colSpan={10} className="text-center">
                       No units found for this property.
                     </TableCell>
                   </TableRow>
@@ -510,33 +636,38 @@ export function Units() {
 
       <AddUnitModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={closeCreateModal}
         onCreateUnit={handleCreateUnit}
         selectedProperty={selectedProperty}
       />
 
       <EditUnitModal
         isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
+        onClose={closeEditModal}
         onUpdateUnit={handleUpdateUnit}
         editingUnit={editingUnit}
         setEditingUnit={setEditingUnit}
       />
+
       <PayRentModal
         isOpen={isPayRentModalOpen}
-        onClose={() => setIsPayRentModalOpen(false)}
+        onClose={closePayRentModal}
         leaseId={selectedLeaseId || ""}
-        onPaymentComplete={() => {
-          if (selectedProperty) {
-            fetchUnits(selectedProperty.id);
-          }
-        }}
+        onPaymentComplete={handlePaymentComplete}
       />
+
       <LeaseDetailsModal
         isOpen={isLeaseModalOpen}
-        onClose={() => setIsLeaseModalOpen(false)}
+        onClose={closeLeaseModal}
         unitId={selectedUnitId}
         type="unit"
+      />
+
+      <WaterBillModal
+        isOpen={isWaterBillModalOpen}
+        onClose={closeWaterBillModal}
+        unit={selectedUnitForWaterBill}
+        onUpdate={handleUpdateWaterBill}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -36,6 +36,18 @@ export function EditUnitModal({
   editingUnit,
   setEditingUnit,
 }: EditUnitModalProps) {
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Clean up when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsLoading(false);
+      // Ensure body styles are reset
+      document.body.style.pointerEvents = "";
+      document.body.style.overflow = "";
+    }
+  }, [isOpen]);
+
   const handleUpdateUnit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!editingUnit) return;
@@ -52,10 +64,11 @@ export function EditUnitModal({
       return;
     }
 
+    setIsLoading(true);
     try {
       const accessToken = localStorage.getItem("accessToken");
       const response = await axios.put(
-        `http://127.0.0.1:8000/api/v1/units/${editingUnit.id}/`, // Added trailing slash here
+        `https://assettone-rental-management.onrender.com/api/v1/units/${editingUnit.id}/`,
         editingUnit,
         {
           headers: {
@@ -78,11 +91,20 @@ export function EditUnitModal({
         description: "Failed to update unit. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Simple close handler - no event manipulation
+  const handleOpenChange = (open: boolean) => {
+    if (!open && !isLoading) {
+      onClose();
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Edit Unit</DialogTitle>
@@ -98,7 +120,7 @@ export function EditUnitModal({
               </Label>
               <Input
                 id="edit_unit_number"
-                value={editingUnit?.unit_number}
+                value={editingUnit?.unit_number || ""}
                 onChange={(e) =>
                   setEditingUnit({
                     ...editingUnit!,
@@ -106,6 +128,7 @@ export function EditUnitModal({
                   })
                 }
                 className="col-span-3"
+                disabled={isLoading}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -121,6 +144,7 @@ export function EditUnitModal({
                     custom_unit_type: value === UnitType.CUSTOM ? "" : null,
                   })
                 }
+                disabled={isLoading}
               >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Select unit type" />
@@ -151,6 +175,7 @@ export function EditUnitModal({
                     })
                   }
                   className="col-span-3"
+                  disabled={isLoading}
                 />
               </div>
             )}
@@ -161,11 +186,12 @@ export function EditUnitModal({
               <Input
                 id="edit_rent"
                 type="number"
-                value={editingUnit?.rent}
+                value={editingUnit?.rent || ""}
                 onChange={(e) =>
                   setEditingUnit({ ...editingUnit!, rent: e.target.value })
                 }
                 className="col-span-3"
+                disabled={isLoading}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -177,6 +203,7 @@ export function EditUnitModal({
                 onValueChange={(value: "MONTHLY" | "QUARTERLY" | "YEARLY") =>
                   setEditingUnit({ ...editingUnit!, payment_period: value })
                 }
+                disabled={isLoading}
               >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Select payment period" />
@@ -195,11 +222,12 @@ export function EditUnitModal({
               <Input
                 id="edit_floor"
                 type="number"
-                value={editingUnit?.floor}
+                value={editingUnit?.floor || ""}
                 onChange={(e) =>
                   setEditingUnit({ ...editingUnit!, floor: e.target.value })
                 }
                 className="col-span-3"
+                disabled={isLoading}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -214,6 +242,7 @@ export function EditUnitModal({
                     is_occupied: value === "true",
                   })
                 }
+                disabled={isLoading}
               >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Select occupancy status" />
@@ -225,9 +254,17 @@ export function EditUnitModal({
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button type="submit" className="w-full">
-              Save Changes
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </form>

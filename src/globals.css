@@ -75,3 +75,11 @@
 .recharts-tooltip-item {
   color: #666 !important;
 }
+
+.dialog-overlay {
+  pointer-events: auto !important;
+}
+
+body {
+  pointer-events: auto !important;
+}

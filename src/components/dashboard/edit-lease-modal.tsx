@@ -180,7 +180,7 @@ export function EditLeaseModal({
 
       const accessToken = localStorage.getItem("accessToken");
       const response = await fetch(
-        `http://127.0.0.1:8000/api/v1/leases/${lease.id}/`,
+        `https://assettone-rental-management.onrender.com/api/v1/leases/${lease.id}/`,
         {
           method: "PATCH", // Changed from PUT to PATCH
           headers: {

@@ -52,7 +52,7 @@ class PaymentLinkGenerator:
             # Convert to URL-safe base64
             token = base64.urlsafe_b64encode(encrypted_data).decode()
             # Generate the URL
-            payment_url = f"{self.frontend_url}/payment-receipt?token={token}"
+            payment_url = f"{self.frontend_url}/payments?token={token}"
             return payment_url
         except Exception as e:
             logger.exception(f"Error generating payment link: {str(e)}")

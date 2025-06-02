@@ -55,6 +55,15 @@ class MpesaBaseView(APIView):
             # Calculate balance - ensure all values are Decimal for consistent arithmetic
             balance = rent_period.amount_due - rent_period.amount_paid
 
+            # Get unit and water bill information
+            unit = lease.unit
+            current_water_bill = unit.get_current_water_bill()
+
+            # Check if water bill was reset this month
+            water_reset = unit.reset_water_units_if_needed()
+            if water_reset:
+                unit.save()
+
             # Generate payment data - convert Decimals to float for JSON serialization
             payment_data = {
                 "tenant_id": str(tenant.id),
@@ -72,6 +81,18 @@ class MpesaBaseView(APIView):
                 "total_paid": float(rent_period.amount_paid),
                 "balance": float(balance),
                 "is_paid": rent_period.is_paid,
+                # Water bill information
+                "water_units_used": float(unit.water_units_used),
+                "water_price_per_unit": float(unit.water_price_per_unit),
+                "water_bill_amount": float(current_water_bill),
+                "water_bill_last_updated": unit.water_bill_last_updated.strftime(
+                    "%Y-%m-%d"
+                )
+                if unit.water_bill_last_updated
+                else None,
+                # Unit details
+                "unit_rent": float(unit.rent),
+                "payment_period": unit.payment_period,
                 "timestamp": datetime.now().timestamp(),  # Add timestamp for link expiration
             }
 
@@ -90,16 +111,19 @@ class MpesaBaseView(APIView):
                 "unit_number": lease.unit.unit_number,
                 "period": f"{rent_period.period_start_date.strftime('%d %b %Y')} - {rent_period.period_end_date.strftime('%d %b %Y')}",
                 "balance": f"KES {balance:,.2f}",  # balance is Decimal
+                "water_bill": f"KES {current_water_bill:,.2f}",
                 "payment_link": payment_link,
             }
+            print(variables)
 
-            # Create a readable message text with payment link
+            # Create a readable message text with payment link including water bill info
             message = (
                 f"📩 Dear {variables['tenant_name']},\n\n"
                 f"We're pleased to confirm receipt of your payment of {variables['amount']} "
                 f"for *{variables['property_name']}* — Unit {variables['unit_number']}.\n\n"
                 f"🗓️ Rental Period: {variables['period']}\n"
-                f"💰 Balance: {variables['balance']}\n\n"
+                f"💧 Water Bill: {variables['water_bill']} ({unit.water_units_used} units @ KES {unit.water_price_per_unit}/unit)\n"
+                f"💰 Remaining Balance: {variables['balance']}\n\n"
                 f"📱 View your detailed receipt here:\n{variables['payment_link']}\n\n"
                 f"Thank you for your payment and continued tenancy.\n\n"
                 f"📌 This is an automated receipt. No further action is required."
@@ -463,54 +487,90 @@ class MpesaConfirmationAPIView(MpesaBaseView):
                             day=1
                         )  # First day of current month
 
-                        # Calculate end date based on payment period
+                        # Calculate end date and base rent amount based on payment period
                         if lease.payment_period == PaymentPeriod.MONTHLY:
-                            # Last day of current month
                             next_month = period_start_date + relativedelta(months=1)
                             period_end_date = next_month - relativedelta(days=1)
-                            amount_due = lease.monthly_rent
+                            base_amount_due = lease.monthly_rent
                         elif lease.payment_period == PaymentPeriod.BIMONTHLY:
                             period_end_date = (
                                 period_start_date
                                 + relativedelta(months=2)
                                 - relativedelta(days=1)
                             )
-                            amount_due = lease.monthly_rent * 2
+                            base_amount_due = lease.monthly_rent * 2
                         elif lease.payment_period == PaymentPeriod.HALF_YEARLY:
                             period_end_date = (
                                 period_start_date
                                 + relativedelta(months=6)
                                 - relativedelta(days=1)
                             )
-                            amount_due = lease.monthly_rent * 6
+                            base_amount_due = lease.monthly_rent * 6
                         elif lease.payment_period == PaymentPeriod.YEARLY:
                             period_end_date = (
                                 period_start_date
                                 + relativedelta(years=1)
                                 - relativedelta(days=1)
                             )
-                            amount_due = lease.monthly_rent * 12
+                            base_amount_due = lease.monthly_rent * 12
                         else:
                             # Default to monthly if unexpected payment period
                             next_month = period_start_date + relativedelta(months=1)
                             period_end_date = next_month - relativedelta(days=1)
-                            amount_due = lease.monthly_rent
+                            base_amount_due = lease.monthly_rent
 
-                        # Create the new rent period
-                        rent_period = RentPeriodStatus.objects.create(
-                            lease=lease,
-                            period_start_date=period_start_date,
-                            period_end_date=period_end_date,
-                            amount_due=amount_due,
-                            amount_paid=0,
-                            is_paid=False,
-                        )
+                            # Get water bill information for this period
+                            unit.reset_water_units_if_needed()
+                            water_bill_amount = unit.get_current_water_bill()
+                            water_units_used = unit.water_units_used
 
-                        logger.info(
-                            f"Created new rent period for lease {lease.id}: {period_start_date} to {period_end_date}"
-                        )
+                            # Create the new rent period with water bill included in amount_due
+                            rent_period = RentPeriodStatus.objects.create(
+                                lease=lease,
+                                period_start_date=period_start_date,
+                                period_end_date=period_end_date,
+                                amount_due=base_amount_due
+                                + water_bill_amount,  # Include water bill in main amount_due
+                                amount_paid=0,
+                                is_paid=False,
+                                water_bill_amount=water_bill_amount,  # Store separately for reporting
+                                water_units_used=water_units_used,
+                            )
+                    # If rent period exists, ensure it includes water bill in amount_due
+                    else:
+                        # Get current water bill for existing period
+                        unit.reset_water_units_if_needed()
+                        water_bill_amount = unit.get_current_water_bill()
+                        water_units_used = unit.water_units_used
 
-                    # Now we should have a rent period - proceed with payment
+                        # Calculate what the base rent should be (without water)
+                        if lease.payment_period == PaymentPeriod.MONTHLY:
+                            base_rent = lease.monthly_rent
+                        elif lease.payment_period == PaymentPeriod.BIMONTHLY:
+                            base_rent = lease.monthly_rent * 2
+                        elif lease.payment_period == PaymentPeriod.HALF_YEARLY:
+                            base_rent = lease.monthly_rent * 6
+                        elif lease.payment_period == PaymentPeriod.YEARLY:
+                            base_rent = lease.monthly_rent * 12
+                        else:
+                            base_rent = lease.monthly_rent
+
+                        # Update the rent period to ensure it includes water bill in amount_due
+                        expected_total_due = base_rent + water_bill_amount
+
+                        # Only update if the current amount_due doesn't include water bill
+                        if rent_period.amount_due != expected_total_due:
+                            rent_period.amount_due = expected_total_due
+                            rent_period.water_bill_amount = water_bill_amount
+                            rent_period.water_units_used = water_units_used
+                            rent_period.save()
+
+                            logger.info(
+                                f"Updated rent period {rent_period.id} - Base rent: {base_rent}, "
+                                f"Water bill: {water_bill_amount}, Total due: {expected_total_due}"
+                            )
+
+                    # Now process the payment using the corrected update_payment_status method
                     if rent_period:
                         # Update the rent period with payment
                         rent_period.amount_paid += transaction.amount

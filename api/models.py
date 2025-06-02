@@ -627,30 +627,25 @@ class Lease(models.Model):
         else:
             start_date = current_month_start
 
-        # Calculate amount due based on payment period
+        # Calculate base rent amount and end date based on payment period
         if self.payment_period == PaymentPeriod.MONTHLY:
-            # Last day of current month
-            next_month = start_date.replace(day=28) + relativedelta(
-                days=4
-            )  # Safely get to next month
-            end_date = next_month.replace(day=1) - relativedelta(
-                days=1
-            )  # Last day of month
-            amount_due = self.monthly_rent
-        elif self.payment_period == PaymentPeriod.QUARTERLY:
-            end_date = start_date + relativedelta(months=3) - relativedelta(days=1)
-            amount_due = self.monthly_rent * 3
-        elif self.payment_period == PaymentPeriod.SEMI_ANNUALLY:
+            next_month = start_date.replace(day=28) + relativedelta(days=4)
+            end_date = next_month.replace(day=1) - relativedelta(days=1)
+            base_rent_amount = self.monthly_rent
+        elif self.payment_period == PaymentPeriod.BIMONTHLY:
+            end_date = start_date + relativedelta(months=2) - relativedelta(days=1)
+            base_rent_amount = self.monthly_rent * 2
+        elif self.payment_period == PaymentPeriod.HALF_YEARLY:
             end_date = start_date + relativedelta(months=6) - relativedelta(days=1)
-            amount_due = self.monthly_rent * 6
-        elif self.payment_period == PaymentPeriod.ANNUALLY:
+            base_rent_amount = self.monthly_rent * 6
+        elif self.payment_period == PaymentPeriod.YEARLY:
             end_date = start_date + relativedelta(years=1) - relativedelta(days=1)
-            amount_due = self.monthly_rent * 12
+            base_rent_amount = self.monthly_rent * 12
         else:
             # Default to monthly
             next_month = start_date.replace(day=28) + relativedelta(days=4)
             end_date = next_month.replace(day=1) - relativedelta(days=1)
-            amount_due = self.monthly_rent
+            base_rent_amount = self.monthly_rent
 
         # Get water bill information
         unit_reset_needed = self.unit.reset_water_units_if_needed()
@@ -659,6 +654,9 @@ class Lease(models.Model):
 
         water_bill_amount = self.unit.get_current_water_bill()
         water_units_used = self.unit.water_units_used
+
+        # Calculate total amount due (rent + water bill)
+        total_amount_due = base_rent_amount + water_bill_amount
 
         # Check if a rent period already exists for this lease and date range
         from .models import RentPeriodStatus
@@ -672,7 +670,7 @@ class Lease(models.Model):
                 lease=self,
                 period_start_date=start_date,
                 period_end_date=end_date,
-                amount_due=amount_due,
+                amount_due=total_amount_due,  # This now includes water bill
                 amount_paid=0,
                 is_paid=False,
                 water_bill_amount=water_bill_amount,
@@ -963,9 +961,14 @@ class RentPeriodStatus(models.Model):
         return rent_amount + water_amount
 
     def update_payment_status(self):
-        """Update payment status based on total amount due"""
+        """Update payment status based on total amount due (rent + water bill)"""
+        from decimal import Decimal
+
+        # Get total amount due including water bill
         total_due = self.get_total_amount_due()
-        self.is_paid = self.amount_paid >= total_due
+        amount_paid = Decimal(str(self.amount_paid))
+
+        self.is_paid = amount_paid >= total_due
         self.save()
 
 

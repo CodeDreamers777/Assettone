@@ -33,8 +33,19 @@ export const AuthContext = createContext<AuthContextType>({
   logout: () => {},
 });
 
+// Navigation component props interface
+interface NavigationProps {
+  isAuthenticated: boolean;
+  isMenuOpen: boolean;
+  setIsMenuOpen: (value: boolean) => void;
+}
+
 // Navigation component to use useLocation hook
-function Navigation({ isAuthenticated, isMenuOpen, setIsMenuOpen }) {
+function Navigation({
+  isAuthenticated,
+  isMenuOpen,
+  setIsMenuOpen,
+}: NavigationProps) {
   const location = useLocation();
 
   // Show navbar when user is not authenticated OR when on payments page

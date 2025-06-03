@@ -21,42 +21,90 @@ interface PaymentData {
   water_bill_last_updated?: string;
   unit_rent?: number;
   payment_period?: string;
+  timestamp?: number;
+}
+
+interface ReceiptMeta {
+  accessed_count: number;
+  created_at: string;
+  expires_at: string;
+}
+
+interface ApiResponse {
+  success: boolean;
+  data: PaymentData;
+  meta: ReceiptMeta;
+}
+
+interface ApiError {
+  error: string;
+  message: string;
+  expired_at?: string;
 }
 
 export default function PaymentReceiptPage() {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null); // Fix: Specify string type
+  const [error, setError] = useState<string | null>(null);
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
+  const [receiptMeta, setReceiptMeta] = useState<ReceiptMeta | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
 
   useEffect(() => {
     const fetchPaymentData = async () => {
-      // Get token from URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const token = urlParams.get("token");
+      // Get code from URL path - expect URL like /api/receipt/ABC123
+      const pathParts = window.location.pathname.split("/");
+      const code = pathParts[pathParts.length - 1];
 
-      if (!token) {
-        setError("Invalid payment link. No token provided.");
+      if (!code || code.length !== 6) {
+        setError(
+          "Invalid receipt link. The receipt code is missing or invalid.",
+        );
         setLoading(false);
         return;
       }
 
       try {
-        // Fetch from API endpoint
+        // Fetch from new API endpoint structure
         const response = await fetch(
-          `https://assettone-rental-management.onrender.com/api/v1/payment/payment-receipt?token=${token}`,
+          `https://assettone-rental-management.onrender.com/api/receipt/${code}/`,
         );
 
+        const data = await response.json();
+
         if (!response.ok) {
-          throw new Error("Failed to fetch payment data");
+          // Handle different error types from backend
+          const errorData = data as ApiError;
+
+          if (response.status === 404) {
+            setError(
+              "Receipt not found. The receipt link you are looking for does not exist or may have been removed.",
+            );
+          } else if (response.status === 410) {
+            setError(
+              `This receipt link has expired${errorData.expired_at ? ` on ${new Date(errorData.expired_at).toLocaleDateString()}` : ""}. Please contact support for assistance.`,
+            );
+          } else if (response.status === 400) {
+            setError(
+              "Invalid receipt code format. Receipt code must be 6 characters long.",
+            );
+          } else {
+            setError(
+              errorData.message ||
+                "Unable to load payment details. Please try again later.",
+            );
+          }
+          setLoading(false);
+          return;
         }
 
-        const data = await response.json();
-        setPaymentData(data);
+        // Handle successful response
+        const successData = data as ApiResponse;
+        setPaymentData(successData.data);
+        setReceiptMeta(successData.meta);
       } catch (err) {
         console.error("Error fetching payment data:", err);
         setError(
-          "Unable to load payment details. The link may be expired or invalid.",
+          "Unable to connect to server. Please check your internet connection and try again.",
         );
       } finally {
         setLoading(false);
@@ -104,15 +152,23 @@ export default function PaymentReceiptPage() {
   };
 
   const handleShare = async () => {
-    if (navigator.share) {
+    if (navigator.share && paymentData) {
       try {
         await navigator.share({
           title: "Payment Receipt",
-          text: `Payment receipt for ${formatCurrency(paymentData?.amount_paid || 0)}`,
+          text: `Payment receipt for ${formatCurrency(paymentData.amount_paid)} - ${paymentData.property_name}`,
           url: window.location.href,
         });
       } catch (err) {
         console.log("Error sharing:", err);
+      }
+    } else {
+      // Fallback for browsers that don't support Web Share API
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        alert("Receipt link copied to clipboard!");
+      } catch (err) {
+        console.log("Error copying to clipboard:", err);
       }
     }
   };
@@ -154,6 +210,12 @@ export default function PaymentReceiptPage() {
             Something went wrong
           </h2>
           <p className="text-gray-500 text-sm">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
@@ -165,7 +227,6 @@ export default function PaymentReceiptPage() {
 
   return (
     <>
-      {/* Fix: Remove jsx prop from style element */}
       <style>{`
         @media print {
           body {
@@ -288,6 +349,26 @@ export default function PaymentReceiptPage() {
               </div>
             </div>
 
+            {/* Receipt Meta Info */}
+            {receiptMeta && (
+              <div className="px-6 pb-4 no-print">
+                <div className="bg-blue-50 rounded-lg p-3 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-blue-700">Receipt accessed:</span>
+                    <span className="font-medium text-blue-900">
+                      {receiptMeta.accessed_count} times
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-blue-700">Expires:</span>
+                    <span className="font-medium text-blue-900">
+                      {formatDate(receiptMeta.expires_at)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Payment Details */}
             <div className="px-6 pb-6">
               <div className="space-y-4">
@@ -355,10 +436,23 @@ export default function PaymentReceiptPage() {
                       </span>
                     </div>
 
+                    {paymentData.payment_period && (
+                      <>
+                        <div className="border-t border-gray-100"></div>
+                        <div className="flex justify-between py-2">
+                          <span className="text-gray-500">
+                            Payment Schedule
+                          </span>
+                          <span className="text-gray-900 capitalize">
+                            {paymentData.payment_period}
+                          </span>
+                        </div>
+                      </>
+                    )}
+
                     {paymentData.water_bill_last_updated && (
                       <>
                         <div className="border-t border-gray-100"></div>
-
                         <div className="flex justify-between py-2">
                           <span className="text-gray-500">
                             Water Bill Period
@@ -391,13 +485,16 @@ export default function PaymentReceiptPage() {
                         <div className="flex justify-between text-sm">
                           <div>
                             <span className="text-gray-500">Water Bill</span>
-                            <div className="text-xs text-gray-400">
-                              {paymentData.water_units_used} units @{" "}
-                              {formatCurrency(
-                                paymentData.water_price_per_unit || 0,
+                            {paymentData.water_units_used &&
+                              paymentData.water_price_per_unit && (
+                                <div className="text-xs text-gray-400">
+                                  {paymentData.water_units_used} units @{" "}
+                                  {formatCurrency(
+                                    paymentData.water_price_per_unit,
+                                  )}
+                                  /unit
+                                </div>
                               )}
-                              /unit
-                            </div>
                           </div>
                           <span className="text-gray-900">
                             {formatCurrency(paymentData.water_bill_amount)}
@@ -413,7 +510,13 @@ export default function PaymentReceiptPage() {
                       </div>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Amount Paid</span>
+                      <span className="text-gray-500">Total Paid</span>
+                      <span className="text-gray-900">
+                        {formatCurrency(paymentData.total_paid)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">This Payment</span>
                       <span className="text-green-600 font-medium">
                         -{formatCurrency(paymentData.amount_paid)}
                       </span>
@@ -456,6 +559,31 @@ export default function PaymentReceiptPage() {
                     </div>
                   </div>
                 )}
+
+                {paymentData.balance === 0 && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-5 h-5 text-green-500 mt-0.5">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="font-medium text-green-800 text-sm">
+                          Account Fully Paid
+                        </p>
+                        <p className="text-green-700 text-sm">
+                          Your rental account is now up to date. Thank you for
+                          your payment!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -466,11 +594,13 @@ export default function PaymentReceiptPage() {
               </p>
               <p className="text-xs text-gray-400">
                 Receipt generated on{" "}
-                {new Date().toLocaleDateString("en-US", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })}
+                {receiptMeta
+                  ? formatDate(receiptMeta.created_at)
+                  : new Date().toLocaleDateString("en-US", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
               </p>
             </div>
           </div>

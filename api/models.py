@@ -2,6 +2,8 @@ import uuid
 from urllib.parse import urlencode
 import base64
 import json
+import string
+import random
 from django.contrib.auth.models import User
 from django.db import models
 from django.core.exceptions import ValidationError
@@ -1123,3 +1125,33 @@ class MpesaTransaction(models.Model):
 
     def __str__(self):
         return f"{self.transaction_id} - {self.amount} - {self.account_number}"
+
+
+class PaymentReceipt(models.Model):
+    code = models.CharField(max_length=8, unique=True, db_index=True)
+
+    # Store all payment data as JSON for simplicity
+    payment_data = models.JSONField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    accessed_count = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = "payment_receipts"
+
+    @classmethod
+    def generate_code(cls):
+        """Generate unique 6-character code"""
+        chars = string.ascii_uppercase + string.digits
+        while True:
+            code = "".join(random.choice(chars) for _ in range(6))
+            if not cls.objects.filter(code=code).exists():
+                return code
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = self.generate_code()
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(days=30)
+        super().save(*args, **kwargs)

@@ -7,6 +7,7 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import logging
+from api.models import PaymentReceipt
 
 # Load environment variables from .env file
 load_dotenv()
@@ -15,47 +16,35 @@ logger = logging.getLogger(__name__)
 
 
 class PaymentLinkGenerator:
-    """
-    Utility class to generate and validate encrypted payment links
-    """
-
     def __init__(self):
         self.frontend_url = os.getenv("FRONTEND_URL")
-        # Use a secret key from environment variables
-        self.secret_key = os.getenv("PAYMENT_LINK_SECRET_KEY", os.getenv("SECRET_KEY"))
-
-        # Generate a key for encryption
-        salt = b"payment_link_salt"  # This should ideally be stored securely
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=100000,
-        )
-        key = base64.urlsafe_b64encode(kdf.derive(self.secret_key.encode()))
-        self.cipher = Fernet(key)
 
     def generate_payment_link(self, payment_data):
-        """
-        Generate an encrypted payment link
-        Args:
-            payment_data (dict): Payment data to encrypt
-        Returns:
-            str: Encrypted payment link URL
-        """
+        """Generate short payment link with error handling"""
         try:
-            # Add checksum to verify data integrity
-            payment_data["checksum"] = self._generate_checksum(payment_data)
-            # Convert payment data to JSON and encrypt
-            data_json = json.dumps(payment_data)
-            encrypted_data = self.cipher.encrypt(data_json.encode())
-            # Convert to URL-safe base64
-            token = base64.urlsafe_b64encode(encrypted_data).decode()
-            # Generate the URL
-            payment_url = f"{self.frontend_url}/payments?token={token}"
-            return payment_url
+            # Validate payment data
+            required_fields = ["tenant_id", "transaction_id", "amount_paid"]
+            missing_fields = [
+                field for field in required_fields if not payment_data.get(field)
+            ]
+
+            if missing_fields:
+                logger.error(f"Missing required payment data fields: {missing_fields}")
+                return None
+
+            # Create receipt record
+            receipt = PaymentReceipt.objects.create(payment_data=payment_data)
+
+            # Return short URL
+            short_url = f"{self.frontend_url}/api/receipt/{receipt.code}"
+            logger.info(
+                f"Generated short payment link: {short_url} for transaction {payment_data.get('transaction_id')}"
+            )
+
+            return short_url
+
         except Exception as e:
-            logger.exception(f"Error generating payment link: {str(e)}")
+            logger.error(f"Error generating payment link: {str(e)}")
             return None
 
     def decrypt_payment_data(self, token):

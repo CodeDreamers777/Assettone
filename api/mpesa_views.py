@@ -1,5 +1,6 @@
 # views/mpesa_views.py
 import json
+import os
 import pytz
 
 from decimal import Decimal
@@ -23,6 +24,7 @@ from .models import (
     Lease,
     LeaseStatus,
     RentPayment,
+    PaymentReceipt,
     CommunicationType,
     CommunicationHistory,
 )
@@ -45,26 +47,28 @@ class MpesaBaseView(APIView):
 
             # Format and log the tenant's phone number
             tenant_phone = tenant.phone_number
-            logger.info(f"Original tenant phone: {tenant_phone}")
+            logger.info(
+                f"Generating receipt for tenant {tenant.id}, phone: {tenant_phone}"
+            )
 
-            # Make sure tenant phone is not None or empty
+            # Validate tenant phone
             if not tenant_phone:
-                logger.error("Tenant phone number is empty or None")
+                logger.error(f"Tenant {tenant.id} has no phone number")
                 return False
 
-            # Calculate balance - ensure all values are Decimal for consistent arithmetic
+            # Calculate balance
             balance = rent_period.amount_due - rent_period.amount_paid
 
             # Get unit and water bill information
             unit = lease.unit
             current_water_bill = unit.get_current_water_bill()
 
-            # Check if water bill was reset this month
+            # Water bill reset check
             water_reset = unit.reset_water_units_if_needed()
             if water_reset:
                 unit.save()
 
-            # Generate payment data - convert Decimals to float for JSON serialization
+            # Generate payment data
             payment_data = {
                 "tenant_id": str(tenant.id),
                 "tenant_name": f"{tenant.first_name} {tenant.last_name}",
@@ -81,7 +85,6 @@ class MpesaBaseView(APIView):
                 "total_paid": float(rent_period.amount_paid),
                 "balance": float(balance),
                 "is_paid": rent_period.is_paid,
-                # Water bill information
                 "water_units_used": float(unit.water_units_used),
                 "water_price_per_unit": float(unit.water_price_per_unit),
                 "water_bill_amount": float(current_water_bill),
@@ -90,59 +93,72 @@ class MpesaBaseView(APIView):
                 )
                 if unit.water_bill_last_updated
                 else None,
-                # Unit details
                 "unit_rent": float(unit.rent),
                 "payment_period": unit.payment_period,
-                "timestamp": datetime.now().timestamp(),  # Add timestamp for link expiration
+                "timestamp": datetime.now().timestamp(),
             }
 
-            # Generate encrypted payment link
+            # Generate SHORT payment link with error handling
             link_generator = PaymentLinkGenerator()
             payment_link = link_generator.generate_payment_link(payment_data)
-            if not payment_link:
-                logger.error("Failed to generate payment link")
-                payment_link = "#"  # Fallback
 
-            # Prepare variables for the message - use Decimal for formatting to maintain precision
+            if not payment_link:
+                logger.error(
+                    f"Failed to generate payment link for transaction {transaction.transaction_id}"
+                )
+                # Fallback to a general receipts page
+                payment_link = f"{os.getenv('FRONTEND_URL')}/receipts"
+
+            # Prepare message variables
             variables = {
                 "tenant_name": f"{tenant.first_name} {tenant.last_name}",
-                "amount": f"KES {transaction.amount:,.2f}",  # transaction.amount should now be Decimal
+                "amount": f"KES {transaction.amount:,.2f}",
                 "property_name": lease.unit.property.name,
                 "unit_number": lease.unit.unit_number,
                 "period": f"{rent_period.period_start_date.strftime('%d %b %Y')} - {rent_period.period_end_date.strftime('%d %b %Y')}",
-                "balance": f"KES {balance:,.2f}",  # balance is Decimal
+                "balance": f"KES {balance:,.2f}",
                 "water_bill": f"KES {current_water_bill:,.2f}",
                 "payment_link": payment_link,
             }
-            print(variables)
 
-            # Create a readable message text with payment link including water bill info
+            # Create WhatsApp message
             message = (
                 f"📩 Dear {variables['tenant_name']},\n\n"
-                f"We're pleased to confirm receipt of your payment of {variables['amount']} "
-                f"for *{variables['property_name']}* — Unit {variables['unit_number']}.\n\n"
-                f"🗓️ Rental Period: {variables['period']}\n"
-                f"💧 Water Bill: {variables['water_bill']} ({unit.water_units_used} units @ KES {unit.water_price_per_unit}/unit)\n"
-                f"💰 Remaining Balance: {variables['balance']}\n\n"
-                f"📱 View your detailed receipt here:\n{variables['payment_link']}\n\n"
-                f"Thank you for your payment and continued tenancy.\n\n"
-                f"📌 This is an automated receipt. No further action is required."
+                f"✅ Payment Received: {variables['amount']}\n"
+                f"🏠 {variables['property_name']} - Unit {variables['unit_number']}\n"
+                f"📅 Period: {variables['period']}\n"
+                f"💧 Water: {variables['water_bill']} ({unit.water_units_used} units)\n"
+                f"💰 Balance: {variables['balance']}\n\n"
+                f"📱 View Receipt:\n{variables['payment_link']}\n\n"
+                f"Thank you! 🙏"
             )
 
-            # Send the message
-            whatsapp_service = WhatsAppService()
-            response = whatsapp_service.send_text_message(
-                recipient_number=tenant_phone, message_text=message
-            )
+            # Send WhatsApp message with error handling
+            try:
+                whatsapp_service = WhatsAppService()
+                response = whatsapp_service.send_text_message(
+                    recipient_number=tenant_phone, message_text=message
+                )
 
-            logger.info(
-                f"WhatsApp receipt with payment link sent to tenant {tenant.id}"
-            )
-            return True
+                if not response:
+                    logger.error(
+                        f"WhatsApp service returned empty response for tenant {tenant.id}"
+                    )
+                    return False
+
+                logger.info(f"WhatsApp receipt sent successfully to tenant {tenant.id}")
+                return True
+
+            except Exception as whatsapp_error:
+                logger.error(
+                    f"WhatsApp sending failed for tenant {tenant.id}: {str(whatsapp_error)}"
+                )
+                return False
 
         except Exception as e:
-            logger.error(f"WhatsApp sending error: {str(e)}")
-            logger.info(f"WhatsApp receipt failed to send to tenant {tenant.id}")
+            logger.error(
+                f"Error in send_payment_receipt_whatsapp for tenant {getattr(tenant, 'id', 'unknown')}: {str(e)}"
+            )
             return False
 
     def send_tenant_whatsapp(self, tenant_phone: str, tenant_name: str, message: str):
@@ -1120,39 +1136,81 @@ class MpesaSimulatePaymentView(MpesaBaseView):
             return False, None, None, None
 
 
-class PaymentReceiptDataView(APIView):
+class PaymentReceiptView(APIView):
     """
-    View to provide payment receipt data to the frontend
+    Retrieve payment receipt data using short code
     """
 
-    permission_classes = [AllowAny]
+    permission_classes = []  # Public endpoint
 
-    def get(self, request):
-        """
-        Decrypts the payment token and returns payment data
-        """
-        token = request.query_params.get("token")
-
-        if not token:
-            return Response(
-                {"error": "Token is required"}, status=status.HTTP_400_BAD_REQUEST
-            )
-
+    def get(self, request, code):
+        """Serve payment receipt data"""
         try:
-            link_generator = PaymentLinkGenerator()
-            payment_data = link_generator.decrypt_payment_data(token)
-
-            if not payment_data:
+            # Validate code format
+            if not code or len(code) != 6:
                 return Response(
-                    {"error": "Invalid or expired token"},
+                    {
+                        "error": "Invalid receipt code format",
+                        "message": "Receipt code must be 6 characters long",
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            return Response(payment_data, status=status.HTTP_200_OK)
+            # Get receipt
+            try:
+                receipt = PaymentReceipt.objects.get(code=code.upper())
+            except PaymentReceipt.DoesNotExist:
+                logger.warning(f"Receipt not found for code: {code}")
+                return Response(
+                    {
+                        "error": "Receipt not found",
+                        "message": "The receipt link you are looking for does not exist or may have been removed.",
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Check if expired
+            if timezone.now() > receipt.expires_at:
+                logger.info(f"Expired receipt access attempt for code: {code}")
+                return Response(
+                    {
+                        "error": "Receipt expired",
+                        "message": "This receipt link has expired. Please contact support for assistance.",
+                        "expired_at": receipt.expires_at.isoformat(),
+                    },
+                    status=status.HTTP_410_GONE,
+                )
+
+            # Increment access count (with error handling)
+            try:
+                receipt.accessed_count += 1
+                receipt.save(update_fields=["accessed_count"])
+            except Exception as e:
+                logger.warning(
+                    f"Failed to update access count for receipt {code}: {str(e)}"
+                )
+                # Don't fail the request if we can't update access count
+
+            # Return payment data
+            return Response(
+                {
+                    "success": True,
+                    "data": receipt.payment_data,
+                    "meta": {
+                        "accessed_count": receipt.accessed_count,
+                        "created_at": receipt.created_at.isoformat(),
+                        "expires_at": receipt.expires_at.isoformat(),
+                    },
+                },
+                status=status.HTTP_200_OK,
+            )
 
         except Exception as e:
-            logger.exception(f"Error processing payment receipt token: {str(e)}")
+            logger.error(f"Unexpected error retrieving receipt {code}: {str(e)}")
             return Response(
-                {"error": "An error occurred while processing the payment data"},
+                {
+                    "error": "Internal server error",
+                    "message": "An unexpected error occurred while retrieving the receipt. Please try again later.",
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

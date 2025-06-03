@@ -36,7 +36,7 @@ class PaymentLinkGenerator:
             receipt = PaymentReceipt.objects.create(payment_data=payment_data)
 
             # Return short URL
-            short_url = f"{self.frontend_url}/api/receipt/{receipt.code}"
+            short_url = f"{self.frontend_url}/payments/{receipt.code}"
             logger.info(
                 f"Generated short payment link: {short_url} for transaction {payment_data.get('transaction_id')}"
             )

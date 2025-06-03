@@ -107,7 +107,7 @@ class MpesaBaseView(APIView):
                     f"Failed to generate payment link for transaction {transaction.transaction_id}"
                 )
                 # Fallback to a general receipts page
-                payment_link = f"{os.getenv('FRONTEND_URL')}/receipts"
+                payment_link = f"{os.getenv('FRONTEND_URL')}/payments"
 
             # Prepare message variables
             variables = {

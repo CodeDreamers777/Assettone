@@ -251,7 +251,10 @@ function App() {
               }
             />
             <Route path="/lease-signing" element={<LeaseSigning />} />
-            <Route path="/payments" element={<PaymentReceiptPage />} />
+            <Route
+              path="/payments/:paymentId"
+              element={<PaymentReceiptPage />}
+            />
 
             <Route
               path="/lease-download/:leaseId"

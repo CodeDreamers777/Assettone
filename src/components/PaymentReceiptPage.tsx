@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 
 // Type definitions
 interface PaymentData {
@@ -43,6 +44,7 @@ interface ApiError {
 }
 
 export default function PaymentReceiptPage() {
+  const { paymentId } = useParams(); // Get paymentId from URL params
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
@@ -51,9 +53,8 @@ export default function PaymentReceiptPage() {
 
   useEffect(() => {
     const fetchPaymentData = async () => {
-      // Get code from URL path - expect URL like /api/receipt/ABC123
-      const pathParts = window.location.pathname.split("/");
-      const code = pathParts[pathParts.length - 1];
+      // Use paymentId from useParams instead of parsing URL manually
+      const code = paymentId;
 
       if (!code || code.length !== 6) {
         setError(
@@ -66,7 +67,7 @@ export default function PaymentReceiptPage() {
       try {
         // Fetch from new API endpoint structure
         const response = await fetch(
-          `https://assettone-rental-management.onrender.com/api/receipt/${code}/`,
+          `https://assettone-rental-management.onrender.com/api/v1/payment/payment-receipt/${code}/`,
         );
 
         const data = await response.json();
@@ -112,7 +113,7 @@ export default function PaymentReceiptPage() {
     };
 
     fetchPaymentData();
-  }, []);
+  }, [paymentId]); // Add paymentId as dependency
 
   // Format date string to more readable format
   const formatDate = (dateString: string) => {

@@ -18,6 +18,7 @@ import { Toaster } from "./components/ui/toaster";
 import LeaseSigning from "./components/SignLease";
 import LeaseDownloadPage from "./components/LeaseDownload";
 import PaymentReceiptPage from "./components/PaymentReceiptPage";
+import LeaseSignedSuccess from "./components/LeaseSigningSuccessPage";
 
 import companyLogo from "../src/assets/Assettone Estates Logo transparent (2).png";
 
@@ -286,6 +287,11 @@ function App() {
               path="/lease-download/:leaseId"
               element={<LeaseDownloadPage />}
             />
+            <Route
+              path="/lease-signed-success"
+              element={<LeaseSignedSuccess />}
+            />
+
             <Route
               path="/contact-us"
               element={

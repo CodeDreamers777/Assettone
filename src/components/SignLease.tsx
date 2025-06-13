@@ -15,19 +15,21 @@ interface LeaseData {
     first_name: string;
     last_name: string;
     email: string;
-    phone: string;
+    phone_number: string; // Fixed: changed from 'phone' to 'phone_number'
   };
   unit: {
-    number: string;
-    type: string;
+    unit_number: string; // Fixed: changed from 'number' to 'unit_number'
+    unit_type: string; // Fixed: changed from 'type' to 'unit_type'
     floor: string;
-    size: string;
+    square_footage: string; // Fixed: changed from 'size' to 'square_footage'
   };
   property: {
     name: string;
-    address: string;
+    address_line1: string; // Fixed: changed from 'address' to 'address_line1'
+    address_line2?: string; // Added optional address_line2
     city: string;
     state: string;
+    postal_code: string; // Added postal_code
   };
   lease_terms: {
     start_date: string;
@@ -47,7 +49,7 @@ const LEASE_CLAUSES = [
   {
     title: "2. Rent Payment",
     content:
-      "Tenant agrees to pay the monthly rent on or before the first day of each month. Late payments may incur additional fees as specified in the payment terms.",
+      "Tenant agrees to pay the monthly rent on or before the fifth day of each month. Late payments may incur additional fees as specified in the payment terms.",
   },
   {
     title: "3. Security Deposit",
@@ -100,21 +102,10 @@ const LeaseSigning: React.FC = () => {
   const [hasAcknowledged, setHasAcknowledged] = useState(false);
   const sigPadRef = useRef<SignatureCanvas | null>(null);
 
-  // Get access token from localStorage
-  const getAccessToken = () => {
-    return localStorage.getItem("accessToken");
-  };
-
-  // Create axios instance with authorization header
-  const createAuthorizedRequest = () => {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found");
-    }
+  // Create axios instance for public lease signing (no auth required)
+  const createPublicRequest = () => {
     return axios.create({
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      // No authorization header needed for public lease signing
     });
   };
 
@@ -125,6 +116,7 @@ const LeaseSigning: React.FC = () => {
       if (encodedData) {
         const decodedData = JSON.parse(atob(encodedData));
         setLeaseData(decodedData);
+        console.log("Decoded lease data:", decodedData); // Debug log
       }
     } catch (err) {
       setError("Invalid lease data");
@@ -134,9 +126,9 @@ const LeaseSigning: React.FC = () => {
 
   const handleDownloadPDF = async () => {
     try {
-      const authorizedAxios = createAuthorizedRequest();
-      const response = await authorizedAxios.get(
-        `https://assettone-rental-management.onrender.com/api/v1/leases/${leaseData?.lease_id}/download_pdf/`,
+      const publicAxios = createPublicRequest();
+      const response = await publicAxios.get(
+        `https://assettone-rental-management.onrender.com/api/v1/leases/${leaseData?.lease_id}/download_pdf/?signing_token=${leaseData?.signing_token}`,
         { responseType: "blob" },
       );
 
@@ -149,19 +141,11 @@ const LeaseSigning: React.FC = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      if (err instanceof Error && err.message === "No access token found") {
-        toast({
-          variant: "destructive",
-          title: "Authentication Error",
-          description: "Please log in to download the PDF",
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to download PDF",
-        });
-      }
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to download PDF",
+      });
       console.error(err);
     }
   };
@@ -190,14 +174,23 @@ const LeaseSigning: React.FC = () => {
         formData.append("signature", signatureFile);
         formData.append("signing_token", leaseData?.signing_token || "");
 
-        const authorizedAxios = createAuthorizedRequest();
-        const response = await authorizedAxios.post(
+        const publicAxios = createPublicRequest();
+        const response = await publicAxios.post(
           `https://assettone-rental-management.onrender.com/api/v1/leases/${leaseData?.lease_id}/complete_signing/`,
           formData,
         );
 
         if (response.data && response.data.message) {
           setError(null);
+
+          // Store lease data for success page
+          if (leaseData) {
+            sessionStorage.setItem(
+              "signedLeaseData",
+              JSON.stringify(leaseData),
+            );
+          }
+
           toast({
             title: "Success!",
             description:
@@ -210,16 +203,15 @@ const LeaseSigning: React.FC = () => {
           });
 
           setTimeout(() => {
-            window.location.href = "/login";
+            // Redirect to a success page or show a completion message
+            // Remove the redirect to login since tenant doesn't need to log in
+            window.location.href = "/lease-signed-success";
           }, 3000);
         } else {
           throw new Error("Unexpected response format");
         }
       } catch (err) {
-        const errorMessage =
-          err instanceof Error && err.message === "No access token found"
-            ? "Please log in to sign the lease"
-            : "Failed to submit signature";
+        const errorMessage = "Failed to submit signature. Please try again.";
 
         setError(errorMessage);
         toast({
@@ -259,26 +251,46 @@ const LeaseSigning: React.FC = () => {
                 <p className="font-semibold text-lg text-green-700">
                   {leaseData?.property.name}
                 </p>
-                <p className="text-green-600">{leaseData?.property.address}</p>
                 <p className="text-green-600">
-                  {leaseData?.property.city}, {leaseData?.property.state}
+                  {leaseData?.property.address_line1}
+                </p>
+                {leaseData?.property.address_line2 && (
+                  <p className="text-green-600">
+                    {leaseData?.property.address_line2}
+                  </p>
+                )}
+                <p className="text-green-600">
+                  {leaseData?.property.city}, {leaseData?.property.state}{" "}
+                  {leaseData?.property.postal_code}
                 </p>
               </div>
               <div className="space-y-2">
                 <p>
                   <span className="font-semibold text-green-700">Unit:</span>{" "}
                   <span className="text-green-600">
-                    {leaseData?.unit.number}
+                    {leaseData?.unit.unit_number}
                   </span>
                 </p>
                 <p>
                   <span className="font-semibold text-green-700">Type:</span>{" "}
-                  <span className="text-green-600">{leaseData?.unit.type}</span>
+                  <span className="text-green-600">
+                    {leaseData?.unit.unit_type}
+                  </span>
                 </p>
                 <p>
-                  <span className="font-semibold text-green-700">Size:</span>{" "}
-                  <span className="text-green-600">{leaseData?.unit.size}</span>
+                  <span className="font-semibold text-green-700">Floor:</span>{" "}
+                  <span className="text-green-600">
+                    {leaseData?.unit.floor}
+                  </span>
                 </p>
+                {leaseData?.unit.square_footage && (
+                  <p>
+                    <span className="font-semibold text-green-700">Size:</span>{" "}
+                    <span className="text-green-600">
+                      {leaseData?.unit.square_footage} sq ft
+                    </span>
+                  </p>
+                )}
               </div>
             </div>
           </section>
@@ -319,7 +331,10 @@ const LeaseSigning: React.FC = () => {
                     Monthly Rent:
                   </span>{" "}
                   <span className="text-green-600">
-                    ${leaseData?.lease_terms.monthly_rent}
+                    KES{" "}
+                    {Number(
+                      leaseData?.lease_terms.monthly_rent,
+                    ).toLocaleString()}
                   </span>
                 </p>
                 <p>
@@ -327,7 +342,10 @@ const LeaseSigning: React.FC = () => {
                     Security Deposit:
                   </span>{" "}
                   <span className="text-green-600">
-                    ${leaseData?.lease_terms.security_deposit}
+                    KES{" "}
+                    {Number(
+                      leaseData?.lease_terms.security_deposit,
+                    ).toLocaleString()}
                   </span>
                 </p>
                 <p>

@@ -106,7 +106,7 @@ export function Leases() {
     }
   };
 
-  const handleAddLease = async (newLease: Lease) => {
+  const handleAddLease = async () => {
     // Refresh the data from the server instead of manually updating state
     await fetchLeases();
     setIsAddModalOpen(false);

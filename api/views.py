@@ -1142,6 +1142,121 @@ class LeaseViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
 
+    def get_permissions(self):
+        """
+        Override permissions for specific actions that use signing tokens
+        """
+        if self.action in ["complete_signing", "download_pdf"]:
+            # These actions use signing tokens instead of JWT authentication
+            return [AllowAny()]
+        return super().get_permissions()
+
+    @action(detail=True, methods=["POST"])
+    def complete_signing(self, request, pk=None):
+        """Handle signature submission using signing token"""
+        signing_token = request.data.get("signing_token")
+
+        # Validate the signing token
+        try:
+            lease = Lease.objects.get(id=pk, signing_token=signing_token)
+        except Lease.DoesNotExist:
+            return Response(
+                {"error": "Invalid signing token"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        signature_file = request.FILES.get("signature")
+        if not signature_file:
+            return Response(
+                {"error": "Signature is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Save the signature
+        lease.signature_document = signature_file
+        lease.is_signed = True
+        lease.signed_at = timezone.now()
+        lease.save()
+
+        # Prepare email context
+        context = {
+            "tenant_name": f"{lease.tenant.first_name} {lease.tenant.last_name}",
+            "property_name": lease.unit.property.name,
+            "unit_number": lease.unit.unit_number,
+            "lease_id": lease.id,
+            "download_url": f"https://assettone-rental-management.vercel.app/lease-download/{lease.id}?signing_token={lease.signing_token}",
+        }
+
+        # Send email
+        email_service = EmailService()
+        email_service.send_email(
+            recipient_email=lease.tenant.email,
+            recipient_name=f"{lease.tenant.first_name} {lease.tenant.last_name}",
+            subject=f"Signed Lease Agreement for {lease.unit.property.name} - Unit {lease.unit.unit_number}",
+            template_name="emails/lease_signed_confirmation.html",
+            context=context,
+        )
+
+        return Response(
+            {"message": "Signature saved and confirmation email sent successfully"}
+        )
+
+    @action(detail=True, methods=["GET"])
+    def download_pdf(self, request, pk=None):
+        """
+        Generate and return PDF with signature if signed.
+        Uses signing token for authentication instead of user authentication.
+        """
+        signing_token = request.GET.get("signing_token")
+
+        # Validate the signing token
+        try:
+            lease = Lease.objects.get(id=pk, signing_token=signing_token)
+        except Lease.DoesNotExist:
+            return Response(
+                {"error": "Invalid signing token"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if lease is signed
+        if not lease.is_signed:
+            return Response(
+                {"error": "Lease must be signed before downloading PDF"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # Get signature
+            signature_image = lease.signature_document
+
+            # Generate PDF
+            pdf_buffer = LeaseDocumentGenerator.generate_lease_pdf(
+                lease, signature_image
+            )
+
+            # Return PDF as response
+            response = HttpResponse(pdf_buffer, content_type="application/pdf")
+            response["Content-Disposition"] = (
+                f'attachment; filename="lease_{lease.id}.pdf"'
+            )
+
+            # Add security headers
+            response["X-Content-Type-Options"] = "nosniff"
+            response["Content-Security-Policy"] = "default-src 'self'"
+
+            # Log successful download
+            logger.info(f"Lease {lease.id} downloaded using signing token")
+
+            return response
+
+        except Exception as e:
+            # Log the error for debugging
+            logger.error(
+                f"Error generating PDF for lease {lease.id}: {str(e)}, "
+                f"accessed via signing token"
+            )
+            return Response(
+                {"error": "Failed to generate lease PDF"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
     def get_serializer_class(self):
         """
         Use different serializers for different actions
@@ -1528,106 +1643,6 @@ class LeaseViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response(
                 {"error": f"An error occurred: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @action(detail=True, methods=["POST"])
-    def complete_signing(self, request, pk=None):
-        """Handle signature submission"""
-        lease = self.get_object()
-        signature_file = request.FILES.get("signature")
-        if not signature_file:
-            return Response(
-                {"error": "Signature is required"}, status=status.HTTP_400_BAD_REQUEST
-            )
-        # Save the signature
-        lease.signature_document = signature_file
-        lease.is_signed = True
-        lease.signed_at = timezone.now()
-        lease.save()
-
-        # Prepare email context
-        # In your complete_signing view
-        context = {
-            "tenant_name": f"{lease.tenant.first_name} {lease.tenant.last_name}",
-            "property_name": lease.unit.property.name,
-            "unit_number": lease.unit.unit_number,
-            "lease_id": lease.id,
-            "download_url": f"https://assettone-rental-management.vercel.app/lease-download/{lease.id}",
-        }
-
-        # Send email
-        email_service = EmailService()
-        email_service.send_email(
-            recipient_email=lease.tenant.email,
-            recipient_name=f"{lease.tenant.first_name} {lease.tenant.last_name}",
-            subject=f"Signed Lease Agreement for {lease.unit.property.name} - Unit {lease.unit.unit_number}",
-            template_name="emails/lease_signed_confirmation.html",
-            context=context,
-        )
-
-        return Response(
-            {"message": "Signature saved and confirmation email sent successfully"}
-        )
-
-    @action(detail=True, methods=["GET"])
-    def download_pdf(self, request, pk=None):
-        """
-        Generate and return PDF with signature if signed.
-        Only allows access to the tenant who owns the lease or admin users.
-        Returns:
-            - HTTP 400 if lease is not signed
-            - HTTP 403 if user is not authorized
-            - HTTP 500 if PDF generation fails
-        """
-        lease = self.get_object()
-
-        # Check user authorization
-        user = request.user
-        if not user.is_authenticated:
-            raise PermissionDenied(
-                "Authentication required to download lease document."
-            )
-
-        # Check if lease is signed
-        if not lease.is_signed:
-            return Response(
-                {"error": "Lease must be signed before downloading PDF"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            # Get signature
-            signature_image = lease.signature_document
-
-            # Generate PDF
-            pdf_buffer = LeaseDocumentGenerator.generate_lease_pdf(
-                lease, signature_image
-            )
-
-            # Return PDF as response
-            response = HttpResponse(pdf_buffer, content_type="application/pdf")
-            response["Content-Disposition"] = (
-                f'attachment; filename="lease_{lease.id}.pdf"'
-            )
-
-            # Add security headers
-            response["X-Content-Type-Options"] = "nosniff"
-            response["Content-Security-Policy"] = "default-src 'self'"
-
-            # Log successful download
-            logger.info(f"Lease {lease.id} downloaded by user {user.email}")
-
-            return response
-
-        except Exception as e:
-            # Log the error for debugging
-            logger.error(
-                f"Error generating PDF for lease {lease.id}: {str(e)}, "
-                f"requested by user {user.email}"
-            )
-            return Response(
-                {"error": "Failed to generate lease PDF"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

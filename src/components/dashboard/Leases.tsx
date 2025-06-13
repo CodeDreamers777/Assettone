@@ -106,11 +106,9 @@ export function Leases() {
     }
   };
 
-  const handleAddLease = (newLease: Lease) => {
-    setPropertyLeases((prev) => ({
-      ...prev,
-      [selectedProperty]: [...(prev[selectedProperty] || []), newLease],
-    }));
+  const handleAddLease = async (newLease: Lease) => {
+    // Refresh the data from the server instead of manually updating state
+    await fetchLeases();
     setIsAddModalOpen(false);
   };
 

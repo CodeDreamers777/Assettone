@@ -40,13 +40,6 @@ interface AddLeaseModalProps {
   onAdd: (lease: any) => void;
 }
 
-const PAYMENT_PERIODS = [
-  { value: "MONTHLY", label: "Monthly" },
-  { value: "BIMONTHLY", label: "Bi-Monthly" },
-  { value: "HALF_YEARLY", label: "Half Yearly" },
-  { value: "YEARLY", label: "Yearly" },
-];
-
 const LEASE_STATUSES = [
   { value: "ACTIVE", label: "Active" },
   { value: "EXPIRED", label: "Expired" },
@@ -68,7 +61,6 @@ export function AddLeaseModal({ isOpen, onClose, onAdd }: AddLeaseModalProps) {
     start_date: "",
     end_date: "",
     security_deposit: "",
-    payment_period: "MONTHLY",
     status: "PENDING",
     notes: "",
   });
@@ -177,6 +169,16 @@ export function AddLeaseModal({ isOpen, onClose, onAdd }: AddLeaseModalProps) {
         description: "Lease added successfully.",
         variant: "default",
       });
+      // Reset form data
+      setFormData({
+        tenant: "",
+        unit: "",
+        start_date: "",
+        end_date: "",
+        security_deposit: "",
+        status: "PENDING",
+        notes: "",
+      });
       onClose();
     } catch (error) {
       console.error("Error adding lease:", error);
@@ -209,6 +211,7 @@ export function AddLeaseModal({ isOpen, onClose, onAdd }: AddLeaseModalProps) {
                 <div className="flex gap-2">
                   <Select
                     name="tenant"
+                    value={formData.tenant}
                     onValueChange={(value) =>
                       handleSelectChange("tenant", value)
                     }
@@ -240,6 +243,7 @@ export function AddLeaseModal({ isOpen, onClose, onAdd }: AddLeaseModalProps) {
                 <RequiredLabel>Unit</RequiredLabel>
                 <Select
                   name="unit"
+                  value={formData.unit}
                   onValueChange={(value) => handleSelectChange("unit", value)}
                 >
                   <SelectTrigger className="border-slate-200">
@@ -255,48 +259,27 @@ export function AddLeaseModal({ isOpen, onClose, onAdd }: AddLeaseModalProps) {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <RequiredLabel>Deposit</RequiredLabel>
-                  <Input
-                    type="number"
-                    id="security_deposit"
-                    name="security_deposit"
-                    value={formData.security_deposit}
-                    onChange={handleChange}
-                    required
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    className="border-slate-200"
-                  />
-                </div>
-                <div>
-                  <RequiredLabel>Period</RequiredLabel>
-                  <Select
-                    name="payment_period"
-                    onValueChange={(value) =>
-                      handleSelectChange("payment_period", value)
-                    }
-                  >
-                    <SelectTrigger className="border-slate-200">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PAYMENT_PERIODS.map((period) => (
-                        <SelectItem key={period.value} value={period.value}>
-                          {period.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <RequiredLabel>Security Deposit</RequiredLabel>
+                <Input
+                  type="number"
+                  id="security_deposit"
+                  name="security_deposit"
+                  value={formData.security_deposit}
+                  onChange={handleChange}
+                  required
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  className="border-slate-200"
+                />
               </div>
 
               <div>
                 <RequiredLabel>Status</RequiredLabel>
                 <Select
                   name="status"
+                  value={formData.status}
                   onValueChange={(value) => handleSelectChange("status", value)}
                 >
                   <SelectTrigger className="border-slate-200">

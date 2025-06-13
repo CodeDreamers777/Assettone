@@ -149,13 +149,13 @@ const LeaseSignedSuccess = () => {
                         Property
                       </p>
                       <p className="text-green-800">
-                        {leaseData.property?.name}
+                        {leaseData.property?.name || "N/A"}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-green-600 font-medium">Unit</p>
                       <p className="text-green-800">
-                        {leaseData.unit?.unit_number}
+                        {leaseData.unit?.unit_number || "N/A"}
                       </p>
                     </div>
                     <div>
@@ -164,9 +164,11 @@ const LeaseSignedSuccess = () => {
                       </p>
                       <p className="text-green-800">
                         KES{" "}
-                        {Number(
-                          leaseData.lease_terms?.monthly_rent,
-                        ).toLocaleString()}
+                        {leaseData.lease_terms?.monthly_rent
+                          ? Number(
+                              leaseData.lease_terms.monthly_rent,
+                            ).toLocaleString()
+                          : "N/A"}
                       </p>
                     </div>
                     <div>
@@ -174,9 +176,11 @@ const LeaseSignedSuccess = () => {
                         Move-in Date
                       </p>
                       <p className="text-green-800">
-                        {new Date(
-                          leaseData.lease_terms?.start_date,
-                        ).toLocaleDateString()}
+                        {leaseData.lease_terms?.start_date
+                          ? new Date(
+                              leaseData.lease_terms.start_date,
+                            ).toLocaleDateString()
+                          : "N/A"}
                       </p>
                     </div>
                   </div>

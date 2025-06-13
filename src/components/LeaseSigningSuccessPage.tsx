@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CheckCircle,
   Download,
@@ -8,8 +8,30 @@ import {
   Phone,
 } from "lucide-react";
 
+// Define types for the lease data
+interface Property {
+  name: string;
+}
+
+interface Unit {
+  unit_number: string;
+}
+
+interface LeaseTerms {
+  monthly_rent: number | string;
+  start_date: string;
+}
+
+interface LeaseData {
+  lease_id: string;
+  signing_token: string;
+  property?: Property;
+  unit?: Unit;
+  lease_terms?: LeaseTerms;
+}
+
 const LeaseSignedSuccess = () => {
-  const [leaseData, setLeaseData] = useState(null);
+  const [leaseData, setLeaseData] = useState<LeaseData | null>(null);
   const [showConfetti, setShowConfetti] = useState(true);
 
   useEffect(() => {

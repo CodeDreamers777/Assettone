@@ -78,6 +78,7 @@ from rest_framework.decorators import action
 from .utils.decorator import jwt_required
 from .utils.create_lease_document import LeaseDocumentGenerator
 from .utils.send_whatsapp import WhatsAppService
+from .utils.mpesa import MpesaClient
 from django.utils.decorators import method_decorator
 import os
 from .utils.send_mail import EmailService
@@ -1953,10 +1954,10 @@ class PaymentViewSet(viewsets.ViewSet):
             mpesa_client = MpesaClient()
 
             # For now, we'll use the simulate method. In production, you'll use the STK push
-            result = mpesa_client.simulate_c2b_transaction(
+            result = mpesa_client.stk_push(
                 phone_number=phone_number,
                 amount=amount,
-                account_number=f"RENT-{payment_link.lease.unit.unit_number}",
+                account_reference=f"RENT-{payment_link.lease.unit.unit_number}",
             )
 
             # If successful, create payment record

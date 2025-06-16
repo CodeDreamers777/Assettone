@@ -19,6 +19,7 @@ import LeaseSigning from "./components/SignLease";
 import LeaseDownloadPage from "./components/LeaseDownload";
 import PaymentReceiptPage from "./components/PaymentReceiptPage";
 import LeaseSignedSuccess from "./components/LeaseSigningSuccessPage";
+import PaymentPage from "./components/PaymentPage"; // Import your PaymentPage component
 
 import companyLogo from "../src/assets/Assettone Estates Logo transparent (2).png";
 
@@ -51,7 +52,9 @@ function Navigation({
 
   // Show navbar when user is not authenticated OR when on payments page
   const shouldShowNavbar =
-    !isAuthenticated || location.pathname.startsWith("/payments");
+    !isAuthenticated ||
+    location.pathname.startsWith("/payments") ||
+    location.pathname.startsWith("/pay");
 
   // NavLink Props Interface
   interface NavLinkProps {
@@ -278,10 +281,13 @@ function App() {
               }
             />
             <Route path="/lease-signing" element={<LeaseSigning />} />
+
+            {/* Payment Routes */}
             <Route
               path="/payments/:paymentId"
               element={<PaymentReceiptPage />}
             />
+            <Route path="/payment/:paymentId" element={<PaymentPage />} />
 
             <Route
               path="/lease-download/:leaseId"

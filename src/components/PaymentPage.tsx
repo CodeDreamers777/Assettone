@@ -1,18 +1,31 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 
-const PaymentPage = () => {
-  // Get paymentId from URL params
-  const { paymentId } = useParams();
+// Define the PaymentInfo interface
+interface PaymentInfo {
+  property_name: string;
+  unit_number: string;
+  tenant_name: string;
+  monthly_rent: number;
+  amount_paid: number;
+  current_balance: number;
+}
 
-  const [paymentInfo, setPaymentInfo] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentType, setPaymentType] = useState("full");
-  const [processing, setProcessing] = useState(false);
-  const [success, setSuccess] = useState(false);
+// Define payment type
+type PaymentType = "full" | "partial";
+
+const PaymentPage: React.FC = () => {
+  // Get paymentId from URL params
+  const { paymentId } = useParams<{ paymentId: string }>();
+
+  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>("");
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
+  const [paymentAmount, setPaymentAmount] = useState<string>("");
+  const [paymentType, setPaymentType] = useState<PaymentType>("full");
+  const [processing, setProcessing] = useState<boolean>(false);
+  const [success, setSuccess] = useState<boolean>(false);
 
   // Backend base URL
   const API_BASE_URL =
@@ -24,7 +37,7 @@ const PaymentPage = () => {
     }
   }, [paymentId]);
 
-  const fetchPaymentInfo = async () => {
+  const fetchPaymentInfo = async (): Promise<void> => {
     try {
       const response = await fetch(
         `${API_BASE_URL}/payments/${paymentId}/get_payment_info/`,
@@ -32,17 +45,17 @@ const PaymentPage = () => {
       if (!response.ok) {
         throw new Error("Failed to fetch payment information");
       }
-      const data = await response.json();
+      const data: PaymentInfo = await response.json();
       setPaymentInfo(data);
       setPaymentAmount(data.current_balance.toString());
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
   };
 
-  const formatPhoneNumber = (phone) => {
+  const formatPhoneNumber = (phone: string): string => {
     // Remove any non-digit characters
     const cleaned = phone.replace(/\D/g, "");
 
@@ -64,7 +77,9 @@ const PaymentPage = () => {
     return cleaned;
   };
 
-  const handlePayment = async (e) => {
+  const handlePayment = async (
+    e: React.FormEvent<HTMLFormElement>,
+  ): Promise<void> => {
     e.preventDefault();
 
     if (!phoneNumber.trim()) {
@@ -77,7 +92,10 @@ const PaymentPage = () => {
       return;
     }
 
-    if (parseFloat(paymentAmount) > paymentInfo.current_balance) {
+    if (
+      !paymentInfo ||
+      parseFloat(paymentAmount) > paymentInfo.current_balance
+    ) {
       setError("Payment amount cannot exceed the outstanding balance");
       return;
     }
@@ -118,9 +136,9 @@ const PaymentPage = () => {
     }
   };
 
-  const handlePaymentTypeChange = (type) => {
+  const handlePaymentTypeChange = (type: PaymentType): void => {
     setPaymentType(type);
-    if (type === "full") {
+    if (type === "full" && paymentInfo) {
       setPaymentAmount(paymentInfo.current_balance.toString());
     } else {
       setPaymentAmount("");
@@ -190,6 +208,19 @@ const PaymentPage = () => {
     );
   }
 
+  // Early return if paymentInfo is null (should not happen after loading)
+  if (!paymentInfo) {
+    return (
+      <div className="min-h-screen bg-green-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md">
+          <p className="text-center text-gray-600">
+            No payment information available.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-green-50 py-8">
       <div className="max-w-2xl mx-auto px-4">
@@ -222,16 +253,23 @@ const PaymentPage = () => {
               </h3>
               <p className="text-sm text-gray-700">
                 <strong>Monthly Rent:</strong> KSh{" "}
-                {parseFloat(paymentInfo.monthly_rent).toLocaleString()}
+                {parseFloat(
+                  paymentInfo.monthly_rent.toString(),
+                ).toLocaleString()}
               </p>
               <p className="text-sm text-gray-700">
                 <strong>Amount Paid:</strong> KSh{" "}
-                {parseFloat(paymentInfo.amount_paid).toLocaleString()}
+                {parseFloat(
+                  paymentInfo.amount_paid.toString(),
+                ).toLocaleString()}
               </p>
               <p className="text-sm text-gray-700">
                 <strong>Outstanding:</strong>{" "}
                 <span className="text-red-600 font-semibold">
-                  KSh {parseFloat(paymentInfo.current_balance).toLocaleString()}
+                  KSh{" "}
+                  {parseFloat(
+                    paymentInfo.current_balance.toString(),
+                  ).toLocaleString()}
                 </span>
               </p>
             </div>
@@ -291,7 +329,7 @@ const PaymentPage = () => {
                       <div className="text-sm">
                         KSh{" "}
                         {parseFloat(
-                          paymentInfo.current_balance,
+                          paymentInfo.current_balance.toString(),
                         ).toLocaleString()}
                       </div>
                     </div>
@@ -338,7 +376,9 @@ const PaymentPage = () => {
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Maximum amount: KSh{" "}
-                  {parseFloat(paymentInfo.current_balance).toLocaleString()}
+                  {parseFloat(
+                    paymentInfo.current_balance.toString(),
+                  ).toLocaleString()}
                 </p>
               </div>
 

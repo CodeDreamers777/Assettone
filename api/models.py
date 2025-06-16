@@ -312,7 +312,7 @@ class Unit(models.Model):
         ):
             from decimal import Decimal
 
-            self.water_units_used = Decimal("2.00")
+            self.water_units_used = Decimal("0.00")
             return True
         return False
 

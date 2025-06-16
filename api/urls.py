@@ -22,6 +22,7 @@ router = DefaultRouter()
 router.register(r"tenants", views.TenantViewSet, basename="tenant")
 router.register(r"leases", views.LeaseViewSet, basename="lease")
 router.register(r"reports", views.ExtendedReportsViewSet, basename="reports")
+router.register(r"payments", views.PaymentViewSet, basename="payment")
 router.register(r"rental-notices", views.RentalNoticeViewSet, basename="rental-notices")
 router.register(
     r"maintenance-requests",

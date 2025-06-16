@@ -50,6 +50,7 @@ from .models import (
     PaymentMethod,
     Expense,
     ExpenseCategory,
+    PaymentLink,
 )
 from .serializers import (
     UserRegistrationSerializer,
@@ -1773,7 +1774,6 @@ class RentalNoticeViewSet(viewsets.ViewSet):
                 .select_related("tenant")
                 .first()
             )
-
             if not active_lease:
                 return Response(
                     {"message": "No active lease for this unit"},
@@ -1802,6 +1802,16 @@ class RentalNoticeViewSet(viewsets.ViewSet):
                 days_overdue = (current_date - period_start).days
                 remaining_balance = active_lease.monthly_rent - total_paid
 
+                # Create payment link
+                payment_link = PaymentLink.objects.create(
+                    lease=active_lease, amount_due=remaining_balance
+                )
+
+                # Generate payment URL
+                payment_url = (
+                    f"https://app.assettoneestates.com/payment/{payment_link.id}"
+                )
+
                 context = {
                     "tenant_name": f"{active_lease.tenant.first_name} {active_lease.tenant.last_name}",
                     "unit_number": unit.unit_number,
@@ -1810,6 +1820,7 @@ class RentalNoticeViewSet(viewsets.ViewSet):
                     "amount_due": remaining_balance,
                     "due_date": period_start.strftime("%B %d, %Y"),
                     "payment_period": active_lease.payment_period.lower(),
+                    "payment_url": payment_url,
                 }
 
                 email_service = EmailService()
@@ -1822,18 +1833,191 @@ class RentalNoticeViewSet(viewsets.ViewSet):
                 )
 
                 return Response(
-                    {"message": "Rental notice sent successfully"},
+                    {
+                        "message": "Rental notice sent successfully",
+                        "payment_link_id": payment_link.id,
+                    },
                     status=status.HTTP_200_OK,
                 )
 
             return Response(
                 {"message": "No overdue rent for this unit"}, status=status.HTTP_200_OK
             )
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PaymentViewSet(viewsets.ViewSet):
+    """Handle payment operations"""
+
+    @action(detail=True, methods=["get"])
+    def get_payment_info(self, request, pk=None):
+        """Get payment information using payment link ID"""
+        try:
+            payment_link = get_object_or_404(PaymentLink, id=pk)
+
+            if payment_link.is_expired():
+                return Response(
+                    {"error": "Payment link has expired"}, status=status.HTTP_410_GONE
+                )
+
+            if payment_link.is_used:
+                return Response(
+                    {"error": "Payment link has already been used"},
+                    status=status.HTTP_410_GONE,
+                )
+
+            lease = payment_link.lease
+            unit = lease.unit
+
+            # Calculate current balance (in case additional payments were made)
+            current_date = timezone.now().date()
+            period_start = datetime(current_date.year, current_date.month, 1).date()
+            period_end = period_start.replace(
+                month=period_start.month + 1 if period_start.month < 12 else 1,
+                year=period_start.year
+                if period_start.month < 12
+                else period_start.year + 1,
+            ) - timezone.timedelta(days=1)
+
+            total_paid = (
+                RentPayment.objects.filter(
+                    lease=lease,
+                    payment_date__gte=period_start,
+                    payment_date__lte=period_end,
+                ).aggregate(total=Sum("amount"))["total"]
+                or 0
+            )
+
+            current_balance = lease.monthly_rent - total_paid
+
+            return Response(
+                {
+                    "tenant_name": f"{lease.tenant.first_name} {lease.tenant.last_name}",
+                    "unit_number": unit.unit_number,
+                    "property_name": unit.property.name,
+                    "monthly_rent": lease.monthly_rent,
+                    "amount_paid": total_paid,
+                    "current_balance": current_balance,
+                    "original_amount_due": payment_link.amount_due,
+                    "due_date": period_start.strftime("%B %d, %Y"),
+                    "payment_period": lease.payment_period.lower(),
+                },
+                status=status.HTTP_200_OK,
+            )
 
         except Exception as e:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @action(detail=True, methods=["post"])
+    def process_payment(self, request, pk=None):
+        """Process M-Pesa payment"""
+        try:
+            payment_link = get_object_or_404(PaymentLink, id=pk)
+
+            if payment_link.is_expired():
+                return Response(
+                    {"error": "Payment link has expired"}, status=status.HTTP_410_GONE
+                )
+
+            if payment_link.is_used:
+                return Response(
+                    {"error": "Payment link has already been used"},
+                    status=status.HTTP_410_GONE,
+                )
+
+            phone_number = request.data.get("phone_number")
+            amount = request.data.get("amount")
+
+            if not phone_number or not amount:
+                return Response(
+                    {"error": "Phone number and amount are required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Validate amount
+            try:
+                amount = float(amount)
+                if amount <= 0:
+                    raise ValueError("Amount must be positive")
+            except (ValueError, TypeError):
+                return Response(
+                    {"error": "Invalid amount"}, status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Initialize M-Pesa client and send STK push
+            mpesa_client = MpesaClient()
+
+            # For now, we'll use the simulate method. In production, you'll use the STK push
+            result = mpesa_client.simulate_c2b_transaction(
+                phone_number=phone_number,
+                amount=amount,
+                account_number=f"RENT-{payment_link.lease.unit.unit_number}",
+            )
+
+            # If successful, create payment record
+            if result.get("ResponseCode") == "0":  # Success code
+                # Create rent payment record
+                rent_payment = RentPayment.objects.create(
+                    lease=payment_link.lease,
+                    amount=amount,
+                    payment_date=timezone.now().date(),
+                    payment_method="MPESA",
+                    transaction_id=result.get("TransactionID", ""),
+                    notes=f"Payment via M-Pesa from {phone_number}",
+                )
+
+                # Mark payment link as used if full amount is paid
+                current_balance = self.get_current_balance(payment_link.lease)
+                if amount >= current_balance:
+                    payment_link.is_used = True
+                    payment_link.save()
+
+                return Response(
+                    {
+                        "message": "Payment initiated successfully",
+                        "transaction_id": result.get("TransactionID", ""),
+                        "amount": amount,
+                        "remaining_balance": max(0, current_balance - amount),
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                return Response(
+                    {"error": "Payment failed", "details": result},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def get_current_balance(self, lease):
+        """Helper method to get current balance"""
+        current_date = timezone.now().date()
+        period_start = datetime(current_date.year, current_date.month, 1).date()
+        period_end = period_start.replace(
+            month=period_start.month + 1 if period_start.month < 12 else 1,
+            year=period_start.year
+            if period_start.month < 12
+            else period_start.year + 1,
+        ) - timezone.timedelta(days=1)
+
+        total_paid = (
+            RentPayment.objects.filter(
+                lease=lease,
+                payment_date__gte=period_start,
+                payment_date__lte=period_end,
+            ).aggregate(total=Sum("amount"))["total"]
+            or 0
+        )
+
+        return lease.monthly_rent - total_paid
 
 
 class MaintenanceRequestViewSet(viewsets.ModelViewSet):

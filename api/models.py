@@ -1156,3 +1156,21 @@ class PaymentReceipt(models.Model):
         if not self.expires_at:
             self.expires_at = timezone.now() + timedelta(days=30)
         super().save(*args, **kwargs)
+
+
+class PaymentLink(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    lease = models.ForeignKey("Lease", on_delete=models.CASCADE)
+    amount_due = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            # Link expires after 30 days
+            self.expires_at = timezone.now() + timezone.timedelta(days=30)
+        super().save(*args, **kwargs)

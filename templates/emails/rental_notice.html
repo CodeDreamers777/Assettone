@@ -96,7 +96,7 @@
         </tr>
         <tr>
           <td>Amount Due:</td>
-          <td>${{ amount_due }}</td>
+          <td>KES {{ amount_due }}</td>
         </tr>
         <tr>
           <td>Due Date:</td>
@@ -114,7 +114,7 @@
         details for our records.
       </p>
       <center>
-        <a href="#" class="cta-button">Make Payment Now</a>
+        <a href="{{ payment_url }}" class="cta-button">Make Payment Now</a>
       </center>
       <p>
         If you are experiencing any difficulties or would like to discuss a

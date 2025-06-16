@@ -374,21 +374,28 @@ class MpesaConfirmationAPIView(MpesaBaseView):
             transaction = MpesaTransaction.objects.create(
                 transaction_id=transaction_id,
                 phone_number=phone,
-                amount=amount,  # Now using Decimal
+                amount=amount,
                 account_number=account_number,
                 transaction_date=transaction_date,
             )
 
             # Check if this is a payment link transaction (STK push)
-            payment_link = self._get_payment_link_from_account_number(account_number)
+            logger.info(
+                f"Checking for STK push payment link - Account: {account_number}"
+            )
+            payment_link = self._get_payment_link_from_stk_request(transaction)
 
             if payment_link:
-                # This is an STK push transaction via payment link
+                logger.info(
+                    f"Found payment link: {payment_link.id} - Processing as STK push"
+                )
                 success, tenant, rent_period, lease = (
                     self._process_payment_link_transaction(transaction, payment_link)
                 )
             else:
-                # This is a regular C2B transaction
+                logger.info(
+                    "No payment link found - Processing as regular C2B transaction"
+                )
                 success, tenant, rent_period, lease = self._process_regular_transaction(
                     transaction
                 )
@@ -428,6 +435,62 @@ class MpesaConfirmationAPIView(MpesaBaseView):
                 },
                 status=status.HTTP_200_OK,
             )
+
+    def _get_payment_link_from_stk_request(self, transaction):
+        """
+        Find payment link by matching recent STK requests
+        """
+        try:
+            from .models import MpesaSTKRequest
+            from datetime import timedelta
+
+            # Clean phone number for comparison (remove country code variations)
+            transaction_phone = transaction.phone_number.lstrip("+254").lstrip("254")
+            if transaction_phone.startswith("0"):
+                transaction_phone = transaction_phone[1:]
+
+            # Look for recent STK requests that match this transaction
+            recent_time = timezone.now() - timedelta(
+                minutes=15
+            )  # Within last 15 minutes
+
+            stk_requests = MpesaSTKRequest.objects.filter(
+                amount=transaction.amount,
+                created_at__gte=recent_time,
+                is_processed=False,
+            ).select_related("payment_link__lease__unit__property")
+
+            # Try to match by phone number and account number
+            for stk_request in stk_requests:
+                stk_phone = stk_request.phone_number.lstrip("+254").lstrip("254")
+                if stk_phone.startswith("0"):
+                    stk_phone = stk_phone[1:]
+
+                if stk_phone == transaction_phone:
+                    # Verify the account number matches what we expect
+                    property_prefix = stk_request.payment_link.lease.unit.property.name[
+                        :3
+                    ].upper()
+                    unit_number = stk_request.payment_link.lease.unit.unit_number
+                    expected_account = f"{property_prefix}-{unit_number}"
+
+                    if transaction.account_number == expected_account:
+                        logger.info(
+                            f"Found matching STK request: {stk_request.checkout_request_id}"
+                        )
+                        # Mark as processed
+                        stk_request.is_processed = True
+                        stk_request.save()
+                        return stk_request.payment_link
+
+            logger.info(
+                f"No matching STK request found for phone: {transaction_phone}, amount: {transaction.amount}, account: {transaction.account_number}"
+            )
+            return None
+
+        except Exception as e:
+            logger.error(f"Error finding payment link by STK request match: {str(e)}")
+            return None
 
     def _get_payment_link_from_account_number(self, account_number):
         """

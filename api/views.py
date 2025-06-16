@@ -51,6 +51,7 @@ from .models import (
     Expense,
     ExpenseCategory,
     PaymentLink,
+    MpesaSTKRequest,
 )
 from .serializers import (
     UserRegistrationSerializer,
@@ -1953,10 +1954,11 @@ class PaymentViewSet(viewsets.ViewSet):
             # Initialize M-Pesa client and send STK push
             mpesa_client = MpesaClient()
 
-            # Generate account reference for the transaction
-            # Format: PropertyPrefix-UnitNumber-PaymentLinkID
+            # Use simple account reference (just property + unit)
             property_prefix = payment_link.lease.unit.property.name[:3].upper()
-            account_reference = f"{property_prefix}-{payment_link.lease.unit.unit_number}-{payment_link.id}"
+            account_reference = (
+                f"{property_prefix}-{payment_link.lease.unit.unit_number}"
+            )
 
             # Initiate STK push
             result = mpesa_client.stk_push(
@@ -1965,17 +1967,20 @@ class PaymentViewSet(viewsets.ViewSet):
                 account_reference=account_reference,
             )
 
-            # Check if STK push was initiated successfully
-            if result.get("ResponseCode") == "0":  # Success code
-                # Store the checkout request ID for tracking
+            if result.get("ResponseCode") == "0":
                 checkout_request_id = result.get("CheckoutRequestID")
 
-                # You might want to store this in your PaymentLink model or create a separate tracking record
-                # For now, we'll just return the success response
+                # Store the STK request for later matching
+                MpesaSTKRequest.objects.create(
+                    checkout_request_id=checkout_request_id,
+                    payment_link=payment_link,
+                    phone_number=phone_number,
+                    amount=amount,
+                )
 
                 return Response(
                     {
-                        "message": "Payment request sent successfully. Please check your phone and enter your M-Pesa PIN.",
+                        "message": "Payment request sent successfully.",
                         "checkout_request_id": checkout_request_id,
                         "amount": amount,
                         "phone_number": phone_number,

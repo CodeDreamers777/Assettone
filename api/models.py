@@ -1174,3 +1174,18 @@ class PaymentLink(models.Model):
             # Link expires after 30 days
             self.expires_at = timezone.now() + timezone.timedelta(days=30)
         super().save(*args, **kwargs)
+
+
+class MpesaSTKRequest(models.Model):
+    checkout_request_id = models.CharField(max_length=100, unique=True)
+    payment_link = models.ForeignKey("PaymentLink", on_delete=models.CASCADE)
+    phone_number = models.CharField(max_length=15)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_processed = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "mpesa_stk_requests"
+
+    def __str__(self):
+        return f"STK Request {self.checkout_request_id} - {self.amount}"

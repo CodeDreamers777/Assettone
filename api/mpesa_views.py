@@ -379,9 +379,19 @@ class MpesaConfirmationAPIView(MpesaBaseView):
                 transaction_date=transaction_date,
             )
 
-            # Process payment immediately (synchronous)
-            logger.info(f"Processing transaction {transaction_id} immediately")
-            success, tenant, rent_period, lease = self._process_payment(transaction)
+            # Check if this is a payment link transaction (STK push)
+            payment_link = self._get_payment_link_from_account_number(account_number)
+
+            if payment_link:
+                # This is an STK push transaction via payment link
+                success, tenant, rent_period, lease = (
+                    self._process_payment_link_transaction(transaction, payment_link)
+                )
+            else:
+                # This is a regular C2B transaction
+                success, tenant, rent_period, lease = self._process_regular_transaction(
+                    transaction
+                )
 
             # Send WhatsApp receipt if payment was successful
             if success and tenant and rent_period and lease:
@@ -419,10 +429,144 @@ class MpesaConfirmationAPIView(MpesaBaseView):
                 status=status.HTTP_200_OK,
             )
 
-    def _process_payment(self, transaction):
+    def _get_payment_link_from_account_number(self, account_number):
         """
-        Process simulated payment
-        This implements the account number format logic
+        Extract payment link from account number if it's an STK push transaction
+        Format: PropertyPrefix-UnitNumber-PaymentLinkID
+        """
+        try:
+            parts = account_number.split("-")
+            if len(parts) == 3:  # STK push format
+                property_prefix, unit_number, payment_link_id = parts
+                try:
+                    from .models import (
+                        PaymentLink,
+                    )  # Import here to avoid circular imports
+
+                    payment_link = PaymentLink.objects.get(
+                        id=payment_link_id,
+                        lease__unit__unit_number=unit_number,
+                        lease__unit__property__name__istartswith=property_prefix,
+                    )
+                    return payment_link
+                except PaymentLink.DoesNotExist:
+                    logger.warning(
+                        f"Payment link not found for account number: {account_number}"
+                    )
+                    return None
+            return None
+        except Exception as e:
+            logger.error(
+                f"Error extracting payment link from account number {account_number}: {str(e)}"
+            )
+            return None
+
+    def _process_payment_link_transaction(self, transaction, payment_link):
+        """
+        Process STK push transaction via payment link
+        Returns: (success, tenant, rent_period, lease) tuple
+        """
+        try:
+            lease = payment_link.lease
+            unit = lease.unit
+            property = unit.property
+
+            # Check if payment link is still valid
+            if payment_link.is_expired():
+                error_msg = "Payment link has expired"
+                transaction.processing_error = error_msg
+                transaction.processing_attempts += 1
+                transaction.last_attempt = timezone.now()
+                transaction.save()
+                logger.warning(f"{error_msg}: {payment_link.id}")
+                return False, None, None, None
+
+            if payment_link.is_used:
+                error_msg = "Payment link has already been used"
+                transaction.processing_error = error_msg
+                transaction.processing_attempts += 1
+                transaction.last_attempt = timezone.now()
+                transaction.save()
+                logger.warning(f"{error_msg}: {payment_link.id}")
+                return False, None, None, None
+
+            # Find the current rent period
+            rent_period = (
+                RentPeriodStatus.objects.filter(
+                    lease=lease,
+                    is_paid=False,
+                    period_end_date__gte=timezone.now().date(),
+                )
+                .order_by("period_start_date")
+                .first()
+            )
+
+            # If no active rent period, create one
+            if not rent_period:
+                rent_period = self._create_rent_period(lease)
+
+            if rent_period:
+                # Update the rent period with payment
+                rent_period.amount_paid += transaction.amount
+                rent_period.update_payment_status()
+
+                # Create RentPayment record
+                from .models import RentPayment  # Import here to avoid circular imports
+
+                RentPayment.objects.create(
+                    lease=lease,
+                    amount=transaction.amount,
+                    payment_date=transaction.transaction_date.date(),
+                    payment_method="MPESA",
+                    transaction_id=transaction.transaction_id,
+                    notes=f"STK Push Payment via Payment Link {payment_link.id}",
+                )
+
+                # Mark payment link as used if payment covers the amount due
+                current_balance = rent_period.amount_due - rent_period.amount_paid
+                if current_balance <= 0:
+                    payment_link.is_used = True
+                    payment_link.save()
+                    logger.info(f"Payment link {payment_link.id} marked as used")
+
+                # Update transaction with references
+                transaction.property = property
+                transaction.unit = unit
+                transaction.tenant = lease.tenant
+                transaction.rent_period = rent_period
+                transaction.processed = True
+                transaction.save()
+
+                logger.info(
+                    f"Successfully processed STK push payment for {lease.tenant} - Unit {unit.unit_number}"
+                )
+
+                # Create next period if current one is fully paid
+                if rent_period.is_paid:
+                    self._create_next_rent_period_if_needed(lease, rent_period)
+
+                return True, lease.tenant, rent_period, lease
+            else:
+                error_msg = "Failed to create or find rent period for this lease"
+                transaction.processing_error = error_msg
+                transaction.processing_attempts += 1
+                transaction.last_attempt = timezone.now()
+                transaction.save()
+                logger.warning(f"{error_msg}: {lease}")
+                return False, None, None, None
+
+        except Exception as e:
+            error_msg = f"Error processing STK push payment: {str(e)}"
+            transaction.processing_error = error_msg
+            transaction.processing_attempts += 1
+            transaction.last_attempt = timezone.now()
+            transaction.save()
+            logger.exception(error_msg)
+            return False, None, None, None
+
+    def _process_regular_transaction(self, transaction):
+        """
+        Process regular C2B transaction (same as the original _process_payment method)
         Returns: (success, tenant, rent_period, lease) tuple
         """
         try:
@@ -497,96 +641,8 @@ class MpesaConfirmationAPIView(MpesaBaseView):
 
                     # If no active rent period, create one
                     if not rent_period:
-                        # Determine current period dates based on lease payment period
-                        today = timezone.now().date()
-                        period_start_date = today.replace(
-                            day=1
-                        )  # First day of current month
+                        rent_period = self._create_rent_period(lease)
 
-                        # Calculate end date and base rent amount based on payment period
-                        if lease.payment_period == PaymentPeriod.MONTHLY:
-                            next_month = period_start_date + relativedelta(months=1)
-                            period_end_date = next_month - relativedelta(days=1)
-                            base_amount_due = lease.monthly_rent
-                        elif lease.payment_period == PaymentPeriod.BIMONTHLY:
-                            period_end_date = (
-                                period_start_date
-                                + relativedelta(months=2)
-                                - relativedelta(days=1)
-                            )
-                            base_amount_due = lease.monthly_rent * 2
-                        elif lease.payment_period == PaymentPeriod.HALF_YEARLY:
-                            period_end_date = (
-                                period_start_date
-                                + relativedelta(months=6)
-                                - relativedelta(days=1)
-                            )
-                            base_amount_due = lease.monthly_rent * 6
-                        elif lease.payment_period == PaymentPeriod.YEARLY:
-                            period_end_date = (
-                                period_start_date
-                                + relativedelta(years=1)
-                                - relativedelta(days=1)
-                            )
-                            base_amount_due = lease.monthly_rent * 12
-                        else:
-                            # Default to monthly if unexpected payment period
-                            next_month = period_start_date + relativedelta(months=1)
-                            period_end_date = next_month - relativedelta(days=1)
-                            base_amount_due = lease.monthly_rent
-
-                            # Get water bill information for this period
-                            unit.reset_water_units_if_needed()
-                            water_bill_amount = unit.get_current_water_bill()
-                            water_units_used = unit.water_units_used
-
-                            # Create the new rent period with water bill included in amount_due
-                            rent_period = RentPeriodStatus.objects.create(
-                                lease=lease,
-                                period_start_date=period_start_date,
-                                period_end_date=period_end_date,
-                                amount_due=base_amount_due
-                                + water_bill_amount,  # Include water bill in main amount_due
-                                amount_paid=0,
-                                is_paid=False,
-                                water_bill_amount=water_bill_amount,  # Store separately for reporting
-                                water_units_used=water_units_used,
-                            )
-                    # If rent period exists, ensure it includes water bill in amount_due
-                    else:
-                        # Get current water bill for existing period
-                        unit.reset_water_units_if_needed()
-                        water_bill_amount = unit.get_current_water_bill()
-                        water_units_used = unit.water_units_used
-
-                        # Calculate what the base rent should be (without water)
-                        if lease.payment_period == PaymentPeriod.MONTHLY:
-                            base_rent = lease.monthly_rent
-                        elif lease.payment_period == PaymentPeriod.BIMONTHLY:
-                            base_rent = lease.monthly_rent * 2
-                        elif lease.payment_period == PaymentPeriod.HALF_YEARLY:
-                            base_rent = lease.monthly_rent * 6
-                        elif lease.payment_period == PaymentPeriod.YEARLY:
-                            base_rent = lease.monthly_rent * 12
-                        else:
-                            base_rent = lease.monthly_rent
-
-                        # Update the rent period to ensure it includes water bill in amount_due
-                        expected_total_due = base_rent + water_bill_amount
-
-                        # Only update if the current amount_due doesn't include water bill
-                        if rent_period.amount_due != expected_total_due:
-                            rent_period.amount_due = expected_total_due
-                            rent_period.water_bill_amount = water_bill_amount
-                            rent_period.water_units_used = water_units_used
-                            rent_period.save()
-
-                            logger.info(
-                                f"Updated rent period {rent_period.id} - Base rent: {base_rent}, "
-                                f"Water bill: {water_bill_amount}, Total due: {expected_total_due}"
-                            )
-
-                    # Now process the payment using the corrected update_payment_status method
                     if rent_period:
                         # Update the rent period with payment
                         rent_period.amount_paid += transaction.amount
@@ -610,73 +666,12 @@ class MpesaConfirmationAPIView(MpesaBaseView):
                         transaction.save()
 
                         logger.info(
-                            f"Successfully processed payment for {lease.tenant} - Unit {unit.unit_number}"
+                            f"Successfully processed C2B payment for {lease.tenant} - Unit {unit.unit_number}"
                         )
 
-                        # Check if the rent period is now fully paid and create next period if needed
+                        # Create next period if current one is fully paid
                         if rent_period.is_paid:
-                            # Calculate next period based on current period's end date
-                            next_period_start = (
-                                rent_period.period_end_date + relativedelta(days=1)
-                            )
-
-                            # Check if next period already exists
-                            next_period_exists = RentPeriodStatus.objects.filter(
-                                lease=lease, period_start_date=next_period_start
-                            ).exists()
-
-                            if not next_period_exists:
-                                # Calculate next period end date based on payment period
-                                if lease.payment_period == PaymentPeriod.MONTHLY:
-                                    next_period_end = (
-                                        next_period_start
-                                        + relativedelta(months=1)
-                                        - relativedelta(days=1)
-                                    )
-                                    next_amount_due = lease.monthly_rent
-                                elif lease.payment_period == PaymentPeriod.BIMONTHLY:
-                                    next_period_end = (
-                                        next_period_start
-                                        + relativedelta(months=2)
-                                        - relativedelta(days=1)
-                                    )
-                                    next_amount_due = lease.monthly_rent * 2
-                                elif lease.payment_period == PaymentPeriod.HALF_YEARLY:
-                                    next_period_end = (
-                                        next_period_start
-                                        + relativedelta(months=6)
-                                        - relativedelta(days=1)
-                                    )
-                                    next_amount_due = lease.monthly_rent * 6
-                                elif lease.payment_period == PaymentPeriod.YEARLY:
-                                    next_period_end = (
-                                        next_period_start
-                                        + relativedelta(years=1)
-                                        - relativedelta(days=1)
-                                    )
-                                    next_amount_due = lease.monthly_rent * 12
-                                else:
-                                    # Default to monthly
-                                    next_period_end = (
-                                        next_period_start
-                                        + relativedelta(months=1)
-                                        - relativedelta(days=1)
-                                    )
-                                    next_amount_due = lease.monthly_rent
-
-                                # Create next period
-                                RentPeriodStatus.objects.create(
-                                    lease=lease,
-                                    period_start_date=next_period_start,
-                                    period_end_date=next_period_end,
-                                    amount_due=next_amount_due,
-                                    amount_paid=0,
-                                    is_paid=False,
-                                )
-
-                                logger.info(
-                                    f"Created next rent period for lease {lease.id}: {next_period_start} to {next_period_end}"
-                                )
+                            self._create_next_rent_period_if_needed(lease, rent_period)
 
                         return True, lease.tenant, rent_period, lease
                     else:
@@ -715,13 +710,144 @@ class MpesaConfirmationAPIView(MpesaBaseView):
             return False, None, None, None
 
         except Exception as e:
-            error_msg = f"Error processing payment: {str(e)}"
+            error_msg = f"Error processing C2B payment: {str(e)}"
             transaction.processing_error = error_msg
             transaction.processing_attempts += 1
             transaction.last_attempt = timezone.now()
             transaction.save()
             logger.exception(error_msg)
             return False, None, None, None
+
+    def _create_rent_period(self, lease):
+        """Create a new rent period for the lease"""
+        try:
+            from dateutil.relativedelta import relativedelta
+
+            today = timezone.now().date()
+            period_start_date = today.replace(day=1)  # First day of current month
+
+            # Calculate end date and base rent amount based on payment period
+            if lease.payment_period == PaymentPeriod.MONTHLY:
+                next_month = period_start_date + relativedelta(months=1)
+                period_end_date = next_month - relativedelta(days=1)
+                base_amount_due = lease.monthly_rent
+            elif lease.payment_period == PaymentPeriod.BIMONTHLY:
+                period_end_date = (
+                    period_start_date + relativedelta(months=2) - relativedelta(days=1)
+                )
+                base_amount_due = lease.monthly_rent * 2
+            elif lease.payment_period == PaymentPeriod.HALF_YEARLY:
+                period_end_date = (
+                    period_start_date + relativedelta(months=6) - relativedelta(days=1)
+                )
+                base_amount_due = lease.monthly_rent * 6
+            elif lease.payment_period == PaymentPeriod.YEARLY:
+                period_end_date = (
+                    period_start_date + relativedelta(years=1) - relativedelta(days=1)
+                )
+                base_amount_due = lease.monthly_rent * 12
+            else:
+                # Default to monthly if unexpected payment period
+                next_month = period_start_date + relativedelta(months=1)
+                period_end_date = next_month - relativedelta(days=1)
+                base_amount_due = lease.monthly_rent
+
+            # Get water bill information for this period
+            unit = lease.unit
+            unit.reset_water_units_if_needed()
+            water_bill_amount = unit.get_current_water_bill()
+            water_units_used = unit.water_units_used
+
+            # Create the new rent period with water bill included in amount_due
+            rent_period = RentPeriodStatus.objects.create(
+                lease=lease,
+                period_start_date=period_start_date,
+                period_end_date=period_end_date,
+                amount_due=base_amount_due + water_bill_amount,
+                amount_paid=0,
+                is_paid=False,
+                water_bill_amount=water_bill_amount,
+                water_units_used=water_units_used,
+            )
+
+            logger.info(
+                f"Created new rent period for lease {lease.id}: {period_start_date} to {period_end_date}"
+            )
+            return rent_period
+
+        except Exception as e:
+            logger.error(f"Error creating rent period for lease {lease.id}: {str(e)}")
+            return None
+
+    def _create_next_rent_period_if_needed(self, lease, current_period):
+        """Create next rent period if current one is fully paid"""
+        try:
+            from dateutil.relativedelta import relativedelta
+
+            # Calculate next period based on current period's end date
+            next_period_start = current_period.period_end_date + relativedelta(days=1)
+
+            # Check if next period already exists
+            next_period_exists = RentPeriodStatus.objects.filter(
+                lease=lease, period_start_date=next_period_start
+            ).exists()
+
+            if not next_period_exists:
+                # Calculate next period end date based on payment period
+                if lease.payment_period == PaymentPeriod.MONTHLY:
+                    next_period_end = (
+                        next_period_start
+                        + relativedelta(months=1)
+                        - relativedelta(days=1)
+                    )
+                    next_amount_due = lease.monthly_rent
+                elif lease.payment_period == PaymentPeriod.BIMONTHLY:
+                    next_period_end = (
+                        next_period_start
+                        + relativedelta(months=2)
+                        - relativedelta(days=1)
+                    )
+                    next_amount_due = lease.monthly_rent * 2
+                elif lease.payment_period == PaymentPeriod.HALF_YEARLY:
+                    next_period_end = (
+                        next_period_start
+                        + relativedelta(months=6)
+                        - relativedelta(days=1)
+                    )
+                    next_amount_due = lease.monthly_rent * 6
+                elif lease.payment_period == PaymentPeriod.YEARLY:
+                    next_period_end = (
+                        next_period_start
+                        + relativedelta(years=1)
+                        - relativedelta(days=1)
+                    )
+                    next_amount_due = lease.monthly_rent * 12
+                else:
+                    # Default to monthly
+                    next_period_end = (
+                        next_period_start
+                        + relativedelta(months=1)
+                        - relativedelta(days=1)
+                    )
+                    next_amount_due = lease.monthly_rent
+
+                # Create next period
+                RentPeriodStatus.objects.create(
+                    lease=lease,
+                    period_start_date=next_period_start,
+                    period_end_date=next_period_end,
+                    amount_due=next_amount_due,
+                    amount_paid=0,
+                    is_paid=False,
+                )
+
+                logger.info(
+                    f"Created next rent period for lease {lease.id}: {next_period_start} to {next_period_end}"
+                )
+        except Exception as e:
+            logger.error(
+                f"Error creating next rent period for lease {lease.id}: {str(e)}"
+            )
 
 
 class MpesaRegisterCallbackURLView(APIView):

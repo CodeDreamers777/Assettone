@@ -1916,7 +1916,7 @@ class PaymentViewSet(viewsets.ViewSet):
 
     @action(detail=True, methods=["post"])
     def process_payment(self, request, pk=None):
-        """Process M-Pesa payment"""
+        """Initiate M-Pesa STK push payment"""
         try:
             payment_link = get_object_or_404(PaymentLink, id=pk)
 
@@ -1953,49 +1953,49 @@ class PaymentViewSet(viewsets.ViewSet):
             # Initialize M-Pesa client and send STK push
             mpesa_client = MpesaClient()
 
-            # For now, we'll use the simulate method. In production, you'll use the STK push
+            # Generate account reference for the transaction
+            # Format: PropertyPrefix-UnitNumber-PaymentLinkID
+            property_prefix = payment_link.lease.unit.property.name[:3].upper()
+            account_reference = f"{property_prefix}-{payment_link.lease.unit.unit_number}-{payment_link.id}"
+
+            # Initiate STK push
             result = mpesa_client.stk_push(
                 phone_number=phone_number,
                 amount=amount,
-                account_reference=f"RENT-{payment_link.lease.unit.unit_number}",
+                account_reference=account_reference,
             )
 
-            # If successful, create payment record
+            # Check if STK push was initiated successfully
             if result.get("ResponseCode") == "0":  # Success code
-                # Create rent payment record
-                rent_payment = RentPayment.objects.create(
-                    lease=payment_link.lease,
-                    amount=amount,
-                    payment_date=timezone.now().date(),
-                    payment_method="MPESA",
-                    transaction_id=result.get("TransactionID", ""),
-                    notes=f"Payment via M-Pesa from {phone_number}",
-                )
+                # Store the checkout request ID for tracking
+                checkout_request_id = result.get("CheckoutRequestID")
 
-                # Mark payment link as used if full amount is paid
-                current_balance = self.get_current_balance(payment_link.lease)
-                if amount >= current_balance:
-                    payment_link.is_used = True
-                    payment_link.save()
+                # You might want to store this in your PaymentLink model or create a separate tracking record
+                # For now, we'll just return the success response
 
                 return Response(
                     {
-                        "message": "Payment initiated successfully",
-                        "transaction_id": result.get("TransactionID", ""),
+                        "message": "Payment request sent successfully. Please check your phone and enter your M-Pesa PIN.",
+                        "checkout_request_id": checkout_request_id,
                         "amount": amount,
-                        "remaining_balance": max(0, current_balance - amount),
+                        "phone_number": phone_number,
+                        "account_reference": account_reference,
                     },
                     status=status.HTTP_200_OK,
                 )
             else:
                 return Response(
-                    {"error": "Payment failed", "details": result},
+                    {
+                        "error": "Failed to initiate payment request",
+                        "details": result.get("errorMessage", "Unknown error"),
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
         except Exception as e:
             return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": f"Failed to process payment request: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     def get_current_balance(self, lease):

@@ -116,8 +116,12 @@ class MpesaClient:
     ):
         """Send STK push to customer's phone"""
         try:
-            if not self.validate_access_token():
-                self.get_access_token()
+            # Use the same pattern as register_callback_url for consistent token handling
+            access_token = (
+                self.access_token
+                if self.validate_access_token()
+                else self.get_access_token()
+            )
 
             url = f"{self.api_url}/mpesa/stkpush/v1/processrequest"
 
@@ -129,7 +133,7 @@ class MpesaClient:
             password = base64.b64encode(password_string.encode()).decode("utf-8")
 
             headers = {
-                "Authorization": f"Bearer {self.access_token}",
+                "Authorization": f"Bearer {access_token}",  # Use the local access_token variable
                 "Content-Type": "application/json",
             }
 
@@ -147,7 +151,17 @@ class MpesaClient:
                 "TransactionDesc": transaction_desc,
             }
 
+            # Add debugging similar to register_callback_url
+            print(f"STK Push - Making request to: {url}")
+            print(f"STK Push - Headers: {headers}")
+            print(f"STK Push - Payload: {json.dumps(payload, indent=2)}")
+
             response = requests.post(url, json=payload, headers=headers, timeout=30)
+
+            # Print the complete response for debugging
+            print(f"STK Push - Response status: {response.status_code}")
+            print(f"STK Push - Response body: {response.text}")
+
             response.raise_for_status()
             return response.json()
 

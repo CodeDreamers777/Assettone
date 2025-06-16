@@ -806,20 +806,17 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        """
-        Custom create method to:
-        1. Set monthly rent from unit's rent
-        2. Set security deposit (e.g., as 1.5x monthly rent)
-        3. Update unit occupancy
-        4. Generate signing token and send signing email
-        5. Generate account number for payments
-        """
         # Get the unit and its rent
         unit = validated_data.get("unit")
         # Set monthly rent directly from the unit
         validated_data["monthly_rent"] = unit.rent
-        # Set security deposit (e.g., 1.5 times monthly rent)
-        validated_data["security_deposit"] = unit.rent * Decimal("1.5")
+
+        # Only set security deposit if not provided
+        if (
+            "security_deposit" not in validated_data
+            or validated_data["security_deposit"] is None
+        ):
+            validated_data["security_deposit"] = unit.rent * Decimal("1.5")
         # Generate signing token
         validated_data["signing_token"] = uuid.uuid4()
 

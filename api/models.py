@@ -945,7 +945,7 @@ class RentPeriodStatus(models.Model):
     water_units_used = models.DecimalField(
         max_digits=8,
         decimal_places=2,
-        default=2.00,
+        default=0.00,
         help_text="Water units used during this period",
     )
 

@@ -119,7 +119,7 @@ class MpesaClient:
             if not self.validate_access_token():
                 self.get_access_token()
 
-            url = f"{self.api_url}/mpesa/stkpush/v2/processrequest"
+            url = f"{self.api_url}/mpesa/stkpush/v1/processrequest"
 
             # Generate timestamp
             timestamp = datetime.now().strftime("%Y%m%d%H%M%S")

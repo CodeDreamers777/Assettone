@@ -742,15 +742,9 @@ class LeaseSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
     def get_tenant_name(self, obj):
-        """
-        Get full name of the tenant
-        """
         return f"{obj.tenant.first_name} {obj.tenant.last_name}"
 
     def get_unit_details(self, obj):
-        """
-        Get basic unit details
-        """
         return {
             "id": str(obj.unit.id),
             "unit_number": obj.unit.unit_number,
@@ -761,7 +755,6 @@ class LeaseSerializer(serializers.ModelSerializer):
 class LeaseCreateSerializer(serializers.ModelSerializer):
     """
     Serializer for creating or updating a Lease
-    Includes additional validation, automatic rent calculation, and lease signing email
     """
 
     class Meta:
@@ -773,29 +766,23 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
             "updated_at",
             "previous_lease",
             "monthly_rent",
-            "security_deposit",
             "signing_token",
             "is_signed",
             "signed_at",
-            "account_number",  # Make account_number read-only in the serializer
+            "account_number",
         ]
 
     def validate(self, data):
-        """
-        Validate lease creation/update
-        """
-        # Ensure unit is provided
         unit = data.get("unit")
         if not unit:
             raise serializers.ValidationError("Unit is required")
-        # Ensure unit is not already leased
+
         active_leases = Lease.objects.filter(unit=unit, status=LeaseStatus.ACTIVE)
-        # Exclude current lease if it's an update
         if self.instance:
             active_leases = active_leases.exclude(pk=self.instance.pk)
         if active_leases.exists():
             raise serializers.ValidationError("This unit already has an active lease.")
-        # Validate date range
+
         start_date = data.get("start_date")
         end_date = data.get("end_date")
         if start_date and end_date:
@@ -806,63 +793,47 @@ class LeaseCreateSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        # Get the unit and its rent
         unit = validated_data.get("unit")
-        # Set monthly rent directly from the unit
         validated_data["monthly_rent"] = unit.rent
 
-        # Only set security deposit if not provided
         if (
             "security_deposit" not in validated_data
             or validated_data["security_deposit"] is None
         ):
-            validated_data["security_deposit"] = unit.rent * Decimal("1.5")
-        # Generate signing token
+            validated_data["security_deposit"] = unit.rent
+
         validated_data["signing_token"] = uuid.uuid4()
 
-        # Create lease
         lease = super().create(validated_data)
 
-        # Generate account number
         lease.account_number = lease.generate_account_number()
         lease.save(update_fields=["account_number"])
 
-        # Update unit occupancy
         unit.is_occupied = True
         unit.save()
 
-        # Send lease signing email
         try:
             lease.send_lease_signing_email()
         except Exception as e:
-            # Log the error but don't prevent lease creation
             print(f"Failed to send lease signing email: {str(e)}")
-            # You might want to add proper logging here
 
         return lease
 
     def update(self, instance, validated_data):
-        """
-        Custom update method similar to create
-        """
-        # Get the unit and its rent
         unit = validated_data.get("unit", instance.unit)
-
-        # Update monthly rent from unit's rent
         validated_data["monthly_rent"] = unit.rent
 
-        # Update security deposit
-        validated_data["security_deposit"] = unit.rent * Decimal("1.5")
+        if (
+            "security_deposit" not in validated_data
+            or validated_data["security_deposit"] is None
+        ):
+            validated_data["security_deposit"] = unit.rent
 
-        # Update lease
         lease = super().update(instance, validated_data)
 
-        # Update unit occupancy if needed
         if unit != instance.unit:
-            # Update previous unit's occupancy
             instance.unit.is_occupied = False
             instance.unit.save()
-            # Update new unit's occupancy
             unit.is_occupied = True
             unit.save()
 

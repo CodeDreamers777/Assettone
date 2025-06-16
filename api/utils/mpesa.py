@@ -21,12 +21,19 @@ class MpesaClient:
         self.api_url = settings.MPESA_API_URL
         self.shortcode = settings.MPESA_SHORTCODE
         self.passkey = settings.MPESA_PASSKEY
-        self.access_token = None
-        self.access_token_expiry = None
-        self.access_token_generated_at = None
 
-    def get_access_token(self):
-        """Get OAuth access token from M-Pesa"""
+        # V2 API tokens (for C2B endpoints)
+        self.access_token_v2 = None
+        self.access_token_v2_expiry = None
+        self.access_token_v2_generated_at = None
+
+        # V1 API tokens (for STK Push endpoints)
+        self.access_token_v1 = None
+        self.access_token_v1_expiry = None
+        self.access_token_v1_generated_at = None
+
+    def get_access_token_v2(self):
+        """Get OAuth access token for V2 endpoints (C2B)"""
         try:
             url = "https://api.safaricom.co.ke/oauth/v2/generate?grant_type=client_credentials"
 
@@ -36,49 +43,103 @@ class MpesaClient:
             headers = {"Authorization": f"Basic {auth}"}
 
             response = requests.get(url, headers=headers, timeout=30)
-            print(f"Access token response status: {response.status_code}")
+            print(f"V2 Access token response status: {response.status_code}")
 
-            # Print response body for debugging (be careful with tokens in logs)
             if response.status_code != 200:
-                print(f"Error response: {response.text}")
+                print(f"V2 Error response: {response.text}")
 
             response.raise_for_status()
             result = response.json()
-            self.access_token = result.get("access_token")
-            self.access_token_generated_at = datetime.now()
-            self.access_token_expiry = result.get("expires_in")
+            self.access_token_v2 = result.get("access_token")
+            self.access_token_v2_generated_at = datetime.now()
+            self.access_token_v2_expiry = result.get("expires_in")
 
-            return self.access_token
+            return self.access_token_v2
         except RequestException as e:
-            logger.error(f"Error getting access token: {str(e)}")
+            logger.error(f"Error getting V2 access token: {str(e)}")
             raise
 
-    def validate_access_token(self):
-        # Check if all required token fields are present
+    def get_access_token_v1(self):
+        """Get OAuth access token for V1 endpoints (STK Push)"""
+        try:
+            url = "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
+
+            auth = base64.b64encode(
+                f"{self.consumer_key}:{self.consumer_secret}".encode("utf-8")
+            ).decode("utf-8")
+            headers = {"Authorization": f"Basic {auth}"}
+
+            response = requests.get(url, headers=headers, timeout=30)
+            print(f"V1 Access token response status: {response.status_code}")
+
+            if response.status_code != 200:
+                print(f"V1 Error response: {response.text}")
+
+            response.raise_for_status()
+            result = response.json()
+            self.access_token_v1 = result.get("access_token")
+            self.access_token_v1_generated_at = datetime.now()
+            self.access_token_v1_expiry = result.get("expires_in")
+
+            return self.access_token_v1
+        except RequestException as e:
+            logger.error(f"Error getting V1 access token: {str(e)}")
+            raise
+
+    def validate_access_token_v2(self):
+        """Validate V2 access token"""
         if (
-            not self.access_token
-            or not self.access_token_expiry
-            or not self.access_token_generated_at
+            not self.access_token_v2
+            or not self.access_token_v2_expiry
+            or not self.access_token_v2_generated_at
         ):
             return False
 
         now = datetime.now()
-        # Check if token is still valid (with 10 second buffer)
-        expiry_time = self.access_token_generated_at + timedelta(
-            seconds=(self.access_token_expiry - 10)
+        expiry_time = self.access_token_v2_generated_at + timedelta(
+            seconds=(self.access_token_v2_expiry - 10)
         )
         return expiry_time > now
 
+    def validate_access_token_v1(self):
+        """Validate V1 access token"""
+        if (
+            not self.access_token_v1
+            or not self.access_token_v1_expiry
+            or not self.access_token_v1_generated_at
+        ):
+            return False
+
+        now = datetime.now()
+        expiry_time = self.access_token_v1_generated_at + timedelta(
+            seconds=(self.access_token_v1_expiry - 10)
+        )
+        return expiry_time > now
+
+    # Legacy methods for backward compatibility
+    def get_access_token(self):
+        """Legacy method - defaults to V2 for backward compatibility"""
+        return self.get_access_token_v2()
+
+    def validate_access_token(self):
+        """Legacy method - defaults to V2 for backward compatibility"""
+        return self.validate_access_token_v2()
+
+    @property
+    def access_token(self):
+        """Legacy property - defaults to V2 for backward compatibility"""
+        return self.access_token_v2
+
     def register_callback_url(self, confirmation_url, validation_url):
-        """Register C2B callback URLs with M-Pesa"""
+        """Register C2B callback URLs with M-Pesa (uses V2 API)"""
         try:
-            # Always get a fresh token to avoid using expired tokens
+            # Use V2 token for C2B endpoints
             access_token = (
-                self.access_token
-                if self.validate_access_token()
-                else self.get_access_token()
+                self.access_token_v2
+                if self.validate_access_token_v2()
+                else self.get_access_token_v2()
             )
-            print("this is access token", access_token)
+            print("C2B Register - V2 access token:", access_token)
 
             url = (
                 f"{self.api_url}/mpesa/c2b/v2/registerurl?grant_type=client_credentials"
@@ -94,16 +155,14 @@ class MpesaClient:
                 "ValidationURL": validation_url,
             }
 
-            # Add debugging to see actual request
-            print(f"Making request to: {url}")
-            print(f"Headers: {headers}")
-            print(f"Payload: {json.dumps(payload, indent=2)}")
+            print(f"C2B Register - Making request to: {url}")
+            print(f"C2B Register - Headers: {headers}")
+            print(f"C2B Register - Payload: {json.dumps(payload, indent=2)}")
 
             response = requests.post(url, json=payload, headers=headers, timeout=30)
 
-            # Print the complete response for debugging
-            print(f"Response status: {response.status_code}")
-            print(f"Response body: {response.text}")
+            print(f"C2B Register - Response status: {response.status_code}")
+            print(f"C2B Register - Response body: {response.text}")
 
             response.raise_for_status()
             return response.json()
@@ -114,14 +173,15 @@ class MpesaClient:
     def stk_push(
         self, phone_number, amount, account_reference, transaction_desc="Rent Payment"
     ):
-        """Send STK push to customer's phone"""
+        """Send STK push to customer's phone (uses V1 API)"""
         try:
-            # Use the same pattern as register_callback_url for consistent token handling
+            # Use V1 token specifically for STK Push
             access_token = (
-                self.access_token
-                if self.validate_access_token()
-                else self.get_access_token()
+                self.access_token_v1
+                if self.validate_access_token_v1()
+                else self.get_access_token_v1()
             )
+            print("STK Push - V1 access token:", access_token)
 
             url = f"{self.api_url}/mpesa/stkpush/v1/processrequest"
 
@@ -133,7 +193,7 @@ class MpesaClient:
             password = base64.b64encode(password_string.encode()).decode("utf-8")
 
             headers = {
-                "Authorization": f"Bearer {access_token}",  # Use the local access_token variable
+                "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json",
             }
 
@@ -151,14 +211,12 @@ class MpesaClient:
                 "TransactionDesc": transaction_desc,
             }
 
-            # Add debugging similar to register_callback_url
             print(f"STK Push - Making request to: {url}")
             print(f"STK Push - Headers: {headers}")
             print(f"STK Push - Payload: {json.dumps(payload, indent=2)}")
 
             response = requests.post(url, json=payload, headers=headers, timeout=30)
 
-            # Print the complete response for debugging
             print(f"STK Push - Response status: {response.status_code}")
             print(f"STK Push - Response body: {response.text}")
 
@@ -170,15 +228,20 @@ class MpesaClient:
             raise
 
     def simulate_c2b_transaction(self, phone_number, amount, account_number):
-        """Simulate a C2B transaction (for testing in sandbox)"""
-        print("sumulation was called")
+        """Simulate a C2B transaction (for testing in sandbox) - uses V2 API"""
+        print("C2B simulation was called")
         try:
-            if not self.access_token:
-                self.get_access_token()
+            # Use V2 token for C2B simulation
+            access_token = (
+                self.access_token_v2
+                if self.validate_access_token_v2()
+                else self.get_access_token_v2()
+            )
+            print("C2B Simulation - V2 access token:", access_token)
 
             url = f"{self.api_url}/mpesa/c2b/v2/simulate"
             headers = {
-                "Authorization": f"Bearer {self.access_token}",
+                "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json",
             }
             payload = {
@@ -188,11 +251,10 @@ class MpesaClient:
                 "Msisdn": phone_number,
                 "BillRefNumber": account_number,
             }
-            print("This is the payload", payload)
+            print("C2B Simulation - Payload:", payload)
 
             response = requests.post(url, json=payload, headers=headers, timeout=30)
-            print("this is response")
-            print(response.text)
+            print("C2B Simulation - Response:", response.text)
             response.raise_for_status()
             return response.json()
         except RequestException as e:

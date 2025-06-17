@@ -311,32 +311,121 @@ class LeaseDocumentGenerator:
 
         # Create signature table
         if signature_image:
-            img = Image(signature_image)
-            img.drawHeight = 1 * inch
-            img.drawWidth = 3 * inch
+            try:
+                # Try different ways to access the image
+                img = None
 
-            signature_data = [
-                [Paragraph("Tenant Signature:", styles["CustomNormal"]), img],
-                [
-                    Paragraph("Date:", styles["CustomNormal"]),
-                    Paragraph(
-                        datetime.now().strftime("%B %d, %Y"), styles["CustomNormal"]
-                    ),
-                ],
-            ]
+                if hasattr(signature_image, "path"):
+                    import os
 
-            sig_table = Table(signature_data, colWidths=[2 * inch, 4 * inch])
-            sig_table.setStyle(
-                TableStyle(
-                    [
-                        ("ALIGN", (0, 0), (0, -1), "RIGHT"),
-                        ("ALIGN", (1, 0), (1, -1), "LEFT"),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                        ("PADDING", (0, 0), (-1, -1), 6),
+                    if os.path.exists(signature_image.path):
+                        img = Image(signature_image.path)
+                    else:
+                        print(
+                            f"Signature file not found at path: {signature_image.path}"
+                        )
+
+                # If path doesn't work, try URL
+                if img is None and hasattr(signature_image, "url"):
+                    try:
+                        # For cloud storage or accessible URLs
+                        img = Image(signature_image.url)
+                    except:
+                        print(
+                            f"Could not access signature via URL: {signature_image.url}"
+                        )
+
+                # If we still don't have an image, try the object directly
+                if img is None:
+                    try:
+                        img = Image(signature_image)
+                    except:
+                        print("Could not create image from signature_image object")
+
+                if img:
+                    img.drawHeight = 1 * inch
+                    img.drawWidth = 3 * inch
+
+                    signature_data = [
+                        [Paragraph("Tenant Signature:", styles["CustomNormal"]), img],
+                        [
+                            Paragraph("Date:", styles["CustomNormal"]),
+                            Paragraph(
+                                datetime.now().strftime("%B %d, %Y"),
+                                styles["CustomNormal"],
+                            ),
+                        ],
                     ]
+
+                    sig_table = Table(signature_data, colWidths=[2 * inch, 4 * inch])
+                    sig_table.setStyle(
+                        TableStyle(
+                            [
+                                ("ALIGN", (0, 0), (0, -1), "RIGHT"),
+                                ("ALIGN", (1, 0), (1, -1), "LEFT"),
+                                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                                ("PADDING", (0, 0), (-1, -1), 6),
+                            ]
+                        )
+                    )
+                    content.append(sig_table)
+                else:
+                    # Fallback: Add signature placeholder
+                    signature_data = [
+                        [
+                            Paragraph("Tenant Signature:", styles["CustomNormal"]),
+                            Paragraph("_" * 30, styles["CustomNormal"]),
+                        ],
+                        [
+                            Paragraph("Date:", styles["CustomNormal"]),
+                            Paragraph(
+                                datetime.now().strftime("%B %d, %Y"),
+                                styles["CustomNormal"],
+                            ),
+                        ],
+                    ]
+
+                    sig_table = Table(signature_data, colWidths=[2 * inch, 4 * inch])
+                    sig_table.setStyle(
+                        TableStyle(
+                            [
+                                ("ALIGN", (0, 0), (0, -1), "RIGHT"),
+                                ("ALIGN", (1, 0), (1, -1), "LEFT"),
+                                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                                ("PADDING", (0, 0), (-1, -1), 6),
+                            ]
+                        )
+                    )
+                    content.append(sig_table)
+
+            except Exception as e:
+                print(f"Warning: Error processing signature image: {e}")
+                # Add signature line without image
+                signature_data = [
+                    [
+                        Paragraph("Tenant Signature:", styles["CustomNormal"]),
+                        Paragraph("_" * 30, styles["CustomNormal"]),
+                    ],
+                    [
+                        Paragraph("Date:", styles["CustomNormal"]),
+                        Paragraph(
+                            datetime.now().strftime("%B %d, %Y"), styles["CustomNormal"]
+                        ),
+                    ],
+                ]
+
+                sig_table = Table(signature_data, colWidths=[2 * inch, 4 * inch])
+                sig_table.setStyle(
+                    TableStyle(
+                        [
+                            ("ALIGN", (0, 0), (0, -1), "RIGHT"),
+                            ("ALIGN", (1, 0), (1, -1), "LEFT"),
+                            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                            ("PADDING", (0, 0), (-1, -1), 6),
+                        ]
+                    )
                 )
-            )
-            content.append(sig_table)
+                content.append(sig_table)
 
         return content
 

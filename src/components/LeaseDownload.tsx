@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Download, ArrowLeft, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -7,34 +7,10 @@ import { useToast } from "@/hooks/use-toast";
 const LeaseDownloadPage = () => {
   const { leaseId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-
-  useEffect(() => {
-    // Check authentication status when component mounts
-    const accessToken = localStorage.getItem("accessToken");
-    if (!accessToken) {
-      toast({
-        variant: "destructive",
-        title: "Authentication Required",
-        description:
-          "Please log in to download your lease document. Check your email for login credentials.",
-        duration: 5000,
-      });
-
-      // Short delay before redirect to ensure toast is visible
-      setTimeout(() => {
-        navigate("/login", {
-          state: {
-            returnUrl: `/lease-download/${leaseId}`,
-            message:
-              "Please log in to download your lease document. The login details have been sent to your email",
-          },
-        });
-      }, 2000);
-    }
-  }, [leaseId, navigate, toast]);
 
   const handleDownload = async () => {
     setLoading(true);
@@ -42,35 +18,22 @@ const LeaseDownloadPage = () => {
 
     try {
       const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-        toast({
-          variant: "destructive",
-          title: "Authentication Required",
-          description:
-            "Please log in to download your lease document. Check your email for login credentials.",
-          duration: 5000,
-        });
+      const signingToken = searchParams.get("signing_token");
 
-        setTimeout(() => {
-          navigate("/login", {
-            state: {
-              returnUrl: `/lease-download/${leaseId}`,
-              message:
-                "Please log in to download your lease document. The login details have been sent to your email",
-            },
-          });
-        }, 2000);
-        return;
+      // Build URL with signing token as query parameter
+      const downloadUrl = new URL(
+        `https://assettone-rental-management.onrender.com/api/v1/leases/${leaseId}/download_pdf/`,
+      );
+
+      if (signingToken) {
+        downloadUrl.searchParams.append("signing_token", signingToken);
       }
 
-      const response = await fetch(
-        `https://assettone-rental-management.onrender.com/api/v1/leases/${leaseId}/download_pdf/`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+      const response = await fetch(downloadUrl.toString(), {
+        headers: {
+          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
         },
-      );
+      });
 
       if (!response.ok) {
         throw new Error("Failed to download lease document");

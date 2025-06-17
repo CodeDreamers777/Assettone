@@ -1185,7 +1185,7 @@ class LeaseViewSet(viewsets.ModelViewSet):
             "property_name": lease.unit.property.name,
             "unit_number": lease.unit.unit_number,
             "lease_id": lease.id,
-            "download_url": f"https://assettone-rental-management.vercel.app/lease-download/{lease.id}?signing_token={lease.signing_token}",
+            "download_url": f"https://app.assettoneestates.com/lease-download/{lease.id}?signing_token={lease.signing_token}",
         }
 
         # Send email

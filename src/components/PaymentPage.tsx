@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 
 // Define the PaymentInfo interface
@@ -14,6 +14,9 @@ interface PaymentInfo {
 // Define payment type
 type PaymentType = "full" | "partial";
 
+// Define payment status type
+type PaymentStatus = "pending" | "completed" | "failed" | "timeout";
+
 const PaymentPage: React.FC = () => {
   // Get paymentId from URL params
   const { paymentId } = useParams<{ paymentId: string }>();
@@ -26,6 +29,12 @@ const PaymentPage: React.FC = () => {
   const [paymentType, setPaymentType] = useState<PaymentType>("full");
   const [processing, setProcessing] = useState<boolean>(false);
   const [success, setSuccess] = useState<boolean>(false);
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("pending");
+  const [checkoutRequestId, setCheckoutRequestId] = useState<string>("");
+  const [pollingCount, setPollingCount] = useState<number>(0);
+
+  // Use ref to store interval ID
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null);
 
   // Backend base URL
   const API_BASE_URL =
@@ -36,6 +45,15 @@ const PaymentPage: React.FC = () => {
       fetchPaymentInfo();
     }
   }, [paymentId]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+    };
+  }, []);
 
   const fetchPaymentInfo = async (): Promise<void> => {
     try {
@@ -53,6 +71,51 @@ const PaymentPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const checkPaymentStatus = async (): Promise<void> => {
+    try {
+      // First, refresh payment info to see if balance has changed
+      const response = await fetch(
+        `${API_BASE_URL}/payments/${paymentId}/get_payment_info/`,
+      );
+
+      if (response.ok) {
+        const data: PaymentInfo = await response.json();
+
+        // Check if the balance has decreased (payment received)
+        if (paymentInfo && data.current_balance < paymentInfo.current_balance) {
+          setPaymentInfo(data);
+          setPaymentStatus("completed");
+          if (pollingInterval.current) {
+            clearInterval(pollingInterval.current);
+          }
+          return;
+        }
+
+        // Update payment info anyway
+        setPaymentInfo(data);
+      }
+
+      // Increment polling count
+      setPollingCount((prev) => prev + 1);
+
+      // Stop polling after 2 minutes (24 checks at 5-second intervals)
+      if (pollingCount >= 24) {
+        setPaymentStatus("timeout");
+        if (pollingInterval.current) {
+          clearInterval(pollingInterval.current);
+        }
+      }
+    } catch (err) {
+      console.error("Error checking payment status:", err);
+      // Don't stop polling on error, just log it
+    }
+  };
+
+  const startPaymentStatusPolling = (): void => {
+    setPollingCount(0);
+    pollingInterval.current = setInterval(checkPaymentStatus, 5000); // Check every 5 seconds
   };
 
   const formatPhoneNumber = (phone: string): string => {
@@ -124,8 +187,10 @@ const PaymentPage: React.FC = () => {
 
       if (response.ok) {
         setSuccess(true);
-        // In a real app, you'd redirect to success page
-        // setTimeout(() => window.location.href = '/payment-success', 3000);
+        setCheckoutRequestId(data.checkout_request_id || "");
+        setPaymentStatus("pending");
+        // Start polling for payment status
+        startPaymentStatusPolling();
       } else {
         setError(data.error || "Payment failed. Please try again.");
       }
@@ -142,6 +207,16 @@ const PaymentPage: React.FC = () => {
       setPaymentAmount(paymentInfo.current_balance.toString());
     } else {
       setPaymentAmount("");
+    }
+  };
+
+  const handleTryAgain = (): void => {
+    setSuccess(false);
+    setPaymentStatus("pending");
+    setCheckoutRequestId("");
+    setError("");
+    if (pollingInterval.current) {
+      clearInterval(pollingInterval.current);
     }
   };
 
@@ -180,28 +255,129 @@ const PaymentPage: React.FC = () => {
     );
   }
 
-  if (success) {
+  // Show payment completed screen
+  if (success && paymentStatus === "completed") {
     return (
       <div className="min-h-screen bg-green-50 flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full mx-4">
           <div className="text-center">
             <div className="text-green-500 text-5xl mb-4">✅</div>
             <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              Payment Initiated!
+              Payment Successful!
             </h2>
             <p className="text-gray-600 mb-6">
-              Please check your phone for the M-Pesa prompt and enter your PIN
-              to complete the payment.
+              Your payment has been processed successfully.
             </p>
             <div className="bg-green-50 p-4 rounded-lg mb-6">
               <p className="text-sm text-green-700">
-                <strong>Amount:</strong> KSh{" "}
+                <strong>Amount Paid:</strong> KSh{" "}
                 {parseFloat(paymentAmount).toLocaleString()}
               </p>
               <p className="text-sm text-green-700">
                 <strong>Phone:</strong> {phoneNumber}
               </p>
+              {paymentInfo && (
+                <p className="text-sm text-green-700">
+                  <strong>Remaining Balance:</strong> KSh{" "}
+                  {paymentInfo.current_balance.toLocaleString()}
+                </p>
+              )}
             </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition-colors"
+            >
+              Make Another Payment
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show payment timeout screen
+  if (success && paymentStatus === "timeout") {
+    return (
+      <div className="min-h-screen bg-green-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full mx-4">
+          <div className="text-center">
+            <div className="text-yellow-500 text-5xl mb-4">⏰</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              Payment Status Unknown
+            </h2>
+            <p className="text-gray-600 mb-6">
+              We're still waiting to confirm your payment. Please check your
+              M-Pesa messages or try refreshing the page.
+            </p>
+            <div className="bg-yellow-50 p-4 rounded-lg mb-6">
+              <p className="text-sm text-yellow-700">
+                <strong>Amount:</strong> KSh{" "}
+                {parseFloat(paymentAmount).toLocaleString()}
+              </p>
+              <p className="text-sm text-yellow-700">
+                <strong>Phone:</strong> {phoneNumber}
+              </p>
+            </div>
+            <div className="space-y-3">
+              <button
+                onClick={() => window.location.reload()}
+                className="w-full bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition-colors"
+              >
+                Refresh Page
+              </button>
+              <button
+                onClick={handleTryAgain}
+                className="w-full bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show payment pending screen
+  if (success && paymentStatus === "pending") {
+    return (
+      <div className="min-h-screen bg-green-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full mx-4">
+          <div className="text-center">
+            <div className="animate-pulse text-blue-500 text-5xl mb-4">📱</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              Payment Requested
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Please check your phone for the M-Pesa prompt and enter your PIN
+              to complete the payment.
+            </p>
+            <div className="bg-blue-50 p-4 rounded-lg mb-6">
+              <p className="text-sm text-blue-700">
+                <strong>Amount:</strong> KSh{" "}
+                {parseFloat(paymentAmount).toLocaleString()}
+              </p>
+              <p className="text-sm text-blue-700">
+                <strong>Phone:</strong> {phoneNumber}
+              </p>
+            </div>
+            <div className="bg-yellow-50 p-4 rounded-lg mb-6">
+              <div className="flex items-center justify-center mb-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-500 mr-2"></div>
+                <span className="text-sm text-yellow-700 font-medium">
+                  Waiting for payment confirmation...
+                </span>
+              </div>
+              <p className="text-xs text-yellow-600">
+                This page will update automatically when payment is received
+              </p>
+            </div>
+            <button
+              onClick={handleTryAgain}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors"
+            >
+              Cancel & Try Again
+            </button>
           </div>
         </div>
       </div>

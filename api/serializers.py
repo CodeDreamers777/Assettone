@@ -711,7 +711,7 @@ class TenantSerializer(serializers.ModelSerializer):
             "tenant_name": f"{tenant.first_name} {tenant.last_name}",
             "username": username,
             "password": password,
-            "login_url": "https://yourdomain.com/login",  # Replace with actual URL
+            "login_url": "https://app.assettoneestates.com/",  # Replace with actual URL
         }
 
         email_service = EmailService()

@@ -1783,7 +1783,7 @@ class RentalNoticeViewSet(viewsets.ViewSet):
                 )
 
             current_date = timezone.now().date()
-            period_start = datetime(current_date.year, current_date.month, 1).date()
+            period_start = datetime(current_date.year, current_date.month, 5).date()
             period_end = period_start.replace(
                 month=period_start.month + 1 if period_start.month < 12 else 1,
                 year=period_start.year

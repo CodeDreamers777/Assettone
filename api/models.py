@@ -600,6 +600,8 @@ class Lease(models.Model):
             "lease_url": signing_url,
             "property_name": self.unit.property.name,
             "unit_number": self.unit.unit_number,
+            "start_date": self.start_date.isoformat(),
+            "end_date": self.end_date.isoformat(),
         }
         print(context)
 

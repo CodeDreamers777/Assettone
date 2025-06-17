@@ -30,7 +30,6 @@ const PaymentPage: React.FC = () => {
   const [processing, setProcessing] = useState<boolean>(false);
   const [success, setSuccess] = useState<boolean>(false);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("pending");
-  const [checkoutRequestId, setCheckoutRequestId] = useState<string>("");
   const [pollingCount, setPollingCount] = useState<number>(0);
 
   // Use ref to store interval ID
@@ -187,7 +186,6 @@ const PaymentPage: React.FC = () => {
 
       if (response.ok) {
         setSuccess(true);
-        setCheckoutRequestId(data.checkout_request_id || "");
         setPaymentStatus("pending");
         // Start polling for payment status
         startPaymentStatusPolling();
@@ -213,7 +211,6 @@ const PaymentPage: React.FC = () => {
   const handleTryAgain = (): void => {
     setSuccess(false);
     setPaymentStatus("pending");
-    setCheckoutRequestId("");
     setError("");
     if (pollingInterval.current) {
       clearInterval(pollingInterval.current);

@@ -177,15 +177,35 @@ class LeaseDocumentGenerator:
         """Generate document header with property name and logo"""
         content = []
 
-        # Add property logo if available - handle it the same way as signature image
+        # Add property logo if available and accessible
         if property.logo:
-            logo = Image(property.logo)
-            # Set logo size while maintaining aspect ratio
-            logo.drawHeight = 1.5 * inch  # Made slightly larger than before
-            aspect = logo.imageWidth / float(logo.imageHeight)
-            logo.drawWidth = logo.drawHeight * aspect
-            content.append(logo)
-            content.append(Spacer(1, 20))
+            try:
+                # Try to create the Image object
+                if hasattr(property.logo, "path"):
+                    # Check if file exists at the path
+                    import os
+
+                    if os.path.exists(property.logo.path):
+                        logo = Image(property.logo.path)
+                    else:
+                        raise FileNotFoundError(
+                            f"Logo file not found at path: {property.logo.path}"
+                        )
+                else:
+                    # If no path attribute, try using the logo object directly
+                    logo = Image(property.logo)
+
+                # Set logo size while maintaining aspect ratio
+                logo.drawHeight = 1.5 * inch
+                aspect = logo.imageWidth / float(logo.imageHeight)
+                logo.drawWidth = logo.drawHeight * aspect
+                content.append(logo)
+                content.append(Spacer(1, 20))
+
+            except (FileNotFoundError, OSError, AttributeError, Exception) as e:
+                # Log the warning but continue without logo
+                print(f"Warning: Skipping property logo due to error: {e}")
+                # Continue without adding logo - no spacer needed
 
         # Add property name
         content.append(Paragraph(property.name.upper(), styles["MainTitle"]))

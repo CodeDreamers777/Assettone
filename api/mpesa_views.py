@@ -1,7 +1,9 @@
 # views/mpesa_views.py
 import json
+import urllib.parse
 import os
 import pytz
+import requests
 
 from decimal import Decimal
 import logging
@@ -39,6 +41,62 @@ logger = logging.getLogger(__name__)
 
 class MpesaBaseView(APIView):
     """Base class with common functionality for M-Pesa views"""
+
+    def shorten_url_bitly(long_url):
+        """Shorten URL using Bitly (free tier: 1000 links/month)"""
+        try:
+            access_token = os.getenv("BITLY_ACCESS_TOKEN")
+            if not access_token:
+                logger.error("BITLY_ACCESS_TOKEN not found in environment variables")
+                return None
+
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+            }
+            data = {
+                "long_url": long_url,
+                "domain": "bit.ly",  # Optional: you can use custom domains if you have them
+            }
+
+            response = requests.post(
+                "https://api-ssl.bitly.com/v4/shorten",
+                headers=headers,
+                json=data,
+                timeout=10,
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                return result["link"]
+            elif response.status_code == 201:
+                result = response.json()
+                return result["link"]
+            else:
+                logger.error(
+                    f"Bitly API error: {response.status_code} - {response.text}"
+                )
+                return None
+
+        except Exception as e:
+            logger.error(f"Bitly shortening failed: {str(e)}")
+            return None
+
+    def shorten_url_tinyurl(long_url):
+        """Fallback: Shorten URL using TinyURL (free, no API key needed)"""
+        try:
+            api_url = (
+                f"https://tinyurl.com/api-create.php?url={urllib.parse.quote(long_url)}"
+            )
+            response = requests.get(api_url, timeout=10)
+
+            if response.status_code == 200:
+                short_url = response.text.strip()
+                return short_url if short_url.startswith("http") else None
+            return None
+        except Exception as e:
+            logger.error(f"TinyURL shortening failed: {str(e)}")
+            return None
 
     def send_payment_receipt_whatsapp(self, transaction, rent_period, lease, tenant):
         try:
@@ -98,16 +156,31 @@ class MpesaBaseView(APIView):
                 "timestamp": datetime.now().timestamp(),
             }
 
-            # Generate SHORT payment link with error handling
+            # Generate LONG payment link
             link_generator = PaymentLinkGenerator()
-            payment_link = link_generator.generate_payment_link(payment_data)
+            long_payment_link = link_generator.generate_payment_link(payment_data)
 
-            if not payment_link:
+            if not long_payment_link:
                 logger.error(
                     f"Failed to generate payment link for transaction {transaction.transaction_id}"
                 )
-                # Fallback to a general receipts page
-                payment_link = f"{os.getenv('FRONTEND_URL')}/payments"
+                long_payment_link = f"{os.getenv('FRONTEND_URL')}/payments"
+
+            # Shorten the URL using Bitly (primary)
+            short_payment_link = self.shorten_url_bitly(long_payment_link)
+
+            # Fallback to TinyURL if Bitly fails
+            if not short_payment_link:
+                logger.warning("Bitly failed, trying TinyURL as fallback")
+                short_payment_link = self.shorten_url_tinyurl(long_payment_link)
+
+            # Use original link if both shorteners fail
+            if not short_payment_link:
+                logger.warning("Both URL shorteners failed, using original link")
+                short_payment_link = long_payment_link
+
+            logger.info(f"Original link: {long_payment_link}")
+            logger.info(f"Shortened link: {short_payment_link}")
 
             # Prepare message variables
             variables = {
@@ -118,10 +191,10 @@ class MpesaBaseView(APIView):
                 "period": f"{rent_period.period_start_date.strftime('%d %b %Y')} - {rent_period.period_end_date.strftime('%d %b %Y')}",
                 "balance": f"KES {balance:,.2f}",
                 "water_bill": f"KES {current_water_bill:,.2f}",
-                "payment_link": payment_link,
+                "payment_link": short_payment_link,
             }
 
-            # Create WhatsApp message
+            # Create WhatsApp message with shortened link
             message = (
                 f"📩 Dear {variables['tenant_name']},\n\n"
                 f"✅ Payment Received: {variables['amount']}\n"
@@ -129,7 +202,7 @@ class MpesaBaseView(APIView):
                 f"📅 Period: {variables['period']}\n"
                 f"💧 Water: {variables['water_bill']} ({unit.water_units_used} units)\n"
                 f"💰 Balance: {variables['balance']}\n\n"
-                f"View balance receipt below:\n"
+                f"View receipt below:\n"
                 f"{variables['payment_link']}\n\n"
                 f"Thank you! 🙏"
             )

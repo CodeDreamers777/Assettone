@@ -56,7 +56,7 @@ class MpesaBaseView(APIView):
             }
             data = {
                 "long_url": long_url,
-                "domain": "bit.ly",  # Optional: you can use custom domains if you have them
+                "domain": "bit.ly",
             }
 
             response = requests.post(
@@ -66,10 +66,7 @@ class MpesaBaseView(APIView):
                 timeout=10,
             )
 
-            if response.status_code == 200:
-                result = response.json()
-                return result["link"]
-            elif response.status_code == 201:
+            if response.status_code in [200, 201]:
                 result = response.json()
                 return result["link"]
             else:
@@ -103,30 +100,24 @@ class MpesaBaseView(APIView):
             from api.utils.send_whatsapp import WhatsAppService
             from decimal import Decimal
 
-            # Format and log the tenant's phone number
             tenant_phone = tenant.phone_number
             logger.info(
                 f"Generating receipt for tenant {tenant.id}, phone: {tenant_phone}"
             )
 
-            # Validate tenant phone
             if not tenant_phone:
                 logger.error(f"Tenant {tenant.id} has no phone number")
                 return False
 
-            # Calculate balance
             balance = rent_period.amount_due - rent_period.amount_paid
 
-            # Get unit and water bill information
             unit = lease.unit
             current_water_bill = unit.get_current_water_bill()
 
-            # Water bill reset check
             water_reset = unit.reset_water_units_if_needed()
             if water_reset:
                 unit.save()
 
-            # Generate payment data
             payment_data = {
                 "tenant_id": str(tenant.id),
                 "tenant_name": f"{tenant.first_name} {tenant.last_name}",
@@ -156,7 +147,6 @@ class MpesaBaseView(APIView):
                 "timestamp": datetime.now().timestamp(),
             }
 
-            # Generate LONG payment link
             link_generator = PaymentLinkGenerator()
             long_payment_link = link_generator.generate_payment_link(payment_data)
 
@@ -166,23 +156,20 @@ class MpesaBaseView(APIView):
                 )
                 long_payment_link = f"{os.getenv('FRONTEND_URL')}/payments"
 
-            # Shorten the URL using Bitly (primary)
             short_payment_link = self.shorten_url_bitly(long_payment_link)
 
-            # Fallback to TinyURL if Bitly fails
             if not short_payment_link:
                 logger.warning("Bitly failed, trying TinyURL as fallback")
                 short_payment_link = self.shorten_url_tinyurl(long_payment_link)
 
-            # Use original link if both shorteners fail
-            if not short_payment_link:
-                logger.warning("Both URL shorteners failed, using original link")
-                short_payment_link = long_payment_link
+            final_link = short_payment_link if short_payment_link else long_payment_link
+
+            if not final_link.startswith(("http://", "https://")):
+                final_link = f"https://{final_link}"
 
             logger.info(f"Original link: {long_payment_link}")
-            logger.info(f"Shortened link: {short_payment_link}")
+            logger.info(f"Final link: {final_link}")
 
-            # Prepare message variables
             variables = {
                 "tenant_name": f"{tenant.first_name} {tenant.last_name}",
                 "amount": f"KES {transaction.amount:,.2f}",
@@ -191,23 +178,22 @@ class MpesaBaseView(APIView):
                 "period": f"{rent_period.period_start_date.strftime('%d %b %Y')} - {rent_period.period_end_date.strftime('%d %b %Y')}",
                 "balance": f"KES {balance:,.2f}",
                 "water_bill": f"KES {current_water_bill:,.2f}",
-                "payment_link": short_payment_link,
             }
 
-            # Create WhatsApp message with shortened link
             message = (
-                f"📩 Dear {variables['tenant_name']},\n\n"
-                f"✅ Payment Received: {variables['amount']}\n"
-                f"🏠 {variables['property_name']} - Unit {variables['unit_number']}\n"
-                f"📅 Period: {variables['period']}\n"
-                f"💧 Water: {variables['water_bill']} ({unit.water_units_used} units)\n"
-                f"💰 Balance: {variables['balance']}\n\n"
-                f"View receipt below:\n"
-                f"{variables['payment_link']}\n\n"
-                f"Thank you! 🙏"
+                f"📩 *Payment Receipt*\n\n"
+                f"Dear {variables['tenant_name']},\n\n"
+                f"✅ *Payment Received:* {variables['amount']}\n"
+                f"🏠 *Property:* {variables['property_name']}\n"
+                f"🏠 *Unit:* {variables['unit_number']}\n"
+                f"📅 *Period:* {variables['period']}\n"
+                f"💧 *Water Bill:* {variables['water_bill']} ({unit.water_units_used} units)\n"
+                f"💰 *Remaining Balance:* {variables['balance']}\n\n"
+                f"Thank you for your payment! 🙏\n\n"
+                f"🔗 *View Your Receipt:*\n"
+                f"{final_link}"
             )
 
-            # Send WhatsApp message with error handling
             try:
                 whatsapp_service = WhatsAppService()
                 response = whatsapp_service.send_text_message(

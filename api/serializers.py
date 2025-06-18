@@ -45,13 +45,11 @@ def create_occupied_unit(self, validated_data, tenant_id=None, lease_details=Non
     """
     # Check if the unit is marked as occupied
     is_occupied = validated_data.get("is_occupied", False)
-
     # If occupied, tenant_id is required
     if is_occupied and not tenant_id:
         raise ValidationError(
             {"tenant_id": "Tenant ID is required when creating an occupied unit"}
         )
-
     # If occupied, lease_details are required
     if is_occupied and not lease_details:
         raise ValidationError(
@@ -59,22 +57,18 @@ def create_occupied_unit(self, validated_data, tenant_id=None, lease_details=Non
                 "lease_details": "Lease details are required when creating an occupied unit"
             }
         )
-
     # Use a transaction to ensure atomic creation
     with transaction.atomic():
         # Create the unit first
         unit = Unit.objects.create(**validated_data)
-
         # If the unit is occupied, create a lease
         if is_occupied:
             try:
                 # Retrieve the tenant
                 tenant = Tenant.objects.get(id=tenant_id)
-
                 # Activate the tenant
                 tenant.status = TenantStatus.ACTIVE
                 tenant.save()
-
                 # Parse lease dates
                 start_date = datetime.strptime(
                     lease_details["start_date"], "%Y-%m-%d"
@@ -94,11 +88,24 @@ def create_occupied_unit(self, validated_data, tenant_id=None, lease_details=Non
                     status=lease_details.get("status", LeaseStatus.ACTIVE),
                     payment_period=unit.payment_period,
                     notes=lease_details.get("notes", ""),
+                    signing_token=uuid.uuid4(),  # Add this line
                 )
+
+                # Generate and save account number
+                lease.account_number = lease.generate_account_number()
+                lease.save(update_fields=["account_number"])
 
                 # Mark the unit as occupied (redundant, but explicit)
                 unit.is_occupied = True
                 unit.save()
+
+                # Send lease signing email - Add this block
+                try:
+                    lease.send_lease_signing_email()
+                except Exception as e:
+                    print(f"Failed to send lease signing email: {str(e)}")
+                    # Note: We don't raise here to avoid rolling back the transaction
+                    # The lease is still created successfully even if email fails
 
             except Tenant.DoesNotExist:
                 # Rollback the unit creation if tenant not found
@@ -110,7 +117,6 @@ def create_occupied_unit(self, validated_data, tenant_id=None, lease_details=Non
                 raise ValidationError(
                     {"lease_details": f"Invalid lease details: {str(e)}"}
                 )
-
         return unit
 
 

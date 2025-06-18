@@ -280,10 +280,6 @@ export function AddUnitModal({
     setLeaseDetails({ ...leaseDetails, [name]: value });
   };
 
-  const selectedStatus = LEASE_STATUSES.find(
-    (s) => s.value === leaseDetails.status,
-  );
-
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>

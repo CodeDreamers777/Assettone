@@ -31,7 +31,6 @@ import {
   CheckCircle2,
   Clock,
   Building2,
-  Users,
 } from "lucide-react";
 
 interface Property {
@@ -437,16 +436,16 @@ export function AddTenantModal({
               />
             </div>
 
-            <style jsx>{`
-              @keyframes progress {
-                from {
-                  width: 0%;
-                }
-                to {
-                  width: 100%;
-                }
-              }
-            `}</style>
+            <style>{`
+  @keyframes progress {
+    from {
+      width: 0%;
+    }
+    to {
+      width: 100%;
+    }
+  }
+`}</style>
           </div>
         )}
       </DialogContent>

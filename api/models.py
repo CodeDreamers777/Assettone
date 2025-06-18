@@ -249,8 +249,8 @@ class Unit(models.Model):
     water_units_used = models.DecimalField(
         max_digits=8,
         decimal_places=2,
-        default=2.00,
-        help_text="Water units consumed this month (defaults to 2 units)",
+        default=0.00,
+        help_text="Water units consumed this month (defaults to 0 units)",
     )
     water_price_per_unit = models.DecimalField(
         max_digits=8, decimal_places=2, default=0.00, help_text="Price per water unit"

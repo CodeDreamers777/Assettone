@@ -324,6 +324,9 @@ class UnitSerializer(serializers.ModelSerializer):
     rent_payment_status = serializers.SerializerMethodField()
     tenant_id = serializers.UUIDField(write_only=True, required=False)
 
+    # Add lease_details as a write-only field
+    lease_details = serializers.DictField(write_only=True, required=False)
+
     # Water billing fields - add these as read-only for display
     current_water_bill = serializers.SerializerMethodField()
 
@@ -350,12 +353,18 @@ class UnitSerializer(serializers.ModelSerializer):
             "current_lease",
             "rent_payment_status",
             "tenant_id",
+            "lease_details",  # Add this field
         ]
         read_only_fields = ["id", "created_at", "updated_at", "current_water_bill"]
 
     def create(self, validated_data):
         tenant_id = validated_data.pop("tenant_id", None)
         lease_details = validated_data.pop("lease_details", None)
+
+        # Set default water units to 0 if not provided
+        if "water_units_used" not in validated_data:
+            validated_data["water_units_used"] = 0
+
         return create_occupied_unit(self, validated_data, tenant_id, lease_details)
 
     def get_current_water_bill(self, obj):
@@ -529,6 +538,34 @@ class UnitSerializer(serializers.ModelSerializer):
                     "water_price_per_unit": "Water price per unit must be a positive number"
                 }
             )
+
+        # Validate lease details if unit is occupied
+        is_occupied = data.get("is_occupied", False)
+        tenant_id = data.get("tenant_id")
+        lease_details = data.get("lease_details")
+
+        if is_occupied:
+            if not tenant_id:
+                raise serializers.ValidationError(
+                    {
+                        "tenant_id": "Tenant ID is required when creating an occupied unit"
+                    }
+                )
+
+            if not lease_details:
+                raise serializers.ValidationError(
+                    {
+                        "lease_details": "Lease details are required when creating an occupied unit"
+                    }
+                )
+
+            # Validate required fields in lease_details
+            required_lease_fields = ["start_date", "end_date", "security_deposit"]
+            for field in required_lease_fields:
+                if field not in lease_details:
+                    raise serializers.ValidationError(
+                        {"lease_details": f"Missing required field: {field}"}
+                    )
 
         return data
 

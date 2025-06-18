@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 class MpesaBaseView(APIView):
     """Base class with common functionality for M-Pesa views"""
 
-    def shorten_url_bitly(long_url):
+    def shorten_url_bitly(self, long_url):
         """Shorten URL using Bitly (free tier: 1000 links/month)"""
         try:
             access_token = os.getenv("BITLY_ACCESS_TOKEN")
@@ -82,7 +82,7 @@ class MpesaBaseView(APIView):
             logger.error(f"Bitly shortening failed: {str(e)}")
             return None
 
-    def shorten_url_tinyurl(long_url):
+    def shorten_url_tinyurl(self, long_url):
         """Fallback: Shorten URL using TinyURL (free, no API key needed)"""
         try:
             api_url = (

@@ -33,14 +33,13 @@ from django.contrib.auth.password_validation import validate_password
 from .utils.send_mail import EmailService
 
 
-def create_occupied_unit(self, validated_data, tenant_id=None):
+def create_occupied_unit(self, validated_data, tenant_id=None, lease_details=None):
     """
     Create a unit and handle tenant and lease creation if the unit is occupied
-
     Args:
         validated_data (dict): Validated unit data
         tenant_id (UUID, optional): ID of the tenant to be assigned to the unit
-
+        lease_details (dict, optional): Lease details including start_date, end_date, security_deposit, status, notes
     Returns:
         Unit: The created unit instance
     """
@@ -53,6 +52,14 @@ def create_occupied_unit(self, validated_data, tenant_id=None):
             {"tenant_id": "Tenant ID is required when creating an occupied unit"}
         )
 
+    # If occupied, lease_details are required
+    if is_occupied and not lease_details:
+        raise ValidationError(
+            {
+                "lease_details": "Lease details are required when creating an occupied unit"
+            }
+        )
+
     # Use a transaction to ensure atomic creation
     with transaction.atomic():
         # Create the unit first
@@ -63,22 +70,30 @@ def create_occupied_unit(self, validated_data, tenant_id=None):
             try:
                 # Retrieve the tenant
                 tenant = Tenant.objects.get(id=tenant_id)
+
                 # Activate the tenant
                 tenant.status = TenantStatus.ACTIVE
                 tenant.save()
 
-                # Create a lease for the unit
+                # Parse lease dates
+                start_date = datetime.strptime(
+                    lease_details["start_date"], "%Y-%m-%d"
+                ).date()
+                end_date = datetime.strptime(
+                    lease_details["end_date"], "%Y-%m-%d"
+                ).date()
+
+                # Create a lease for the unit using the provided lease details
                 lease = Lease.objects.create(
                     unit=unit,
                     tenant=tenant,
-                    start_date=timezone.now().date(),
-                    end_date=timezone.now().date()
-                    + timezone.timedelta(days=365),  # Default 1-year lease
+                    start_date=start_date,
+                    end_date=end_date,
                     monthly_rent=unit.rent,
-                    security_deposit=unit.rent
-                    * 2,  # Example: security deposit is 2x monthly rent
-                    status=LeaseStatus.ACTIVE,
+                    security_deposit=Decimal(str(lease_details["security_deposit"])),
+                    status=lease_details.get("status", LeaseStatus.ACTIVE),
                     payment_period=unit.payment_period,
+                    notes=lease_details.get("notes", ""),
                 )
 
                 # Mark the unit as occupied (redundant, but explicit)
@@ -89,6 +104,12 @@ def create_occupied_unit(self, validated_data, tenant_id=None):
                 # Rollback the unit creation if tenant not found
                 unit.delete()
                 raise ValidationError({"tenant_id": "Invalid tenant ID provided"})
+            except (KeyError, ValueError) as e:
+                # Rollback the unit creation if lease details are invalid
+                unit.delete()
+                raise ValidationError(
+                    {"lease_details": f"Invalid lease details: {str(e)}"}
+                )
 
         return unit
 
@@ -334,7 +355,8 @@ class UnitSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         tenant_id = validated_data.pop("tenant_id", None)
-        return create_occupied_unit(self, validated_data, tenant_id)
+        lease_details = validated_data.pop("lease_details", None)
+        return create_occupied_unit(self, validated_data, tenant_id, lease_details)
 
     def get_current_water_bill(self, obj):
         """Get the calculated current water bill amount"""

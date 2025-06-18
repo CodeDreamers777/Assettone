@@ -237,8 +237,8 @@ class LeaseDocumentGenerator:
             ["Tenant", f"{lease.tenant.first_name} {lease.tenant.last_name}"],
             ["Start Date", lease.start_date.strftime("%B %d, %Y")],
             ["End Date", lease.end_date.strftime("%B %d, %Y")],
-            ["Monthly Rent", f"${lease.monthly_rent:,.2f}"],
-            ["Security Deposit", f"${lease.security_deposit:,.2f}"],
+            ["Monthly Rent", f"KES {lease.monthly_rent:,.2f}"],
+            ["Security Deposit", f"KES {lease.security_deposit:,.2f}"],
         ]
 
         # Create styled table

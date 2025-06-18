@@ -383,12 +383,21 @@ export function Units() {
     }
   };
 
-  // FIXED: Simple modal close handlers - no setTimeout, no event manipulation
   const closeCreateModal = () => {
+    // Force cleanup just in case
+    document.body.style.pointerEvents = "";
+    document.body.style.overflow = "";
+    document.body.classList.remove("overflow-hidden");
+
     setIsCreateModalOpen(false);
   };
 
   const closeEditModal = () => {
+    // Force cleanup just in case
+    document.body.style.pointerEvents = "";
+    document.body.style.overflow = "";
+    document.body.classList.remove("overflow-hidden");
+
     setIsEditModalOpen(false);
     setEditingUnit(null);
   };

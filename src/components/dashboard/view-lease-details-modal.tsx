@@ -1,3 +1,5 @@
+// Fixed ViewLeaseDetailsModal.tsx (exactly following PayRentModal pattern)
+import { useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +28,34 @@ export function ViewLeaseDetailsModal({
   onClose,
   lease,
 }: ViewLeaseDetailsModalProps) {
+  // Force cleanup when component unmounts or modal closes (SAME AS PayRentModal)
+  useEffect(() => {
+    const cleanup = () => {
+      // Force reset all possible body styles that might interfere
+      document.body.style.pointerEvents = "";
+      document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.bottom = "";
+      document.body.classList.remove("overflow-hidden");
+
+      // Also reset on document and html
+      document.documentElement.style.overflow = "";
+      document.documentElement.style.pointerEvents = "";
+    };
+
+    if (!isOpen) {
+      // Small delay to ensure dialog cleanup is complete
+      const timeoutId = setTimeout(cleanup, 100);
+      return () => clearTimeout(timeoutId);
+    }
+
+    // Cleanup on unmount
+    return cleanup;
+  }, [isOpen]);
+
   if (!lease) return null;
 
   const DetailItem = ({
@@ -46,9 +76,30 @@ export function ViewLeaseDetailsModal({
     </div>
   );
 
+  // SAME PATTERN AS PayRentModal
+  const handleClose = () => {
+    // Force immediate cleanup
+    document.body.style.pointerEvents = "";
+    document.body.style.overflow = "";
+    document.body.classList.remove("overflow-hidden");
+    document.documentElement.style.overflow = "";
+
+    onClose();
+  };
+
+  // SAME PATTERN AS PayRentModal
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      handleClose();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[550px]">
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className="sm:max-w-[550px]"
+        onPointerDownOutside={handleClose}
+      >
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-center mb-4">
             Lease Details

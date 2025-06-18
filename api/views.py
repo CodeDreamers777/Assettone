@@ -1825,6 +1825,7 @@ class RentalNoticeViewSet(viewsets.ViewSet):
                     "payment_url": payment_url,
                 }
 
+                # Send Email
                 email_service = EmailService()
                 email_service.send_email(
                     recipient_email=active_lease.tenant.email,
@@ -1834,13 +1835,39 @@ class RentalNoticeViewSet(viewsets.ViewSet):
                     context=context,
                 )
 
-                return Response(
-                    {
-                        "message": "Rental notice sent successfully",
-                        "payment_link_id": payment_link.id,
-                    },
-                    status=status.HTTP_200_OK,
-                )
+                # Send WhatsApp message
+                whatsapp_sent = False
+                whatsapp_error = None
+
+                if active_lease.tenant.phone_number:
+                    try:
+                        whatsapp_sent, whatsapp_error = (
+                            self.send_rental_notice_whatsapp(
+                                tenant_phone=active_lease.tenant.phone_number,
+                                tenant_name=context["tenant_name"],
+                                unit_number=context["unit_number"],
+                                property_name=context["property_name"],
+                                days_overdue=context["days_overdue"],
+                                amount_due=context["amount_due"],
+                                due_date=context["due_date"],
+                                payment_url=context["payment_url"],
+                            )
+                        )
+                    except Exception as e:
+                        logger.error(f"WhatsApp sending failed: {str(e)}")
+                        whatsapp_error = str(e)
+
+                response_data = {
+                    "message": "Rental notice sent successfully",
+                    "payment_link_id": payment_link.id,
+                    "email_sent": True,
+                    "whatsapp_sent": whatsapp_sent,
+                }
+
+                if whatsapp_error:
+                    response_data["whatsapp_error"] = whatsapp_error
+
+                return Response(response_data, status=status.HTTP_200_OK)
 
             return Response(
                 {"message": "No overdue rent for this unit"}, status=status.HTTP_200_OK
@@ -1849,6 +1876,50 @@ class RentalNoticeViewSet(viewsets.ViewSet):
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    def send_rental_notice_whatsapp(
+        self,
+        tenant_phone: str,
+        tenant_name: str,
+        unit_number: str,
+        property_name: str,
+        days_overdue: int,
+        amount_due: float,
+        due_date: str,
+        payment_url: str,
+    ):
+        """Send rental notice via WhatsApp"""
+        try:
+            from api.utils.send_whatsapp import WhatsAppService
+
+            # Create WhatsApp message
+            message = (
+                f"🏠 *RENT PAYMENT REMINDER*\n\n"
+                f"Dear {tenant_name},\n\n"
+                f"This is a friendly reminder regarding your rent payment:\n\n"
+                f"🏢 *Property:* {property_name}\n"
+                f"🏠 *Unit:* {unit_number}\n"
+                f"💰 *Amount Due:* KES {amount_due:,.2f}\n"
+                f"📅 *Due Date:* {due_date}\n"
+                f"⏰ *Days Overdue:* {days_overdue} days\n\n"
+                f"Please arrange for payment as soon as possible to maintain your good standing.\n\n"
+                f"🔗 *Make Payment:*\n{payment_url}\n\n"
+                f"If you've already made the payment or need to discuss a payment plan, please contact our office.\n\n"
+                f"Thank you for your prompt attention.\n\n"
+                f"Best regards,\n{property_name} Management Team"
+            )
+
+            whatsapp_service = WhatsAppService()
+            response = whatsapp_service.send_text_message(
+                recipient_number=tenant_phone, message_text=message
+            )
+
+            logger.info(f"Rental notice WhatsApp sent successfully to {tenant_phone}")
+            return True, None
+
+        except Exception as e:
+            logger.error(f"WhatsApp rental notice sending error: {str(e)}")
+            return False, str(e)
 
 
 class PaymentViewSet(viewsets.ViewSet):

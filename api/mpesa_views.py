@@ -129,7 +129,8 @@ class MpesaBaseView(APIView):
                 f"📅 Period: {variables['period']}\n"
                 f"💧 Water: {variables['water_bill']} ({unit.water_units_used} units)\n"
                 f"💰 Balance: {variables['balance']}\n\n"
-                f"📱 View Receipt:\n{variables['payment_link']}\n\n"
+                f"View balance receipt below:\n"
+                f"{variables['payment_link']}\n\n"
                 f"Thank you! 🙏"
             )
 

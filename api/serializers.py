@@ -545,32 +545,56 @@ class UnitSerializer(serializers.ModelSerializer):
                 }
             )
 
-        # Validate lease details if unit is occupied
-        is_occupied = data.get("is_occupied", False)
-        tenant_id = data.get("tenant_id")
-        lease_details = data.get("lease_details")
+        # Only validate lease details during creation, not updates
+        # Check if this is a create operation (no instance exists)
+        if not self.instance:  # This is a create operation
+            is_occupied = data.get("is_occupied", False)
+            tenant_id = data.get("tenant_id")
+            lease_details = data.get("lease_details")
 
-        if is_occupied:
-            if not tenant_id:
-                raise serializers.ValidationError(
-                    {
-                        "tenant_id": "Tenant ID is required when creating an occupied unit"
-                    }
-                )
-
-            if not lease_details:
-                raise serializers.ValidationError(
-                    {
-                        "lease_details": "Lease details are required when creating an occupied unit"
-                    }
-                )
-
-            # Validate required fields in lease_details
-            required_lease_fields = ["start_date", "end_date", "security_deposit"]
-            for field in required_lease_fields:
-                if field not in lease_details:
+            if is_occupied:
+                if not tenant_id:
                     raise serializers.ValidationError(
-                        {"lease_details": f"Missing required field: {field}"}
+                        {
+                            "tenant_id": "Tenant ID is required when creating an occupied unit"
+                        }
+                    )
+
+                if not lease_details:
+                    raise serializers.ValidationError(
+                        {
+                            "lease_details": "Lease details are required when creating an occupied unit"
+                        }
+                    )
+
+                # Validate required fields in lease_details
+                required_lease_fields = ["start_date", "end_date", "security_deposit"]
+                for field in required_lease_fields:
+                    if field not in lease_details:
+                        raise serializers.ValidationError(
+                            {"lease_details": f"Missing required field: {field}"}
+                        )
+        else:  # This is an update operation
+            # For updates, only validate is_occupied if it's being changed to True
+            # and the unit doesn't already have an active lease
+            is_occupied = data.get("is_occupied")
+            if is_occupied is True and not self.instance.is_occupied:
+                # Unit is being changed from vacant to occupied
+                tenant_id = data.get("tenant_id")
+                lease_details = data.get("lease_details")
+
+                if not tenant_id:
+                    raise serializers.ValidationError(
+                        {
+                            "tenant_id": "Tenant ID is required when marking unit as occupied"
+                        }
+                    )
+
+                if not lease_details:
+                    raise serializers.ValidationError(
+                        {
+                            "lease_details": "Lease details are required when marking unit as occupied"
+                        }
                     )
 
         return data

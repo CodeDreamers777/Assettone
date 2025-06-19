@@ -67,9 +67,21 @@ export function EditUnitModal({
     setIsLoading(true);
     try {
       const accessToken = localStorage.getItem("accessToken");
-      const response = await axios.put(
+
+      // Only send the fields that can be updated, exclude read-only and creation-specific fields
+      const updateData = {
+        unit_number: editingUnit.unit_number,
+        unit_type: editingUnit.unit_type,
+        custom_unit_type: editingUnit.custom_unit_type,
+        rent: editingUnit.rent,
+        payment_period: editingUnit.payment_period,
+        floor: editingUnit.floor,
+        is_occupied: editingUnit.is_occupied,
+      };
+
+      const response = await axios.patch(
         `https://assettone-rental-management.onrender.com/api/v1/units/${editingUnit.id}/`,
-        editingUnit,
+        updateData,
         {
           headers: {
             "Content-Type": "application/json",

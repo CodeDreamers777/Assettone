@@ -71,6 +71,7 @@ interface PropertyStaff {
 
 export function StaffManagement() {
   const [propertyStaff, setPropertyStaff] = useState<PropertyStaff[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<string | null>(null);
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -81,6 +82,7 @@ export function StaffManagement() {
 
   useEffect(() => {
     fetchStaff();
+    fetchProperties();
   }, []);
 
   const fetchStaff = async () => {
@@ -107,9 +109,49 @@ export function StaffManagement() {
       });
     }
   };
+  const fetchProperties = async () => {
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      if (!accessToken) {
+        console.error("Access token not found");
+        return;
+      }
+      const response = await fetch(
+        "https://assettone-rental-management.onrender.com/api/v1/properties/",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch properties");
+      }
+      const responseData = await response.json();
+      const data = responseData.properties;
+      setProperties(
+        data.sort(
+          (a: Property, b: Property) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        ),
+      );
+    } catch (error) {
+      console.error("Error fetching properties:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch properties",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleCreateStaff = async () => {
     try {
+      const staffData = {
+        ...newStaff,
+        property_id: newStaff.property_id, // Make sure this is included
+      };
+
       const response = await fetch(
         "https://assettone-rental-management.onrender.com/api/v1/create-staff-account/",
         {
@@ -118,7 +160,7 @@ export function StaffManagement() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
           },
-          body: JSON.stringify(newStaff),
+          body: JSON.stringify(staffData),
         },
       );
       if (!response.ok) throw new Error("Failed to create staff");
@@ -127,6 +169,7 @@ export function StaffManagement() {
         description: "Staff account created successfully",
       });
       setIsCreateModalOpen(false);
+      setNewStaff({}); // Reset form
       fetchStaff();
     } catch (error) {
       toast({
@@ -390,24 +433,26 @@ export function StaffManagement() {
                         onValueChange={(value) =>
                           setNewStaff({
                             ...newStaff,
-                            property_info: [
-                              { id: value, name: "", address: "" },
-                            ],
+                            property_id: value,
                           })
                         }
                       >
-                        <SelectTrigger className="col-span-3">
+                        <SelectTrigger className="col-span-3 border-green-100 focus:ring-green-500">
+                          <Building className="h-4 w-4 mr-2 text-green-500" />
                           <SelectValue placeholder="Select property" />
                         </SelectTrigger>
                         <SelectContent>
-                          {propertyStaff.map((ps) => (
-                            <SelectItem
-                              key={ps.property_info.id}
-                              value={ps.property_info.id}
-                            >
-                              {ps.property_info.name}
+                          {properties.length > 0 ? (
+                            properties.map((property) => (
+                              <SelectItem key={property.id} value={property.id}>
+                                {property.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="none" disabled>
+                              No properties available
                             </SelectItem>
-                          ))}
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -446,14 +491,20 @@ export function StaffManagement() {
                   <SelectValue placeholder="Select property" />
                 </SelectTrigger>
                 <SelectContent>
-                  {propertyStaff.map((ps) => (
-                    <SelectItem
-                      key={ps.property_info.id}
-                      value={ps.property_info.id}
-                    >
-                      {ps.property_info.name}
+                  {propertyStaff.length > 0 ? (
+                    propertyStaff.map((ps) => (
+                      <SelectItem
+                        key={ps.property_info.id}
+                        value={ps.property_info.id}
+                      >
+                        {ps.property_info.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      No properties with staff available
                     </SelectItem>
-                  ))}
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -725,7 +776,17 @@ export function StaffManagement() {
                       setSelectedStaff({
                         ...selectedStaff,
                         property_info: [
-                          { ...selectedStaff.property_info[0], id: value },
+                          {
+                            ...selectedStaff.property_info[0],
+                            id: value,
+                            name:
+                              properties.find((p) => p.id === value)?.name ||
+                              selectedStaff.property_info[0]?.name,
+                            address:
+                              properties.find((p) => p.id === value)
+                                ?.address_line1 ||
+                              selectedStaff.property_info[0]?.address,
+                          },
                         ],
                       })
                     }
@@ -735,14 +796,17 @@ export function StaffManagement() {
                       <SelectValue placeholder="Select property" />
                     </SelectTrigger>
                     <SelectContent>
-                      {propertyStaff.map((ps) => (
-                        <SelectItem
-                          key={ps.property_info.id}
-                          value={ps.property_info.id}
-                        >
-                          {ps.property_info.name}
+                      {properties.length > 0 ? (
+                        properties.map((property) => (
+                          <SelectItem key={property.id} value={property.id}>
+                            {property.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>
+                          No properties available
                         </SelectItem>
-                      ))}
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

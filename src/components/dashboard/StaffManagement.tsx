@@ -41,6 +41,25 @@ interface PropertyInfo {
   name: string;
   address: string;
 }
+interface Property {
+  id: string;
+  name: string;
+  logo: string | null;
+  logo_url: string | null;
+  address_line1: string;
+  address_line2?: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  manager?: string | null;
+  owner?: string;
+  total_units?: number;
+  [key: string]: string | number | null | undefined;
+}
 
 interface Staff {
   id: string;
@@ -149,7 +168,6 @@ export function StaffManagement() {
     try {
       const staffData = {
         ...newStaff,
-        property_id: newStaff.property_id, // Make sure this is included
       };
 
       const response = await fetch(
@@ -433,7 +451,22 @@ export function StaffManagement() {
                         onValueChange={(value) =>
                           setNewStaff({
                             ...newStaff,
-                            property_id: value,
+                            // Store the selected property info instead of property_id
+                            property_info: properties.find(
+                              (p) => p.id === value,
+                            )
+                              ? [
+                                  {
+                                    id: value,
+                                    name: properties.find(
+                                      (p) => p.id === value,
+                                    )!.name,
+                                    address: properties.find(
+                                      (p) => p.id === value,
+                                    )!.address_line1,
+                                  },
+                                ]
+                              : [],
                           })
                         }
                       >
